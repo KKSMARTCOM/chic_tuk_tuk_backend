@@ -45,6 +45,9 @@ Route::prefix('auth')->name('auth.')->group(function () {
     Route::middleware(['token.fresh', 'auth:sanctum'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/me', [AuthController::class, 'me'])->name('me');
+        // Le profil se MODIFIE ici et se LIT par /me : un endpoint de lecture de plus
+        // renverrait le même utilisateur sous un autre nom.
+        Route::patch('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
         Route::post('/password', [PasswordController::class, 'change'])->name('password.change');
     });
 });

@@ -26,6 +26,13 @@ final class UserData extends BaseData
         public string $id,
         public ?string $name,
         public ?string $email,
+        /**
+         * Ajoutés le 2026-09-19 pour l'écran de profil : `/auth/me` en devient la
+         * lecture, plutôt qu'un endpoint de plus qui renverrait le même utilisateur.
+         * Purement additif — les fronts qui les ignorent ne voient aucun changement.
+         */
+        public ?string $phone,
+        public ?string $adresse,
         public string $profil,
         public string $dashboardPath,
         public array $roles,
@@ -38,6 +45,8 @@ final class UserData extends BaseData
             id: $user->id,
             name: $user->name,
             email: $user->email,
+            phone: $user->phone,
+            adresse: $user->adresse,
             profil: $user->profil,
             dashboardPath: Profil::from($user->profil)->dashboardPath(),
             roles: $user->getRoleNames()->all(),

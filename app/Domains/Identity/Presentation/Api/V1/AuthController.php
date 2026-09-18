@@ -3,7 +3,9 @@
 namespace App\Domains\Identity\Presentation\Api\V1;
 
 use App\Domains\Identity\Application\Actions\AuthenticateUser;
+use App\Domains\Identity\Application\Actions\UpdateProfile;
 use App\Domains\Identity\Application\Data\LoginData;
+use App\Domains\Identity\Application\Data\UpdateProfileData;
 use App\Domains\Identity\Application\Data\UserData;
 use App\Shared\Http\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -93,6 +95,34 @@ final class AuthController
             return response()->json([
                 'message' => 'Votre profil n\'a pas pu être chargé. Réessayez.',
                 'code' => 'PROFILE_READ_FAILED',
+            ], 500);
+        }
+    }
+
+    /**
+     * PATCH /auth/profile — nom, téléphone, adresse.
+     *
+     * Placée ici et non sous un espace : c'est l'utilisateur qu'on modifie, pas l'agent.
+     * Le propriétaire et l'administrateur en auront besoin aussi. La LECTURE ne coûte
+     * rien de plus — `/auth/me` renvoie déjà ces champs.
+     *
+     * L'e-mail et la photo n'en font pas partie : voir UpdateProfileData.
+     */
+    public function updateProfile(UpdateProfileData $data, Request $request, UpdateProfile $update): JsonResponse
+    {
+        try {
+            return response()->json(UserData::fromModel($update($request->user(), $data)));
+        } catch (ValidationException|ApiException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Erreur lors de la mise à jour du profil : '.$e->getMessage(), [
+                'exception' => $e,
+                'user_id' => $request->user()?->id,
+            ]);
+
+            return response()->json([
+                'message' => 'Votre profil n\'a pas pu être mis à jour. Réessayez.',
+                'code' => 'PROFILE_UPDATE_FAILED',
             ], 500);
         }
     }
