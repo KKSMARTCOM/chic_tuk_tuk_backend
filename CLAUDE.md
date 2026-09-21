@@ -335,6 +335,21 @@ Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
 **Espace propriétaire** (`routes/api/v1/owner.php`) : quatre lectures sous
 `['token.fresh', 'auth:sanctum', 'abilities:owner']` + `permission:view-own-*`.
 
+**Espace agent, sous-lot 3b** : `GET` et `POST /driver/leaves` (les congés), et
+`PATCH /auth/profile` (nom, téléphone, adresse — l'e-mail et la photo en sont exclus).
+
+⚠️ Les routes de congés ne portent **aucune** `permission:`, et c'est délibéré :
+`view-leaves` et `create-leaves` sont les permissions d'ADMINISTRATION des congés de tous
+les agents, portées par `lecteur` et `admin`. En réutiliser une ici mêlerait « voir mes
+pauses » et « gérer celles des autres ». `abilities:driver` garde l'espace, et la portée
+vient de `Auth::user()->driver`.
+
+⚠️ Les quatre refus de `DriverLeaveController::store()` étaient des
+`redirect()->back()->with('error')`, donc invisibles pour une API. `RequestLeave` les
+lève en `ApiException` — `LEAVE_NO_ACTIVE_CONTRACT`, `LEAVE_BEFORE_CONTRACT_START`,
+`LEAVE_ALREADY_PENDING` — avec les messages repris mot pour mot, pour que le chemin Blade
+affiche les mêmes flash.
+
 **Espace agent, sous-lot 3a** (`routes/api/v1/driver.php`) : quatre lectures
 (`bookings/available`, `bookings/assigned`, `bookings/history`, `dashboard`) et cinq
 écritures (`bookings/{id}/accept|start|complete|cancel|revoke-subscription`), sous
