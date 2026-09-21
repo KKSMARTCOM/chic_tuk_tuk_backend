@@ -30,17 +30,18 @@ use Illuminate\Support\Facades\Log;
  * | Demande de pause déposée         | les administrateurs                |
  * | Pause validée / refusée          | l'agent concerné                   |
  * | Véhicule mis en pause / reprise  | le propriétaire du véhicule        |
- * | Paiement enregistré              | la personne payée, elle seule      |
+ * | Paiement validé / annulé          | l'agent concerné, lui seul         |
  *
  * ⚠️ « Les administrateurs sont prévenus de toutes les actions agent » ne veut PAS dire
  * qu'ils reçoivent tout : une pause validée ne leur revient pas, puisque c'est l'un
  * d'eux qui vient de la valider. Un accusé de réception de sa propre action est du bruit,
  * et le bruit finit par faire couper les notifications.
  *
- * ⚠️ Un paiement ne va PAS aux administrateurs : ce n'est pas une action d'agent, et
- * c'est l'événement le plus fréquent de l'application — les paiements journaliers sont
- * générés du lundi au vendredi pour chaque contrat. Les router vers tous les
- * administrateurs noierait tout le reste.
+ * ⚠️ C'est l'ACTION sur un paiement — sa validation, son annulation — qui est notifiée,
+ * jamais sa création. Les paiements journaliers sont générés chaque soir du lundi au
+ * vendredi pour chaque contrat : notifier la création enverrait à chaque agent une alerte
+ * quotidienne perpétuelle pour une écriture sur laquelle il n'a rien à faire. Et pas aux
+ * administrateurs : ce n'est pas une action d'agent, et c'est l'un d'eux qui agit.
  *
  * ## Les destinations
  *
@@ -204,26 +205,48 @@ final class Notifier
     // ----- Paiements ---------------------------------------------------------
 
     /**
-     * Un paiement est enregistré : la personne payée, et elle seule.
+     * Un paiement est validé : l'agent concerné, et lui seul.
      *
-     * ⚠️ Pas les administrateurs. C'est l'événement le plus fréquent de l'application —
-     * les paiements journaliers sont générés du lundi au vendredi pour chaque contrat —
-     * et les router vers tous les administrateurs noierait tout le reste.
+     * ⚠️ C'est l'ACTION sur le paiement qui est notifiée, et non sa création. La création
+     * est majoritairement automatique — `generateDailyPaymentForContract()` tourne chaque
+     * soir du lundi au vendredi pour chaque contrat actif — et la notifier enverrait à
+     * chaque agent une alerte quotidienne perpétuelle pour une écriture comptable sur
+     * laquelle il n'a rien à faire. La validation, elle, est un geste d'administrateur
+     * qui change quelque chose pour l'agent : son argent est reconnu comme dû.
      *
-     * La destination dépend du destinataire : l'espace propriétaire a un écran de
-     * paiements par véhicule, l'espace agent n'en a pas encore.
+     * ⚠️ Pas aux administrateurs : ce n'est pas une action d'agent, et c'est l'un d'eux
+     * qui vient de valider.
      */
-    public function paymentRecorded(Payment $paiement): void
+    public function paymentValidated(Payment $paiement): void
     {
-        $agent = $paiement->driver?->user;
-
         $this->vers(
-            $agent,
-            'Paiement enregistré',
-            $this->montant($paiement->net_amount ?? $paiement->amount)
-                .' — '.$this->libellePaiement($paiement->payment_type),
+            $paiement->driver?->user,
+            'Paiement validé',
+            'Votre paiement du '.$this->jour($paiement->payment_date).' a été validé — '
+                .$this->montant($paiement->net_amount ?? $paiement->amount)
+                .' ('.$this->libellePaiement($paiement->payment_type).').',
             'success',
             // Pas de destination : l'espace agent n'a pas encore d'écran de paiements.
+            null,
+        );
+    }
+
+    /**
+     * Un paiement est annulé.
+     *
+     * Le ton est `warning` et non `error` : une annulation est un fait de gestion, pas
+     * une panne. Mais elle doit être dite — un agent qui comptait sur cette somme a le
+     * droit de l'apprendre autrement qu'en s'en apercevant.
+     */
+    public function paymentCancelled(Payment $paiement): void
+    {
+        $this->vers(
+            $paiement->driver?->user,
+            'Paiement annulé',
+            'Votre paiement du '.$this->jour($paiement->payment_date).' a été annulé — '
+                .$this->montant($paiement->net_amount ?? $paiement->amount)
+                .'. Contactez un administrateur si cela vous semble erroné.',
+            'warning',
             null,
         );
     }

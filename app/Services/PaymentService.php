@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Domains\Notification\Application\Notifier;
 use App\Consts\VehicleContractConsts;
 use App\Models\Commission;
 use App\Models\Driver;
@@ -43,20 +42,6 @@ class PaymentService
             'driver_contract_id'   => $data['driver_contract_id'] ?? null,
             'net_amount'         => $data['net_amount'] ?? null,
         ]);
-
-        /**
-         * ⚠️ La notification est posée ICI, sur le paiement SAISI, et volontairement PAS
-         * sur `generateDailyPaymentForContract()`.
-         *
-         * Celle-ci tourne chaque soir du lundi au vendredi pour chaque contrat actif :
-         * la brancher enverrait à chaque agent une notification quotidienne perpétuelle
-         * pour une écriture comptable sur laquelle il n'a rien à faire. Le bruit finit
-         * par faire couper les notifications, et emporte alors celles qui comptent.
-         *
-         * Un paiement saisi à la main, lui, est un événement : quelqu'un vient de verser
-         * quelque chose, et l'agent a intérêt à le savoir.
-         */
-        app(Notifier::class)->paymentRecorded($payment);
 
         return $payment;
     }

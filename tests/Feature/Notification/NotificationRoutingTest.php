@@ -208,17 +208,34 @@ class NotificationRoutingTest extends TestCase
 
     // ----- Paiements ---------------------------------------------------------
 
-    public function test_un_paiement_ne_previent_que_la_personne_payee(): void
+    public function test_un_paiement_valide_ne_previent_que_l_agent_paye(): void
     {
-        // ⚠️ Surtout PAS les administrateurs : les paiements journaliers sont générés du
-        // lundi au vendredi pour chaque contrat, et les router vers eux noierait tout le
-        // reste.
-        $driver = Driver::factory()->create(['user_id' => $this->agent->id]);
-        $paiement = Payment::factory()->create(['driver_id' => $driver->id, 'payment_type' => 'commission']);
-
-        $this->notifier()->paymentRecorded($paiement);
+        // ⚠️ Surtout PAS les administrateurs : ce n'est pas une action d'agent, et c'est
+        // l'un d'eux qui vient de valider.
+        $this->notifier()->paymentValidated($this->paiementDe($this->agent));
 
         $this->assertSame(['Awa Dossou'], $this->destinataires());
+    }
+
+    public function test_la_notification_de_paiement_nomme_la_date_du_paiement(): void
+    {
+        // « Votre paiement a été validé » n'aide pas un agent qui en attend plusieurs :
+        // la date est ce qui permet de savoir DUQUEL on parle.
+        $paiement = $this->paiementDe($this->agent, '2026-09-12');
+
+        $this->notifier()->paymentValidated($paiement);
+
+        $this->assertStringContainsString('12/09/2026', Notification::first()->message);
+    }
+
+    public function test_un_paiement_annule_previent_aussi_l_agent(): void
+    {
+        // Un agent qui comptait sur cette somme doit l'apprendre autrement qu'en s'en
+        // apercevant.
+        $this->notifier()->paymentCancelled($this->paiementDe($this->agent));
+
+        $this->assertSame(['Awa Dossou'], $this->destinataires());
+        $this->assertStringContainsString('annulé', Notification::first()->message);
     }
 
     public function test_un_paiement_sans_destinataire_identifiable_ne_fait_rien_echouer(): void
@@ -232,7 +249,7 @@ class NotificationRoutingTest extends TestCase
         // dit que la contrainte tiendra pour toujours.
         $paiement = Payment::factory()->make(['driver_id' => null]);
 
-        $this->notifier()->paymentRecorded($paiement);
+        $this->notifier()->paymentValidated($paiement);
 
         $this->assertSame(0, Notification::count());
     }
@@ -274,6 +291,17 @@ class NotificationRoutingTest extends TestCase
             'start_date' => now()->addDays(3)->toDateString(),
             'requested_days' => 2,
             'status' => 'pending',
+        ]);
+    }
+
+    private function paiementDe(User $user, ?string $date = null): Payment
+    {
+        $driver = Driver::factory()->create(['user_id' => $user->id]);
+
+        return Payment::factory()->create([
+            'driver_id' => $driver->id,
+            'payment_type' => 'commission',
+            'payment_date' => $date ?? now()->toDateString(),
         ]);
     }
 

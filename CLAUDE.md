@@ -549,16 +549,20 @@ qu'en relisant le dépôt entier.
 | Demande de pause déposée | les administrateurs |
 | Pause validée / refusée | l'agent concerné |
 | Véhicule mis en pause / reprise | le propriétaire du véhicule |
-| Paiement **saisi** | la personne payée, elle seule |
+| Paiement **validé** ou **annulé** | l'agent concerné, lui seul |
 
 ⚠️ « Les administrateurs sont prévenus de toutes les actions agent » ne veut PAS dire
 qu'ils reçoivent tout : une pause validée ne leur revient pas, puisque c'est l'un d'eux
 qui vient de la valider.
 
-⚠️ **Le paiement JOURNALIER n'est pas notifié**, seulement le paiement saisi à la main.
-`generateDailyPaymentForContract()` tourne chaque soir du lundi au vendredi pour chaque
-contrat : le brancher enverrait à chaque agent une notification quotidienne perpétuelle
-pour une écriture comptable sur laquelle il n'a rien à faire.
+⚠️ **C'est l'ACTION sur un paiement qui est notifiée, jamais sa création.** La création
+est majoritairement automatique — `generateDailyPaymentForContract()` tourne chaque soir
+du lundi au vendredi pour chaque contrat — et la notifier enverrait à chaque agent une
+alerte quotidienne perpétuelle pour une écriture sur laquelle il n'a rien à faire. La
+validation et l'annulation, elles, sont des gestes d'administrateur qui changent quelque
+chose pour l'agent.
+
+**Pour câbler un nouvel événement**, suivre `docs/ajouter-une-notification.md`.
 
 ⚠️ **Les notifications d'administrateur ne portent pas d'URL** tant que l'espace admin du
 front Nuxt n'est pas migré : une destination vers un écran inexistant est pire qu'aucune
