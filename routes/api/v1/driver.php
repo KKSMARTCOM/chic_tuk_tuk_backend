@@ -2,6 +2,7 @@
 
 use App\Domains\Booking\Presentation\Api\V1\Driver\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Driver\DashboardController;
+use App\Domains\Workforce\Presentation\Api\V1\Driver\LeaveController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -44,6 +45,20 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:driver'])
             Route::get('/dashboard', DashboardController::class)
                 ->name('dashboard');
         });
+
+        /*
+         * Les congés de l'agent.
+         *
+         * ⚠️ Pas de `permission:` ici, et c'est délibéré. Aucune permission existante ne
+         * désigne « ses propres congés » : `view-leaves` et `create-leaves` sont les
+         * permissions d'ADMINISTRATION des congés, portées par `lecteur` et `admin`
+         * pour gérer ceux de tous les agents. En ajouter une au rôle `driver` créerait
+         * une ambiguïté avec celles-là. `abilities:driver` garantit déjà que le jeton a
+         * été émis pour un compte agent, et la portée — ses congés à lui — est assurée
+         * par `Auth::user()->driver` dans le contrôleur, comme pour les courses.
+         */
+        Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
+        Route::post('/leaves', [LeaveController::class, 'store'])->name('leaves.store');
 
         Route::middleware('permission:edit-bookings')->group(function () {
             Route::post('/bookings/{id}/accept', [BookingController::class, 'accept'])
