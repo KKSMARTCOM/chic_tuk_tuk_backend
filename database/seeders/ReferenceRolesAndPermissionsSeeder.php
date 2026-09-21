@@ -188,7 +188,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
             // listé, pour qu'une permission ajoutée plus tard lui revienne d'office.
             'permissions' => self::TOUTES_SAUF_PROPRIETAIRE,
         ],
-        'lecteur' => [
+        'utilisateur' => [
             'label' => 'Utilisateur',
             'description' => 'Accès aux fonctionnalités de lectures',
             'permissions' => [
@@ -347,7 +347,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
             // une addition légitime qu'il faut remonter ici, ou un reliquat. Le
             // seeder ne tranche pas à la place d'un humain.
             $this->command?->warn(
-                'Permissions en base hors référence, à examiner : '.$inconnues->implode(', ')
+                'Permissions en base hors référence, à examiner : ' . $inconnues->implode(', ')
             );
         }
     }
@@ -388,7 +388,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         if ($demandees === self::TOUTES_SAUF_PROPRIETAIRE) {
             return array_values(array_filter(
                 array_keys(self::PERMISSIONS),
-                fn (string $name) => ! str_starts_with($name, self::PREFIXE_PROPRIETAIRE),
+                fn(string $name) => ! str_starts_with($name, self::PREFIXE_PROPRIETAIRE),
             ));
         }
 
