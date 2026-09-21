@@ -273,6 +273,16 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
             'description' => 'Accès aux fonctionnalités liées aux réservations',
             'permissions' => [
                 'create-bookings',
+                // Ajoutée le 2026-09-21, même défaut que `driver` le 2026-09-18 et même
+                // cause : `/client/dashboard` est gardé par `permission:view-dashboard`,
+                // et le rôle ne la portait pas. Le client ne pouvait donc pas ouvrir son
+                // propre écran d'accueil — et côté front Nuxt, la navigation se
+                // construisant sur les permissions EFFECTIVES, l'entrée disparaissait du
+                // menu au lieu de mener à un refus : rien n'indiquait le manque.
+                //
+                // N'ouvre rien d'indu : /admin/dashboard et /driver/dashboard portent
+                // aussi leur propre `profil:`.
+                'view-dashboard',
                 'edit-bookings',
                 'view-bookings',
                 'view-payments',

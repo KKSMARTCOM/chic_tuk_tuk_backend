@@ -93,9 +93,11 @@ préexistant, produit un diff massif sans rapport avec la livraison en cours.
   ⚠️ `driver` est passé de 7 à 8 le 2026-09-18 : `view-dashboard` lui manquait, alors que
   l'espace agent a un tableau de bord. La navigation du front se construisant sur les
   permissions EFFECTIVES, l'agent n'avait aucune entrée de menu vers son écran d'accueil.
-  ⚠️ Le rôle `client` a le même défaut — `routes/client.php` garde `/client/dashboard` par
-  `permission:view-dashboard`, que le rôle `client` ne porte pas. Signalé, non corrigé :
-  l'espace client n'est pas encore migré et le corriger sans l'étudier serait un pari.
+  ⚠️ Le rôle `client` avait le même défaut, **corrigé le 2026-09-21** : il est passé de 6
+  à 7 permissions avec `view-dashboard`. `tests/Feature/Identity/RolePermissionCoverageTest.php`
+  parcourt désormais les routes déclarées et vérifie que le rôle de référence de chaque
+  profil porte les permissions que son espace exige — cette classe de défaut s'était
+  produite deux fois.
 - ⚠️ **`lecteur` n'est PAS un rôle en lecture seule**, contrairement à ce que ce fichier
   affirmait et à ce que suggère son libellé de production, « Utilisateur ». Sur ses 41
   permissions, **27 sont des écritures** : `create-drivers`, `edit-drivers`,
@@ -497,6 +499,33 @@ est déployée : elle doit être compatible avec l'image précédente (rollback)
 - Sanctum + session : Auth::login() obligatoire en plus de createToken()
 - Paiements : commission/driver_earning calculés à la completion, pas à la création
 - Congés : pas de restriction de dépassement, surplus affiché en rouge
+- ⚠️ **Les compteurs de congés sont PAR CONTRAT.** `DriverContractService` remet
+  `leave_days_used` à zéro à la clôture d'un contrat, et le droit annoncé vaut
+  `2 × contract_months` du contrat courant : les pauses d'un contrat précédent ne doivent
+  donc pas grever le solde du nouveau. `getLeaveRequestsByStatus()` filtre sur le contrat
+  actif depuis le 2026-09-21 et rend 0 quand il n'y en a pas.
+
+  Trois défauts corrigés ce jour-là, tous visibles sur le même écran d'un agent réel qui
+  affichait `total 48 / utilisés 0 / disponibles -5` avec cinq jours dans son historique :
+
+  1. `getContractMonths()` retombait sur 24 mois **même sans contrat actif**, donc l'écran
+     annonçait 48 jours de droits à quelqu'un qui n'a pas de contrat ;
+  2. `leave_days_used` était lu depuis la COLONNE, jamais mise à jour sur ces agents-là :
+     « Jours utilisés : 0 » s'affichait au-dessus de l'historique qui le démentait.
+     `getLeaveDaysTaken()` recompte depuis les pauses terminées ;
+  3. les pauses d'un contrat clos se déduisaient du solde courant, d'où le `-5`.
+
+  ⚠️ Un « Disponibles à date » NÉGATIF n'est pas un défaut : le dépassement est permis, et
+  le négatif dit « vous avez pris d'avance sur votre acquisition ». Ne pas le ramener à 0.
+
+  ⚠️ `leave_days_used` n'est plus la source de vérité des jours pris. La colonne est
+  toujours écrite par `markLeaveDaysUsed()` mais ne doit plus être lue directement.
+
+- ⚠️ **Deux routes orphelines retirées le 2026-09-21** : `client.payments.history` et
+  `client.leaves.history` pointaient vers des méthodes inexistantes de
+  `DashboardController` et répondaient donc 500. La seconde exigeait `view-leaves`, la
+  permission d'administration des congés de TOUS les agents : la garder aurait poussé à
+  l'accorder au rôle `client` pour « rendre la route cohérente ».
 
 ## Notifications — l'état réel trouvé le 2026-09-21
 

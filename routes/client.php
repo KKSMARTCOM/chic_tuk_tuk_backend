@@ -10,8 +10,21 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'profil:client'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'client'])->name('dashboard')->middleware('permission:view-dashboard');
-    Route::get('/payments/history', [DashboardController::class, 'paymentHistory'])->name('payments.history')->middleware('permission:view-payments');
-    Route::get('/leaves/history', [DashboardController::class, 'leaveHistory'])->name('leaves.history')->middleware('permission:view-leaves');
+    /*
+     * ⚠️ Deux routes ont été RETIRÉES ici le 2026-09-21 :
+     *
+     *   client.payments.history → DashboardController::paymentHistory
+     *   client.leaves.history   → DashboardController::leaveHistory
+     *
+     * Ces deux méthodes n'existent pas sur le contrôleur — vérifié par réflexion — donc
+     * les routes répondaient 500 à quiconque les atteignait. Aucune vue n'y menait, et
+     * aucun nom de route n'était généré ailleurs : elles étaient mortes.
+     *
+     * Leur retrait n'est pas cosmétique. `client.leaves.history` exigeait `view-leaves`,
+     * qui est la permission d'ADMINISTRATION des congés de tous les agents. La conserver
+     * aurait poussé à l'ajouter au rôle `client` pour « rendre la route cohérente », et
+     * donné à des clients un droit sur les données du personnel.
+     */
     // Ajoutez d'autres routes client ici
 
 });

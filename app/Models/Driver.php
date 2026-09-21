@@ -143,15 +143,56 @@ class Driver extends Model
         return 2; // 2 days per month
     }
 
+    /**
+     * La durée du contrat en mois.
+     *
+     * ⚠️ Rend **0** quand l'agent n'a AUCUN contrat actif. Auparavant, le `?? 24` par
+     * défaut s'appliquait aussi dans ce cas, et l'écran des pauses annonçait donc
+     * « 48 jours de congés » à quelqu'un qui n'a pas de contrat du tout — un chiffre
+     * inventé, présenté comme un droit acquis. Constaté le 2026-09-21 sur un agent réel.
+     *
+     * Le défaut par défaut de 24 mois reste, mais seulement lorsqu'un contrat EXISTE
+     * sans durée renseignée : là, il comble une donnée manquante au lieu d'en fabriquer
+     * une de toutes pièces.
+     */
     public function getContractMonths(): int
     {
-        return (int) ($this->activeDriverContract->contract_months ?? 24); // default 24 months
+        if (! $this->activeDriverContract) {
+            return 0;
+        }
+
+        return (int) ($this->activeDriverContract->contract_months ?? 24);
     }
 
+    /**
+     * Les jours de pause d'un statut donné, sur le contrat ACTIF.
+     *
+     * ⚠️ La portée au contrat n'est pas un raffinement : c'est ce que le reste du code
+     * suppose déjà. Le droit annoncé vaut `2 × contract_months`, donc celui du contrat en
+     * cours ; et `DriverContractService` remet `leave_days_used` à zéro quand un contrat
+     * se termine, ce qui dit explicitement que le compteur repart avec chaque contrat.
+     *
+     * Sans cette portée, les pauses d'un contrat PRÉCÉDENT se déduisaient du solde du
+     * contrat courant. Sur un agent sans contrat actif, l'écran affichait
+     * « disponibles : -5 » — cinq jours d'un contrat révolu retranchés d'une acquisition
+     * nulle. Constaté le 2026-09-21.
+     *
+     * Toutes les pauses en base portent un `driver_contract_id` (vérifié), donc aucune
+     * ligne n'est perdue par ce filtre.
+     */
     public function getLeaveRequestsByStatus(string $status): int
     {
+        $contrat = $this->activeDriverContract;
+
+        // Pas de contrat actif : aucun solde en cours, donc rien à décompter. Les pauses
+        // passées appartiennent à un contrat clos et ne regardent plus ce calcul.
+        if (! $contrat) {
+            return 0;
+        }
+
         return $this->leaveRequests()
             ->where('status', $status)
+            ->where('driver_contract_id', $contrat->id)
             ->get()
             ->sum(fn($leave) => $leave->effective_days ?? $leave->requested_days ?? 0);
     }
@@ -161,9 +202,25 @@ class Driver extends Model
         return $this->getLeaveDaysPerMonth() * $this->getContractMonths();
     }
 
+    /**
+     * Les jours de pause RÉELLEMENT pris, comptés depuis les pauses terminées.
+     *
+     * ⚠️ Et non depuis la colonne `leave_days_used`. Celle-ci n'est alimentée que par
+     * `markLeaveDaysUsed()`, à la clôture d'une pause par un administrateur, et elle
+     * était restée à zéro sur des agents dont l'historique affichait cinq jours : l'écran
+     * montrait « Jours utilisés : 0 » juste au-dessus de la liste qui le démentait.
+     *
+     * On compte les jours EFFECTIFS quand ils sont connus — une pause écourtée n'a pas
+     * consommé ce qui avait été demandé.
+     */
+    public function getLeaveDaysTaken(): int
+    {
+        return $this->getLeaveRequestsByStatus('completed');
+    }
+
     public function getRemainingLeaveDays(): int
     {
-        return $this->getTotalLeaveDays() - ($this->leave_days_used ?? 0);
+        return $this->getTotalLeaveDays() - $this->getLeaveDaysTaken();
     }
 
     public function getContractMonthsElapsed(): int
@@ -180,7 +237,14 @@ class Driver extends Model
             return 0;
         }
 
-        return min($start->diffInMonths($now) + 1, $this->getContractMonths());
+        // ⚠️ `diffInMonths` rend un FLOTTANT dans les versions récentes de Carbon — 2.2
+        // pour deux mois et six jours. Le laisser tel quel déclenchait un avertissement de
+        // dépréciation PHP à chaque lecture de l'écran des pauses, et deviendra une erreur
+        // en PHP 9. La troncature explicite donne exactement le même résultat : seuls les
+        // mois RÉVOLUS comptent, plus le mois en cours par le `+ 1`.
+        $revolus = (int) $start->diffInMonths($now);
+
+        return min($revolus + 1, $this->getContractMonths());
     }
 
     public function getAccruedLeaveDays(): int
@@ -196,7 +260,15 @@ class Driver extends Model
             - $this->getLeaveRequestsByStatus('completed');
     }
 
-    // ── Mise à jour du compteur indicatif (appelée à la clôture d'une pause) ──
+    /**
+     * ── Compteur indicatif, alimenté à la clôture d'une pause ──
+     *
+     * ⚠️ `leave_days_used` n'est PLUS la source de vérité des jours pris : elle avait
+     * dérivé de la réalité sur des agents existants, faute d'avoir toujours été mise à
+     * jour. `getLeaveDaysTaken()` recompte depuis les pauses terminées, qui ne peuvent
+     * pas mentir. La colonne est conservée — des écrans d'administration la lisent
+     * encore par l'intermédiaire de ce modèle — mais ne doit plus être lue directement.
+     */
     public function markLeaveDaysUsed(int $days): void
     {
         $this->leave_days_used = max(0, ($this->leave_days_used ?? 0) + $days);

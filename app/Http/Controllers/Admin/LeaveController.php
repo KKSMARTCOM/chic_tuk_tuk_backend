@@ -59,7 +59,9 @@ class LeaveController extends Controller
                 'contract_type' => $driver->activeDriverContract->contract_months ?? null,
                 'leave_days_per_month' => $driver->getLeaveDaysPerMonth(),
                 'total_leave_days' => $driver->getTotalLeaveDays(),
-                'leave_days_used' => $driver->leave_days_used ?? 0,
+                // Recompté depuis les pauses terminées : la colonne `leave_days_used` avait
+                // dérivé de la réalité sur des agents existants.
+                'leave_days_used' => $driver->getLeaveDaysTaken(),
                 'available_leave_days' => $driver->available_leave_days,
                 'remaining_leave_days' => $driver->getRemainingLeaveDays(),
                 'is_on_leave' => (bool) $ongoing,
@@ -111,7 +113,7 @@ class LeaveController extends Controller
         $leaveInfo = [
             'leave_days_per_month' => $driverModel->getLeaveDaysPerMonth(),
             'total_leave_days' => $driverModel->getTotalLeaveDays(),
-            'leave_days_used' => $driverModel->leave_days_used ?? 0,
+            'leave_days_used' => $driverModel->getLeaveDaysTaken(),
             'available_leave_days' => $driverModel->available_leave_days,
             'remaining_leave_days' => $driverModel->getRemainingLeaveDays(),
             'contract_start' => $driverModel->activeDriverContract->start_date ?? null,
