@@ -337,6 +337,27 @@ Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
 **Espace propriétaire** (`routes/api/v1/owner.php`) : quatre lectures sous
 `['token.fresh', 'auth:sanctum', 'abilities:owner']` + `permission:view-own-*`.
 
+**Espace administration** (`routes/api/v1/admin.php`) : ouvert le 2026-09-21 avec
+`GET /admin/dashboard`, sous `['token.fresh', 'auth:sanctum', 'abilities:admin']` +
+`permission:view-dashboard`.
+
+⚠️ Le profil `admin` recouvre DEUX rôles très différents : `admin` (62 permissions) et
+`utilisateur` — anciennement `lecteur`, libellé « Utilisateur » — qui en porte 41 dont 27
+écritures. La garde route par route est ce qui les distingue : ne jamais s'appuyer sur
+`profil:admin` seul pour protéger une écriture.
+
+⚠️ La barre latérale Blade de l'admin n'est gardée que par `profil === 'admin'`, sans
+aucun contrôle de permission : elle propose donc à un `utilisateur` des liens qu'il ne
+peut pas ouvrir. La navigation du front Nuxt se construisant sur les permissions
+EFFECTIVES, elle lui en montre moins — c'est voulu, un menu qui ne mène jamais à un refus.
+
+⚠️ **Renommer un rôle dans le seeder ne le renomme PAS en base.** Spatie cherche les
+rôles par leur nom : changer `'lecteur'` en `'utilisateur'` dans la référence a CRÉÉ un
+second rôle, laissant l'ancien avec ses comptes et hors référence — donc jamais corrigé
+par `syncPermissions`. Une migration
+(`2026_09_21_180000_rename_role_lecteur_to_utilisateur`) déplace les comptes puis
+supprime l'ancien. Le même piège vaudra pour tout renommage futur.
+
 **Espace agent, sous-lot 3b** : `GET` et `POST /driver/leaves` (les congés), et
 `PATCH /auth/profile` (nom, téléphone, adresse — l'e-mail et la photo en sont exclus).
 

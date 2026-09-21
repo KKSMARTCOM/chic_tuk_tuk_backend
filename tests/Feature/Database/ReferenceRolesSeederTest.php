@@ -29,7 +29,10 @@ class ReferenceRolesSeederTest extends TestCase
 
         $attendus = [
             'admin' => 'Administrateur',
-            'lecteur' => 'Utilisateur',
+            // Renommé depuis `lecteur` le 2026-09-21. Une migration déplace les comptes
+            // de l'ancien rôle vers celui-ci : changer la clé du seeder ne renomme rien
+            // en base, Spatie cherchant les rôles par leur nom.
+            'utilisateur' => 'Utilisateur',
             'driver' => 'Agent',
             'proprietaire' => 'Propriétaire',
             'client' => 'Client',
@@ -84,13 +87,13 @@ class ReferenceRolesSeederTest extends TestCase
 
         // Reproduit la divergence observée : le libellé du rôle avait été saisi
         // différemment dans chaque environnement.
-        Role::query()->where('name', 'lecteur')->update(['label' => 'Lecteur']);
+        Role::query()->where('name', 'utilisateur')->update(['label' => 'Lecteur']);
 
         $this->semer();
 
         $this->assertSame(
             'Utilisateur',
-            Role::query()->where('name', 'lecteur')->value('label'),
+            Role::query()->where('name', 'utilisateur')->value('label'),
             'un libellé divergent doit être ramené à la référence',
         );
     }
