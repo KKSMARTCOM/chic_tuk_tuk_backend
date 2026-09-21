@@ -497,3 +497,55 @@ est déployée : elle doit être compatible avec l'image précédente (rollback)
 - Sanctum + session : Auth::login() obligatoire en plus de createToken()
 - Paiements : commission/driver_earning calculés à la completion, pas à la création
 - Congés : pas de restriction de dépassement, surplus affiché en rouge
+
+## Notifications — l'état réel trouvé le 2026-09-21
+
+À l'ouverture du sous-lot 3c, la lecture du code a révélé que **la chaîne de
+notification n'a jamais fonctionné**. Trois défauts indépendants se masquaient l'un
+l'autre :
+
+1. ⚠️ **`FcmToken` n'avait pas le trait `HasUuid`** alors que sa clé primaire est un
+   `uuid` NOT NULL sans défaut. Eloquent croyait la clé auto-incrémentée, omettait la
+   colonne, et PostgreSQL refusait la ligne : `POST /fcm/token` levait une
+   `QueryException` à **chaque** appel. Aucun appareil n'a donc jamais été enregistré, et
+   le seul déclencheur de l'application — une réservation créée prévient les agents —
+   parcourait toujours une liste vide.
+2. ⚠️ **Rien n'écrivait jamais dans `notifications`.** La table existe depuis janvier et
+   la cloche de l'en-tête la lit, mais aucune ligne de code n'y insérait quoi que ce
+   soit.
+3. ⚠️ **`notification_preferences` n'était lu par personne.** L'écran de réglages
+   écrivait `push_notifications: false` et l'envoi ne le consultait pas.
+
+Les trois sont corrigés, avec les tests qui les reproduisent (`tests/Feature/Notification/`).
+
+⚠️ **Une préférence ABSENTE vaut ACCORD**, à l'envoi comme à l'affichage.
+`notification_preferences` vaut `{}` pour tous les comptes existants : lire l'absence
+comme un refus couperait les notifications de toute la flotte en un déploiement. Seul un
+`false` explicite désactive. `FcmNotificationService::acceptePush()` et
+`NotificationPreferencesData::fromUser()` doivent rester d'accord là-dessus.
+
+La préférence porte sur le **push seul** : la trace en base est écrite dans tous les cas,
+pour que refuser les alertes système ne revienne pas à se priver de l'information dans
+l'application.
+
+**Les routes `/api/v1/notifications/*` ne portent ni `abilities:` ni `permission:`**, et
+c'est délibéré : c'est toute l'application — agent, client, admin, propriétaire — qui est
+installée et notifiée. La portée vient de `Auth::user()`, comme pour `/auth/me`.
+
+⚠️ **`notifications.id` est un ENTIER auto-incrémenté**, seule exception aux uuid du
+projet : la table date de janvier. Le front doit le typer en `number`.
+
+## ⚠️ Le garde d'authentification est mémorisé entre deux requêtes de test
+
+Le garde de Sanctum mémorise l'utilisateur qu'il a résolu, et l'instance survit d'une
+requête de test à l'autre **dans une même méthode**. Sans `Auth::forgetGuards()` avant de
+changer de jeton, la deuxième requête s'exécute encore sous le PREMIER compte, quel que
+soit l'en-tête envoyé.
+
+Le symptôme fabrique des **faux positifs** : un test de portée « un compte ne touche pas
+les données d'un autre » passe sans rien prouver, puisque les deux requêtes viennent en
+réalité du même compte. Le problème n'existe pas en production, où chaque requête part
+d'un conteneur neuf.
+
+Tout test qui authentifie deux comptes doit appeler `Auth::forgetGuards()` entre les
+deux — voir le helper `entete()` de `NotificationsApiTest`.
