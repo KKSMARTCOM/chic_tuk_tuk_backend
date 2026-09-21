@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domains\Notification\Application\Notifier;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -71,7 +72,7 @@ class VehicleService
     // Mettre le véhicule en pause manuellement
     public function pauseVehicle(Vehicle $vehicle, array $data): VehiclePause
     {
-        return DB::transaction(function () use ($vehicle, $data) {
+        $pause = DB::transaction(function () use ($vehicle, $data) {
             // Vérifier si il y a un contrat actif
             $activeContract = $vehicle->activeVehicleContract;
             if (!$activeContract) {
@@ -99,12 +100,19 @@ class VehicleService
 
             return $pause;
         });
+
+        // Le propriétaire est prévenu, avec le MOTIF : un véhicule à l'arrêt sans
+        // explication déclenche un appel à l'administration, et c'est cet appel que la
+        // notification remplace.
+        app(Notifier::class)->vehiclePaused($pause);
+
+        return $pause;
     }
 
     // Terminer une pause véhicule
     public function endPause(VehiclePause $pause, ?string $endDate = null): VehiclePause
     {
-        return DB::transaction(function () use ($pause, $endDate) {
+        $termine = DB::transaction(function () use ($pause, $endDate) {
             $pause->update(['end_date' => $endDate ?? now()->toDateString()]);
 
             // Réactiver le véhicule si pas de pause active
@@ -114,12 +122,17 @@ class VehicleService
 
             return $pause->refresh();
         });
+
+        // Le propriétaire apprend la reprise sans avoir à ouvrir l'application.
+        app(Notifier::class)->vehiclePauseEnded($termine);
+
+        return $termine;
     }
 
     // Créer automatiquement une pause suite à un congé agent
     public function createAutoAgentPause(string $vehicleId, string $driverContractId, string $startDate, ?string $endDate = null): VehiclePause
     {
-        return DB::transaction(function () use ($vehicleId, $driverContractId, $startDate, $endDate) {
+        $pause = DB::transaction(function () use ($vehicleId, $driverContractId, $startDate, $endDate) {
             $vehicle = Vehicle::findOrFail($vehicleId);
             $start   = Carbon::parse($startDate)->startOfDay();
             $end     = $endDate ? Carbon::parse($endDate)->startOfDay() : null;
@@ -160,6 +173,13 @@ class VehicleService
 
             return $pause;
         });
+
+        // ⚠️ Le propriétaire est prévenu ICI AUSSI, et pas seulement sur une pause
+        // manuelle : une pause née d'un congé agent immobilise son véhicule tout autant,
+        // et c'est le cas le plus fréquent. Le motif dit « Congé agent ».
+        app(Notifier::class)->vehiclePaused($pause);
+
+        return $pause;
     }
 
     // Terminer la pause véhicule liée à un contrat chauffeur (appelée quand l'admin clôture la pause agent)

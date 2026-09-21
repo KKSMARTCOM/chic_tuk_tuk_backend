@@ -535,6 +535,46 @@ installée et notifiée. La portée vient de `Auth::user()`, comme pour `/auth/m
 ⚠️ **`notifications.id` est un ENTIER auto-incrémenté**, seule exception aux uuid du
 projet : la table date de janvier. Le front doit le typer en `number`.
 
+## Qui est prévenu de quoi
+
+**Tout passe par `App\Domains\Notification\Application\Notifier`**, qui porte la table
+de routage. Ne JAMAIS appeler `FcmNotificationService` directement depuis une action :
+éparpiller les envois rendrait impossible de répondre à « qui reçoit quoi ? » autrement
+qu'en relisant le dépôt entier.
+
+| Événement | Destinataire |
+|---|---|
+| Nouvelle réservation | tous les agents |
+| Course acceptée / démarrée / terminée / annulée / révoquée | les administrateurs |
+| Demande de pause déposée | les administrateurs |
+| Pause validée / refusée | l'agent concerné |
+| Véhicule mis en pause / reprise | le propriétaire du véhicule |
+| Paiement **saisi** | la personne payée, elle seule |
+
+⚠️ « Les administrateurs sont prévenus de toutes les actions agent » ne veut PAS dire
+qu'ils reçoivent tout : une pause validée ne leur revient pas, puisque c'est l'un d'eux
+qui vient de la valider.
+
+⚠️ **Le paiement JOURNALIER n'est pas notifié**, seulement le paiement saisi à la main.
+`generateDailyPaymentForContract()` tourne chaque soir du lundi au vendredi pour chaque
+contrat : le brancher enverrait à chaque agent une notification quotidienne perpétuelle
+pour une écriture comptable sur laquelle il n'a rien à faire.
+
+⚠️ **Les notifications d'administrateur ne portent pas d'URL** tant que l'espace admin du
+front Nuxt n'est pas migré : une destination vers un écran inexistant est pire qu'aucune
+destination. Les chemins futurs sont en commentaire à chaque appel.
+
+⚠️ **Les notifications partent APRÈS la transaction, jamais dedans.** Dedans, un push
+serait envoyé pour une opération qu'un `rollback` annulerait ensuite. Et `Notifier`
+n'échoue jamais bruyamment : une notification est un effet de bord, elle ne doit pas
+pouvoir empêcher d'accepter une course ou d'enregistrer un paiement. Les échecs vont au
+journal.
+
+Deux fichiers de tests, et il faut les deux : `NotificationRoutingTest` vérifie la table
+en isolant le `Notifier` — surtout par des assertions NÉGATIVES, un routage trop large ne
+casse rien de visible mais noie les destinataires — et `NotificationHooksTest` vérifie que
+les actions l'appellent réellement, ce que le premier ne dit pas.
+
 ## ⚠️ Le garde d'authentification est mémorisé entre deux requêtes de test
 
 Le garde de Sanctum mémorise l'utilisateur qu'il a résolu, et l'instance survit d'une

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Application\Actions;
 
+use App\Domains\Notification\Application\Notifier;
 use App\Models\Booking;
 use App\Models\Driver;
 use App\Shared\Http\ApiException;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Log;
  */
 final class AcceptBooking
 {
+    public function __construct(private readonly Notifier $notifier) {}
+
     public function __invoke(string $bookingId, string $driverId): void
     {
         DB::transaction(function () use ($bookingId, $driverId) {
@@ -80,5 +83,25 @@ final class AcceptBooking
 
             Log::info("[take] Booking {$bookingId} accepté par driver {$driverId}");
         });
+
+        /**
+         * ⚠️ La notification part APRÈS la transaction, jamais dedans.
+         *
+         * Dedans, un push serait envoyé pour une opération qu'un `rollback` ultérieur
+         * annulerait — et l'agent lirait une alerte pour une course qui n'a jamais été
+         * acceptée. `Notifier` n'échoue par ailleurs jamais bruyamment : une notification
+         * est un effet de bord, elle ne doit pas pouvoir casser l'action métier.
+         */
+        $this->previenir($bookingId, $driverId);
+    }
+
+    private function previenir(string $bookingId, string $driverId): void
+    {
+        $booking = Booking::find($bookingId);
+        $agent = Driver::with('user')->find($driverId)?->user;
+
+        if ($booking && $agent) {
+            $this->notifier->bookingAccepted($booking, $agent);
+        }
     }
 }

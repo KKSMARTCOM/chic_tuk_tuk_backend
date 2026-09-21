@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Domains\Booking\Application\Actions\AcceptBooking;
+use App\Domains\Notification\Application\Notifier;
 use App\Domains\Booking\Application\Actions\CancelBooking;
 use App\Domains\Booking\Application\Actions\CompleteBooking;
 use App\Domains\Booking\Application\Actions\RevokeFromSubscription;
@@ -164,11 +165,11 @@ class BookingService
             ]);
         }
 
-        app(FcmNotificationService::class)->sendToDrivers(
-            'Nouvelle réservation disponible',
-            "Trajet : {$booking->from_location} → {$booking->to_location}",
-            ['url' => route('driver.bookings.available')]
-        );
+        // ⚠️ Passe par le Notifier, qui porte la table de routage, plutôt que d'appeler
+        // l'envoi directement : c'était le SEUL déclencheur de notification de toute
+        // l'application, et son URL pointait vers une route Blade qu'un front Nuxt ne
+        // sait pas ouvrir.
+        app(Notifier::class)->bookingCreated($booking);
 
         return $booking;
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domains\Notification\Application\Notifier;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\LeaveRequest;
@@ -175,9 +176,9 @@ class LeaveController extends Controller
             $driver->update(['is_available' => false]);
         }
 
-        //session()->flash('success', 'Demande de Pause approuvée avec succès.');
-
-        //return redirect()->away('https://docs.google.com/forms/d/e/1FAIpQLScDV8HvM0P8JaChAVhqoohp0gioFuW0OFMZRcVyMZRO2B-KbQ/viewform?pli=1&pli=1');
+        // L'agent est prévenu, pas les administrateurs : c'est l'un d'eux qui vient de
+        // valider, et un accusé de réception de son propre geste serait du bruit.
+        app(Notifier::class)->leaveApproved($leaveRequest->refresh());
 
         return redirect()->back()->with('success', 'Demande de Pause approuvée avec succès.');
     }
@@ -195,6 +196,10 @@ class LeaveController extends Controller
             'status' => 'rejected',
             'rejection_reason' => $request->rejection_reason,
         ]);
+
+        // Le motif voyage avec la notification : sans lui, l'agent doit ouvrir l'écran
+        // pour savoir pourquoi, et le refus paraît arbitraire.
+        app(Notifier::class)->leaveRejected($leaveRequest->refresh());
 
         return redirect()->back()->with('success', 'Demande de Pause rejetée avec succès.');
     }

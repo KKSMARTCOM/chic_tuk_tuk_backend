@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Application\Actions;
 
+use App\Domains\Notification\Application\Notifier;
 use App\Models\Booking;
 use App\Models\Driver;
 use App\Services\CommissionService;
@@ -17,11 +18,14 @@ use Illuminate\Support\Facades\DB;
  */
 final class CompleteBooking
 {
-    public function __construct(private readonly CommissionService $commissionService) {}
+    public function __construct(
+        private readonly CommissionService $commissionService,
+        private readonly Notifier $notifier,
+    ) {}
 
     public function __invoke(string $bookingId, string $driverId): Booking
     {
-        return DB::transaction(function () use ($bookingId, $driverId) {
+        $resultat = DB::transaction(function () use ($bookingId, $driverId) {
 
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
@@ -57,5 +61,18 @@ final class CompleteBooking
 
             return $booking;
         });
+
+        /**
+         * ⚠️ APRÈS la transaction, jamais dedans : un push envoyé à l'intérieur
+         * partirait pour une opération qu'un `rollback` annulerait ensuite. `Notifier`
+         * n'échoue jamais bruyamment — une notification ne doit pas casser l'action.
+         */
+        $agent = Driver::with('user')->find($driverId)?->user;
+
+        if ($agent) {
+            $this->notifier->bookingCompleted($resultat, $agent);
+        }
+
+        return $resultat;
     }
 }
