@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Notification\Application\Notifier;
 use App\Models\Driver;
 use App\Models\LeaveRequest;
 use App\Shared\Http\ApiException;
@@ -20,6 +21,8 @@ use Carbon\Carbon;
  */
 final class RequestLeave
 {
+    public function __construct(private readonly Notifier $notifier) {}
+
     public function __invoke(Driver $driver, string $startDate, int $requestedDays): LeaveRequest
     {
         $contract = $driver->activeDriverContract;
@@ -52,7 +55,7 @@ final class RequestLeave
             );
         }
 
-        return LeaveRequest::create([
+        $demande = LeaveRequest::create([
             'driver_id' => $driver->id,
             'driver_contract_id' => $contract->id,
             'start_date' => $startDate,
@@ -61,5 +64,11 @@ final class RequestLeave
             // Distingue une demande d'agent d'une pause posée par un administrateur.
             'source' => 'driver_request',
         ]);
+
+        // Les administrateurs ont la demande à traiter : sans notification, elle attend
+        // que l'un d'eux pense à ouvrir l'écran des demandes.
+        $this->notifier->leaveRequested($demande);
+
+        return $demande;
     }
 }

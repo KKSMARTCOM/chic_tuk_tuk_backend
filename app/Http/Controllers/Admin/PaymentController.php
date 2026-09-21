@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domains\Notification\Application\Notifier;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\DriverContract;
@@ -210,6 +211,12 @@ class PaymentController extends Controller
     {
         try {
             $payment->update(['status' => 'completed']);
+
+            // C'est l'ACTION qui est notifiée, pas la création du paiement : celle-ci est
+            // majoritairement automatique et quotidienne, la validation est un geste qui
+            // change quelque chose pour l'agent.
+            app(Notifier::class)->paymentValidated($payment->fresh()->load('driver.user'));
+
             return back()->with('success', 'Paiement validé avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de la validation du paiement : ' . $e->getMessage(), ['exception' => $e]);
@@ -221,6 +228,11 @@ class PaymentController extends Controller
     {
         try {
             $payment->update(['status' => 'cancelled']);
+
+            // Un agent qui comptait sur cette somme a le droit de l'apprendre autrement
+            // qu'en s'en apercevant.
+            app(Notifier::class)->paymentCancelled($payment->fresh()->load('driver.user'));
+
             return back()->with('success', 'Paiement annulé avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de l’annulation du paiement : ' . $e->getMessage(), ['exception' => $e]);
