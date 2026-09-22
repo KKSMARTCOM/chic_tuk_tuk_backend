@@ -3,6 +3,7 @@
 namespace App\Domains\Booking\Application\Data;
 
 use App\Domains\Booking\Application\Data\Concerns\DescribesBookingKind;
+use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
@@ -47,6 +48,17 @@ final class AdminBookingListItemData extends BaseData
         /** Nombre de jours de l'abonnement — le Blade l'affiche sur le badge parent. */
         public int $days,
         public string $createdAt,
+        /**
+         * Les deux actions que la LIGNE propose, comme dans le tableau Blade.
+         *
+         * ⚠️ Elles sont annoncées par le serveur et non déduites de `driverId` et
+         * `status` : les règles sont les mêmes que sur le dossier — une course fille
+         * d'abonnement revient à son titulaire, une course close garde son agent — et les
+         * recalculer par ligne en ferait une troisième version, après le gabarit Blade et
+         * le dossier.
+         */
+        public bool $canAssignDriver,
+        public bool $canRemoveDriver,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -75,6 +87,8 @@ final class AdminBookingListItemData extends BaseData
             isRevoked: (bool) $booking->is_revoked,
             days: (int) ($booking->days ?? 1),
             createdAt: $booking->created_at->toIso8601String(),
+            canAssignDriver: BookingLifecycle::canAssignDriver($booking),
+            canRemoveDriver: BookingLifecycle::canRemoveDriver($booking),
         );
     }
 }

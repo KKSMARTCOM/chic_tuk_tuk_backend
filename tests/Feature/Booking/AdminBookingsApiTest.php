@@ -117,6 +117,28 @@ class AdminBookingsApiTest extends TestCase
         $this->assertSame(['subscription_child', 'subscription_parent'], $kinds);
     }
 
+    public function test_chaque_ligne_annonce_les_actions_qu_elle_propose(): void
+    {
+        /*
+         * ⚠️ Le tableau Blade porte « Assigner » et « Retirer » EN LIGNE, à côté du lien
+         * vers le dossier : c'est là qu'on affecte au quotidien. Les conditions sont les
+         * mêmes que sur le dossier, et elles viennent du serveur — les recalculer par
+         * ligne en ferait une troisième version de la règle.
+         */
+        Booking::factory()->create(['status' => 'pending', 'driver_id' => null]);
+        Booking::factory()->create(['status' => 'expired', 'driver_id' => null]);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $lignes = collect($this->header($token)->getJson('/api/v1/admin/bookings')->json('data'))
+            ->keyBy('status');
+
+        $this->assertTrue($lignes['pending']['can_assign_driver']);
+        // Une course expirée a raté son heure de départ : plus personne à y affecter.
+        $this->assertFalse($lignes['expired']['can_assign_driver']);
+        $this->assertFalse($lignes['pending']['can_remove_driver']);
+    }
+
     public function test_le_filtre_de_statut_et_la_recherche(): void
     {
         // ⚠️ `booking_number` est ENGENDRÉ par le modèle et écrase toute valeur fournie :
