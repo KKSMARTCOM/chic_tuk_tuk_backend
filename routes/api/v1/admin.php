@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\LeaveController;
 use Illuminate\Support\Facades\Route;
@@ -40,7 +41,35 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->name('dashboard');
 
         /*
-         * Les congés.
+         * Les réservations.
+         *
+         * ⚠️ `assignable-drivers` est déclarée AVANT `bookings/{booking}` : Laravel
+         * confronte les routes dans l'ordre, et « bookings/assignable-drivers »
+         * satisferait le paramètre `{booking}` si celui-ci venait en premier. On
+         * chercherait alors une réservation dont l'identifiant est « assignable-drivers »
+         * et l'écran recevrait un 404 sans cause visible.
+         */
+        Route::middleware('permission:view-bookings')->group(function () {
+            Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+            Route::get('/bookings/assignable-drivers', [BookingController::class, 'assignableDrivers'])
+                ->name('bookings.assignable-drivers');
+            Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
+        });
+
+        Route::middleware('permission:edit-bookings')->group(function () {
+            Route::post('/bookings/{booking}/assign-driver', [BookingController::class, 'assignDriver'])
+                ->name('bookings.assign-driver');
+            Route::post('/bookings/{booking}/remove-driver', [BookingController::class, 'removeDriver'])
+                ->name('bookings.remove-driver');
+            Route::post('/bookings/{booking}/status', [BookingController::class, 'changeStatus'])
+                ->name('bookings.status');
+        });
+
+        Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])
+            ->middleware('permission:delete-bookings')->name('bookings.destroy');
+
+        /*
+         * Les pauses.
          *
          * ⚠️ Les routes prennent l'identifiant de l'AGENT (`drivers.id`), là où le Blade
          * emploie celui de son COMPTE (`users.id`). Les deux se ressemblent — ce sont
@@ -57,7 +86,7 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->name('leave-requests.index');
 
         /*
-         * Les écritures sur les congés.
+         * Les écritures sur les pauses.
          *
          * ⚠️ Six de ces huit routes n'ont AUCUNE garde de permission côté Blade — seulement
          * `profil:admin`. L'API est donc plus stricte, comme au sous-lot 3a. Le profil ne
