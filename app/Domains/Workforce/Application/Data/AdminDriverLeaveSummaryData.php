@@ -7,7 +7,7 @@ use App\Models\Driver;
 use App\Shared\Data\BaseData;
 
 /**
- * Une ligne du tableau « Congés » de l'administration : un agent et son solde.
+ * Une ligne du tableau « Pauses » de l'administration : un agent et son solde.
  *
  * ⚠️ `id` est l'identifiant de l'AGENT (`drivers.id`), et `userId` celui de son compte.
  * La vue Blade expose le second et construit ses liens avec, ce qui oblige le lecteur à

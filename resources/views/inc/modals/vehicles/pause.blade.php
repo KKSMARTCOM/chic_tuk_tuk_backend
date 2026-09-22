@@ -30,7 +30,7 @@
                         class="text-red-500">*</span></label>
                 <select name="reason_type" required
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <option value="agent_leave">Congé agent</option>
+                    <option value="agent_leave">Pause agent</option>
                     <option value="agent_change">Changement d'agent</option>
                     <option value="technical">Technique / panne</option>
                     <option value="accident">Accident</option>

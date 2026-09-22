@@ -52,7 +52,7 @@ class DriverContractService
                 'end_notes'  => $data['end_notes'] ?? null,
             ]);
 
-            // Réinitialiser les jours de congé utilisés pour le conducteur
+            // Réinitialiser les jours de pause utilisés pour le conducteur
             $contract->driver->update([
                 'leave_days_used' => 0,
                 'leave_dates'     => [],

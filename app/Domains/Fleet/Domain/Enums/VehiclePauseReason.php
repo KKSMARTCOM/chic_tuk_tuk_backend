@@ -7,7 +7,7 @@ use App\Shared\Enums\HasOptions;
 /**
  * Motif de mise en pause d'un véhicule — colonne `vehicle_pauses.reason_type`.
  *
- * AgentLeave correspond aux pauses créées automatiquement par un congé agent
+ * AgentLeave correspond aux pauses véhicule créées automatiquement par l'absence d'un agent
  * (indicateur `is_auto`), les autres sont saisies manuellement.
  */
 enum VehiclePauseReason: string

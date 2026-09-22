@@ -153,7 +153,7 @@ class VehicleService
         });
     }
 
-    // Créer automatiquement une pause suite à un congé agent
+    // Créer automatiquement une pause véhicule suite à l'absence d'un agent
     public function createAutoAgentPause(string $vehicleId, string $driverContractId, string $startDate, ?string $endDate = null): VehiclePause
     {
         $pause = DB::transaction(function () use ($vehicleId, $driverContractId, $startDate, $endDate) {
@@ -199,8 +199,8 @@ class VehicleService
         });
 
         // ⚠️ Le propriétaire est prévenu ICI AUSSI, et pas seulement sur une pause
-        // manuelle : une pause née d'un congé agent immobilise son véhicule tout autant,
-        // et c'est le cas le plus fréquent. Le motif dit « Congé agent ».
+        // manuelle : une pause née de l'absence d'un agent immobilise son véhicule tout autant,
+        // et c'est le cas le plus fréquent. Le motif dit « Pause agent ».
         app(Notifier::class)->vehiclePaused($pause);
 
         return $pause;

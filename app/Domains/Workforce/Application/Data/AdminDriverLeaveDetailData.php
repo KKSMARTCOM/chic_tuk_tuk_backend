@@ -8,7 +8,7 @@ use App\Shared\Data\BaseData;
 use Carbon\Carbon;
 
 /**
- * Le dossier de congés d'UN agent, vu de l'administration — ex-Admin\LeaveController::show().
+ * Le dossier de pauses d'UN agent, vu de l'administration — ex-Admin\LeaveController::show().
  *
  * Reprend les trois listes de la vue Blade — demandes en attente, pause en cours,
  * historique — et le solde. Les demandes REFUSÉES n'y figurent pas : la vue Blade ne les

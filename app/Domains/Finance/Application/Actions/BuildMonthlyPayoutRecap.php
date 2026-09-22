@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
  * véhicule réel de staging, avant de le retirer.
  *
  * Rangée dans Finance parce qu'elle répond à une question d'argent ; elle lit du Fleet
- * (pauses véhicule) et du Workforce (congés d'agent) pour y répondre.
+ * (pauses véhicule) et du Workforce (pauses d'agent) pour y répondre.
  *
  * Trois règles portées par le code d'origine, à ne pas perdre :
  *
@@ -95,7 +95,7 @@ final class BuildMonthlyPayoutRecap
     /**
      * Les jours ouvrés de ces intervalles qui tombent dans le mois.
      *
-     * Congés d'agent et pauses véhicule portent les mêmes colonnes `start_date` et
+     * Pauses d'agent et pauses véhicule portent les mêmes colonnes `start_date` et
      * `end_date` et se comptent de la même façon ; le code d'origine écrivait deux fois
      * la même boucle, elle est factorisée ici sans changer son résultat.
      *

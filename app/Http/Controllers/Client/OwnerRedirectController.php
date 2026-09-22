@@ -44,7 +44,7 @@ class OwnerRedirectController extends Controller
 
     /**
      * L'ancienne route s'appelait `leaves` et montrait les PAUSES DU VÉHICULE, pas les
-     * congés d'un agent. Le renvoi corrige le nom au passage.
+     * pauses d'un agent. Le renvoi corrige le nom au passage.
      */
     public function pauses(string $vehicle): RedirectResponse
     {

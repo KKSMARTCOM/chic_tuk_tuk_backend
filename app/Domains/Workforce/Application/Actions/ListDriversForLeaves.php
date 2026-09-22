@@ -6,18 +6,18 @@ use App\Models\Driver;
 use Illuminate\Support\Collection;
 
 /**
- * Les agents et leur solde de congés — ex-Admin\LeaveController::index().
+ * Les agents et leur solde de pauses — ex-Admin\LeaveController::index().
  *
  * ⚠️ TOUS les agents ayant eu un contrat sont listés, y compris les anciens — ceux qui
  * ne sont pas allés au bout du leur. Le contrôleur Blade ne montrait que les agents sous
- * contrat ACTIF, et leur dossier de congés devenait donc inconsultable dès leur départ.
+ * contrat ACTIF, et leur dossier de pauses devenait donc inconsultable dès leur départ.
  * Corrigé sur demande le 2026-09-22.
  *
  * Le solde de ces agents est rapporté à leur DERNIER contrat — voir
  * `Driver::contratDeReference()`. Les rapporter au contrat actif, qui n'existe plus,
  * n'afficherait qu'une ligne de zéros, ce qui ne dit rien de ce qu'ils ont pris.
  *
- * Un agent n'ayant JAMAIS eu de contrat reste écarté : il n'a pas de dossier de congés,
+ * Un agent n'ayant JAMAIS eu de contrat reste écarté : il n'a pas de dossier de pauses,
  * seulement une fiche d'agent.
  *
  * ⚠️ Trois des cinq filtres s'appliquent APRÈS la requête, en PHP. `available`, `pending`

@@ -7,11 +7,11 @@ use App\Models\DriverContract;
 use Carbon\Carbon;
 
 /**
- * Le solde de congés d'un agent, rapporté à UN contrat donné.
+ * Le solde de pauses d'un agent, rapporté à UN contrat donné.
  *
  * ## Pourquoi le contrat est un paramètre
  *
- * Un solde de congés n'existe pas dans l'absolu : le droit vaut `2 × contract_months`, et
+ * Un solde de pauses n'existe pas dans l'absolu : le droit vaut `2 × contract_months`, et
  * `DriverContractService` remet le compteur à zéro à la clôture d'un contrat. Deux écrans
  * ont donc besoin de la même formule sur deux contrats différents :
  *
@@ -27,7 +27,7 @@ use Carbon\Carbon;
  */
 final class LeaveBalance
 {
-    /** Le projet accorde deux jours de congé par mois de contrat. */
+    /** Le projet accorde deux jours de pause par mois de contrat. */
     public const JOURS_PAR_MOIS = 2;
 
     private function __construct(

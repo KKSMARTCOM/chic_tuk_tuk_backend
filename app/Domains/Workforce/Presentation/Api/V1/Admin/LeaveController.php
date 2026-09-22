@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Les congés, vus de l'administration : la liste des agents, le dossier de l'un d'eux,
+ * Les pauses, vus de l'administration : la liste des agents, le dossier de l'un d'eux,
  * et la file des demandes à traiter.
  *
  * Mêmes règles de try/catch que les espaces agent et propriétaire : ValidationException,
@@ -55,8 +55,8 @@ final class LeaveController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->echec($e, $request, 'la liste des congés',
-                'La liste des congés n\'a pas pu être chargée. Réessayez.', 'ADMIN_LEAVES_FAILED');
+            return $this->echec($e, $request, 'la liste des pauses',
+                'La liste des pauses n\'a pas pu être chargée. Réessayez.', 'ADMIN_LEAVES_FAILED');
         }
     }
 
@@ -69,7 +69,7 @@ final class LeaveController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->echec($e, $request, 'le dossier de congés d\'un agent',
+            return $this->echec($e, $request, 'le dossier de pauses d\'un agent',
                 'Ce dossier n\'a pas pu être chargé. Réessayez.', 'ADMIN_LEAVE_DETAIL_FAILED');
         }
     }

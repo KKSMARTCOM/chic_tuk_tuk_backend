@@ -5,7 +5,7 @@ namespace App\Domains\Workforce\Application\Actions;
 use App\Models\Driver;
 
 /**
- * Les congés d'un agent, et son solde — ex-DriverLeaveController::index() et create().
+ * Les pauses d'un agent, et son solde — ex-DriverLeaveController::index() et create().
  *
  * Les deux méthodes Blade sont réunies : `create()` ne servait qu'à afficher un
  * formulaire, et son seul apport était `canRequest`. Une API n'a pas besoin d'un

@@ -9,7 +9,7 @@ use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 
 /**
- * Déposer une demande de congé — ex-DriverLeaveController::store().
+ * Déposer une demande de pause — ex-DriverLeaveController::store().
  *
  * Déplacée sans changer l'ordre des contrôles : il compte, parce qu'un agent sans
  * contrat actif ne doit pas d'abord s'entendre dire que sa date est trop proche.

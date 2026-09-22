@@ -6,7 +6,7 @@ use App\Models\LeaveRequest;
 use App\Shared\Data\BaseData;
 
 /**
- * Une demande de congé, telle que les quatre listes de l'écran l'affichent.
+ * Une demande de pause, telle que les quatre listes de l'écran l'affichent.
  *
  * Les champs suivent ce que la vue Blade montre section par section : la date de la
  * demande et la fin prévue pour les demandes en attente et refusées, les dates réelles

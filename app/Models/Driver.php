@@ -149,7 +149,7 @@ class Driver extends Model
      *
      * ⚠️ Rend **0** quand l'agent n'a AUCUN contrat actif. Auparavant, le `?? 24` par
      * défaut s'appliquait aussi dans ce cas, et l'écran des pauses annonçait donc
-     * « 48 jours de congés » à quelqu'un qui n'a pas de contrat du tout — un chiffre
+     * « 48 jours de pauses » à quelqu'un qui n'a pas de contrat du tout — un chiffre
      * inventé, présenté comme un droit acquis. Constaté le 2026-09-21 sur un agent réel.
      *
      * Le défaut par défaut de 24 mois reste, mais seulement lorsqu'un contrat EXISTE
@@ -278,10 +278,10 @@ class Driver extends Model
 
     // Nouvelles relations
     /**
-     * Le contrat qui sert de référence au solde de congés.
+     * Le contrat qui sert de référence au solde de pauses.
      *
      * ⚠️ Le contrat ACTIF s'il y en a un, sinon le DERNIER. Un ancien agent — parti avant
-     * le terme — n'a plus de contrat actif, et la liste d'administration des congés doit
+     * le terme — n'a plus de contrat actif, et la liste d'administration des pauses doit
      * pourtant montrer son dossier : sans cette retombée, elle n'afficherait que des
      * zéros, ce qui ne dit rien de ce qu'il a pris.
      *

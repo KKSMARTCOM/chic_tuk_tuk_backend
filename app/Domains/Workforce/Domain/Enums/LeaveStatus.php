@@ -5,7 +5,7 @@ namespace App\Domains\Workforce\Domain\Enums;
 use App\Shared\Enums\HasOptions;
 
 /**
- * Statut d'une demande de congé — colonne `leave_requests.status`.
+ * Statut d'une demande de pause — colonne `leave_requests.status`.
  *
  * Source de vérité : contrainte CHECK `leave_requests_status_check` dans son état
  * courant. La valeur « approved » figurait dans la migration initiale mais a été

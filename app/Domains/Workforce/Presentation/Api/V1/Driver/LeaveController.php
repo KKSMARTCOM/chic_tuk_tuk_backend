@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Les congés de l'espace agent.
+ * Les pauses de l'espace agent.
  *
  * Mêmes règles de try/catch que le BookingController du sous-lot 3a : ValidationException,
  * ApiException et ModelNotFoundException relancées EN PREMIER, \Throwable et non
@@ -33,7 +33,7 @@ final class LeaveController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            Log::error('Erreur lors de la lecture des congés : '.$e->getMessage(), [
+            Log::error('Erreur lors de la lecture des pauses : '.$e->getMessage(), [
                 'exception' => $e,
                 'user_id' => $request->user()?->id,
             ]);
@@ -54,7 +54,7 @@ final class LeaveController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            Log::error('Erreur lors d\'une demande de congé : '.$e->getMessage(), [
+            Log::error('Erreur lors d\'une demande de pause : '.$e->getMessage(), [
                 'exception' => $e,
                 'user_id' => $request->user()?->id,
             ]);

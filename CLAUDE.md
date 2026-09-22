@@ -60,6 +60,23 @@ sur plus de 130 fichiers existants. Toujours lui passer explicitement les fichie
 nouvellement créés — un `vendor/bin/pint` sans argument, ou appliqué à un fichier
 préexistant, produit un diff massif sans rapport avec la livraison en cours.
 
+## Vocabulaire : « pause », jamais « congé »
+
+Une absence d'agent s'appelle une **pause**, dans tout ce qui se lit — libellés,
+titres, menus, messages d'erreur, notifications, commentaires. Jamais « congé » ni
+« congés », y compris dans les tournures où le mot semblerait naturel : on écrit « solde
+de pauses », « gestion des pauses ».
+
+Le **code**, lui, reste sur son vocabulaire anglais `leave` — `LeaveRequest`,
+`leave_days_used`, `view-leaves`, `/admin/leaves`, `LEAVE_NOT_DELETABLE`. Ces noms
+traversent la base, les permissions Spatie, les routes et les codes d'erreur : les
+renommer casserait plus que cela ne clarifierait. La consigne porte sur le mot FRANÇAIS
+montré aux humains.
+
+Deux choses portent le mot « pause » et ne sont pas la même : la **pause agent**
+(`LeaveRequest`, une absence) et la **pause véhicule** (`VehiclePause`, un tricycle
+immobilisé). Quand les deux apparaissent ensemble, les nommer en entier.
+
 ## Nommage : identifiants en anglais, commentaires en français
 
 Les **identifiants** — variables, fonctions, méthodes, classes, propriétés, paramètres,
@@ -165,7 +182,7 @@ avec le mainteneur.
 ### VehiclePause
 
 - reason_type : agent_leave | agent_change | technical | accident | legal | other
-- is_auto : true si créée automatiquement par congé agent
+- is_auto : true si créée automatiquement par pause agent
 
 ### Payment
 
@@ -354,18 +371,18 @@ Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
 `GET /admin/leaves/{driver}` (`view-leaves`), `GET /admin/leave-requests`
 (`view-leave-requests`).
 
-⚠️ Les routes de congés prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
+⚠️ Les routes de pauses prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
 Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se
 confondent sans rien casser de visible : les réponses portent `id` et `user_id`
 explicitement.
 
 ⚠️ **`edit-leaves` a été ajoutée au catalogue le 2026-09-22.** Le quatuor
-view/create/edit/delete existe pour dix domaines ; les congés n'en avaient que trois, si
+view/create/edit/delete existe pour dix domaines ; les pauses n'en avaient que trois, si
 bien que clôturer ou corriger une pause n'avait aucune permission honnête à porter — les
 routes Blade correspondantes n'en exigent d'ailleurs aucune. Accordée à `admin` (par
 calcul) et à `utilisateur`. **Rejouer le seeder après déploiement.**
 
-⚠️ **La liste des congés montre AUSSI les anciens agents**, ceux qui ne sont pas allés au
+⚠️ **La liste des pauses montre AUSSI les anciens agents**, ceux qui ne sont pas allés au
 bout de leur contrat — demandé le 2026-09-22. Le contrôleur Blade ne listait que les
 agents sous contrat actif, et leur dossier devenait inconsultable dès leur départ. Le
 point délicat n'est pas le filtre mais le CALCUL : leur solde est rapporté à leur DERNIER
@@ -378,7 +395,7 @@ divergeraient, et c'est ce qui avait produit l'écran contradictoire du 2026-09-
 ⚠️ L'acquisition d'un ancien agent s'arrête à la date de FIN de son contrat. Sans cette
 borne, quelqu'un parti il y a deux ans continuerait d'accumuler deux jours par mois.
 
-**Les huit écritures de congés** (approuver, refuser, clôturer, poser une pause en cours
+**Les huit écritures de pauses** (approuver, refuser, clôturer, poser une pause en cours
 ou historique, corriger l'une ou l'autre, supprimer) vivent dans
 `app/Domains/Workforce/Application/Actions/`. ⚠️ `Admin\LeaveController` **DÉLÈGUE**
 depuis le 2026-09-22, comme `BookingService` pour les courses : toute modification de
@@ -431,11 +448,11 @@ par `syncPermissions`. Une migration
 (`2026_09_21_180000_rename_role_lecteur_to_utilisateur`) déplace les comptes puis
 supprime l'ancien. Le même piège vaudra pour tout renommage futur.
 
-**Espace agent, sous-lot 3b** : `GET` et `POST /driver/leaves` (les congés), et
+**Espace agent, sous-lot 3b** : `GET` et `POST /driver/leaves` (les pauses), et
 `PATCH /auth/profile` (nom, téléphone, adresse — l'e-mail et la photo en sont exclus).
 
-⚠️ Les routes de congés ne portent **aucune** `permission:`, et c'est délibéré :
-`view-leaves` et `create-leaves` sont les permissions d'ADMINISTRATION des congés de tous
+⚠️ Les routes de pauses ne portent **aucune** `permission:`, et c'est délibéré :
+`view-leaves` et `create-leaves` sont les permissions d'ADMINISTRATION des pauses de tous
 les agents, portées par `lecteur` et `admin`. En réutiliser une ici mêlerait « voir mes
 pauses » et « gérer celles des autres ». `abilities:driver` garde l'espace, et la portée
 vient de `Auth::user()->driver`.
@@ -513,7 +530,7 @@ renvoie le prix déjà majoré (`PriceQuoteData`) pour que le front n'ait rien �
 - `app:expire-bookings` → marque expired les courses pending +24h dépassées
 - `app:process-recurring-bookings` → crée les courses J+1 depuis les abonnements (cron à 1h)
 - `app:generate-daily {--date=}` → génère les paiements journaliers (lun-ven uniquement)
-- `app:activate-leave-pauses` → active les pauses véhicule automatiques liées aux congés agent
+- `app:activate-leave-pauses` → active les pauses véhicule automatiques liées aux pauses agent
 
 ## Scheduler (bootstrap/app.php → withSchedule)
 
@@ -592,13 +609,13 @@ est déployée : elle doit être compatible avec l'image précédente (rollback)
 - DataTables : colonne 0 cachée avec timestamp pour tri, type:'num' dans columnDefs
 - Sanctum + session : Auth::login() obligatoire en plus de createToken()
 - Paiements : commission/driver_earning calculés à la completion, pas à la création
-- Congés : pas de restriction de dépassement, surplus affiché en rouge
+- Pauses : pas de restriction de dépassement, surplus affiché en rouge
 - ⚠️ **`LeaveRequestFactory` pose `effective_days` par défaut**, cohérent avec son état
   par défaut `completed`. Une demande `pending` ou `ongoing` n'en a PAS : utiliser les
   états `pending()` et `ongoing()`, qui les remettent à null. Les calculs de solde lisent
   `effective_days ?? requested_days`, donc un résidu fausse silencieusement le solde —
   piège payé le 2026-09-22, sur un test qui attendait 12 et trouvait 9.
-- ⚠️ **Les compteurs de congés sont PAR CONTRAT.** `DriverContractService` remet
+- ⚠️ **Les compteurs de pauses sont PAR CONTRAT.** `DriverContractService` remet
   `leave_days_used` à zéro à la clôture d'un contrat, et le droit annoncé vaut
   `2 × contract_months` du contrat courant : les pauses d'un contrat précédent ne doivent
   donc pas grever le solde du nouveau. `getLeaveRequestsByStatus()` filtre sur le contrat
@@ -623,7 +640,7 @@ est déployée : elle doit être compatible avec l'image précédente (rollback)
 - ⚠️ **Deux routes orphelines retirées le 2026-09-21** : `client.payments.history` et
   `client.leaves.history` pointaient vers des méthodes inexistantes de
   `DashboardController` et répondaient donc 500. La seconde exigeait `view-leaves`, la
-  permission d'administration des congés de TOUS les agents : la garder aurait poussé à
+  permission d'administration des pauses de TOUS les agents : la garder aurait poussé à
   l'accorder au rôle `client` pour « rendre la route cohérente ».
 
 ## Notifications — l'état réel trouvé le 2026-09-21

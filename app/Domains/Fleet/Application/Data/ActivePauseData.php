@@ -8,7 +8,7 @@ use App\Shared\Data\BaseData;
 /**
  * La pause en cours d'un véhicule, telle que le bandeau de la fiche l'affiche.
  *
- * `reasonLabel` vient de l'accesseur du modèle, qui rend « Congé agent » là où la vue
+ * `reasonLabel` vient de l'accesseur du modèle, qui rend « Pause agent » là où la vue
  * Blade bricolait `ucfirst(str_replace('_', ' ', $reason_type))` et affichait donc
  * « Agent leave » à des utilisateurs francophones. Seule entorse assumée à la règle de
  * transposition à l'identique.

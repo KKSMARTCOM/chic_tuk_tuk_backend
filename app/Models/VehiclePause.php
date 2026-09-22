@@ -29,7 +29,7 @@ class VehiclePause extends Model
 
     // Labels lisibles
     public static array $reasonTypes = [
-        'agent_leave'  => 'Congé agent',
+        'agent_leave'  => 'Pause agent',
         'agent_change' => 'Changement d\'agent',
         'technical'    => 'Problème technique',
         'accident'     => 'Accident',
