@@ -337,9 +337,35 @@ Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
 **Espace propriétaire** (`routes/api/v1/owner.php`) : quatre lectures sous
 `['token.fresh', 'auth:sanctum', 'abilities:owner']` + `permission:view-own-*`.
 
-**Espace administration** (`routes/api/v1/admin.php`) : ouvert le 2026-09-21 avec
-`GET /admin/dashboard`, sous `['token.fresh', 'auth:sanctum', 'abilities:admin']` +
-`permission:view-dashboard`.
+**Espace administration** (`routes/api/v1/admin.php`), sous
+`['token.fresh', 'auth:sanctum', 'abilities:admin']` + une permission par route :
+`GET /admin/dashboard` (`view-dashboard`), `GET /admin/leaves` et
+`GET /admin/leaves/{driver}` (`view-leaves`), `GET /admin/leave-requests`
+(`view-leave-requests`).
+
+⚠️ Les routes de congés prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
+Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se
+confondent sans rien casser de visible : les réponses portent `id` et `user_id`
+explicitement.
+
+⚠️ **`edit-leaves` a été ajoutée au catalogue le 2026-09-22.** Le quatuor
+view/create/edit/delete existe pour dix domaines ; les congés n'en avaient que trois, si
+bien que clôturer ou corriger une pause n'avait aucune permission honnête à porter — les
+routes Blade correspondantes n'en exigent d'ailleurs aucune. Accordée à `admin` (par
+calcul) et à `utilisateur`. **Rejouer le seeder après déploiement.**
+
+⚠️ **La liste des congés montre AUSSI les anciens agents**, ceux qui ne sont pas allés au
+bout de leur contrat — demandé le 2026-09-22. Le contrôleur Blade ne listait que les
+agents sous contrat actif, et leur dossier devenait inconsultable dès leur départ. Le
+point délicat n'est pas le filtre mais le CALCUL : leur solde est rapporté à leur DERNIER
+contrat (`Driver::contratDeReference()`), faute de quoi la ligne n'afficherait que des
+zéros. `App\Domains\Workforce\Domain\LeaveBalance` porte la formule, paramétrée par le
+contrat, et sert les deux lectures — celle de l'agent (contrat actif, zéro sans contrat)
+et celle de l'administration (contrat de référence). Une seule implémentation : deux
+divergeraient, et c'est ce qui avait produit l'écran contradictoire du 2026-09-21.
+
+⚠️ L'acquisition d'un ancien agent s'arrête à la date de FIN de son contrat. Sans cette
+borne, quelqu'un parti il y a deux ans continuerait d'accumuler deux jours par mois.
 
 ⚠️ Le profil `admin` recouvre DEUX rôles très différents : `admin` (62 permissions) et
 `utilisateur` — anciennement `lecteur`, libellé « Utilisateur » — qui en porte 41 dont 27
@@ -520,6 +546,11 @@ est déployée : elle doit être compatible avec l'image précédente (rollback)
 - Sanctum + session : Auth::login() obligatoire en plus de createToken()
 - Paiements : commission/driver_earning calculés à la completion, pas à la création
 - Congés : pas de restriction de dépassement, surplus affiché en rouge
+- ⚠️ **`LeaveRequestFactory` pose `effective_days` par défaut**, cohérent avec son état
+  par défaut `completed`. Une demande `pending` ou `ongoing` n'en a PAS : utiliser les
+  états `pending()` et `ongoing()`, qui les remettent à null. Les calculs de solde lisent
+  `effective_days ?? requested_days`, donc un résidu fausse silencieusement le solde —
+  piège payé le 2026-09-22, sur un test qui attendait 12 et trouvait 9.
 - ⚠️ **Les compteurs de congés sont PAR CONTRAT.** `DriverContractService` remet
   `leave_days_used` à zéro à la clôture d'un contrat, et le droit annoncé vaut
   `2 × contract_months` du contrat courant : les pauses d'un contrat précédent ne doivent

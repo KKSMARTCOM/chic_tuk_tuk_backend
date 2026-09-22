@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domains\Workforce\Domain\LeaveBalance;
 use App\Traits\HasUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -276,6 +277,29 @@ class Driver extends Model
     }
 
     // Nouvelles relations
+    /**
+     * Le contrat qui sert de référence au solde de congés.
+     *
+     * ⚠️ Le contrat ACTIF s'il y en a un, sinon le DERNIER. Un ancien agent — parti avant
+     * le terme — n'a plus de contrat actif, et la liste d'administration des congés doit
+     * pourtant montrer son dossier : sans cette retombée, elle n'afficherait que des
+     * zéros, ce qui ne dit rien de ce qu'il a pris.
+     *
+     * L'écran de l'AGENT, lui, ne s'en sert pas : il montre ce à quoi on a droit
+     * maintenant, donc zéro sans contrat en cours.
+     */
+    public function contratDeReference(): ?DriverContract
+    {
+        return $this->activeDriverContract
+            ?? $this->driverContracts()->orderByDesc('start_date')->first();
+    }
+
+    /** Le solde rapporté au contrat de référence — pour l'administration. */
+    public function soldeDeReference(): LeaveBalance
+    {
+        return LeaveBalance::pour($this, $this->contratDeReference());
+    }
+
     public function driverContracts()
     {
         return $this->hasMany(DriverContract::class);

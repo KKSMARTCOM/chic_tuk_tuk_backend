@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
+use App\Domains\Workforce\Presentation\Api\V1\Admin\LeaveController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,4 +38,21 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::get('/dashboard', DashboardController::class)
             ->middleware('permission:view-dashboard')
             ->name('dashboard');
+
+        /*
+         * Les congés.
+         *
+         * ⚠️ Les routes prennent l'identifiant de l'AGENT (`drivers.id`), là où le Blade
+         * emploie celui de son COMPTE (`users.id`). Les deux se ressemblent — ce sont
+         * deux uuid — et se confondent sans rien casser de visible : les réponses
+         * portent donc `id` et `user_id` explicitement.
+         */
+        Route::middleware('permission:view-leaves')->group(function () {
+            Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
+            Route::get('/leaves/{driver}', [LeaveController::class, 'show'])->name('leaves.show');
+        });
+
+        Route::get('/leave-requests', [LeaveController::class, 'requests'])
+            ->middleware('permission:view-leave-requests')
+            ->name('leave-requests.index');
     });

@@ -102,6 +102,11 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         // Congés
         'create-leaves' => ['Créer un congé', 'Ajouter un congé à un agent'],
         'delete-leaves' => ['Révoquer un congé', 'Révoquer un congé d\'un agent'],
+        // Ajoutée le 2026-09-22. Le quatuor view/create/edit/delete existe pour dix
+        // autres domaines ; les congés n'en avaient que trois, si bien que clôturer ou
+        // corriger une pause n'avait aucune permission à porter. Les routes Blade
+        // correspondantes n'en exigent d'ailleurs aucune — seulement `profil:admin`.
+        'edit-leaves' => ['Modifier un congé', 'Clôturer ou corriger un congé'],
         'view-leaves' => ['Voir les congés', 'Voir les congés des agents'],
 
         // Propriétaire — ses contrats
@@ -205,6 +210,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'edit-bookings',
                 'edit-circuits',
                 'edit-drivers',
+                'edit-leaves',
                 'edit-pricing',
                 'edit-promo-codes',
                 'edit-zones',
