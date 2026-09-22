@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Models\Driver;
 use App\Models\LeaveRequest;
 use App\Services\VehicleService;
 use App\Shared\Http\ApiException;
@@ -15,18 +16,22 @@ use Illuminate\Support\Facades\DB;
  * défaut le plus coûteux de cet écran : le propriétaire verrait son tricycle immobilisé
  * à une date, l'agent en pause à une autre, et personne ne saurait laquelle fait foi.
  *
- * ⚠️ La disponibilité n'est réévaluée QUE dans un sens : avancer la date à aujourd'hui
- * rend l'agent indisponible, la repousser ne le rend PAS disponible.
+ * ⚠️ La disponibilité suit la DATE, dans les deux sens — corrigé le 2026-09-22 sur
+ * décision explicite.
  *
- * Ce n'est pas un oubli de transposition. Le contrôleur Blade porte bien une seconde
- * branche, mais elle exige `! $driver->hasOngoingLeave()` — or la pause qu'on corrige
- * reste `ongoing`, donc la condition est toujours fausse et la branche ne s'exécute
- * jamais. Son auteur l'avait noté : « cas limite improbable ici, gardé par sécurité ».
+ * Le contrôleur Blade ne la réévaluait que vers l'indisponibilité : sa seconde branche
+ * exigeait `! $driver->hasOngoingLeave()`, toujours faux puisque la pause qu'on corrige
+ * reste `ongoing`. Un agent dont la pause était repoussée au mois prochain restait donc
+ * bloqué d'ici là, sans pouvoir prendre de course.
  *
- * On reprend ce comportement tel quel. Un agent dont la pause est repoussée au mois
- * prochain reste donc marqué indisponible d'ici là, ce qui est discutable — mais le
- * corriger serait un changement de règle métier, pas une transposition, et cela se
- * décide ailleurs.
+ * Rendre la règle symétrique ne crée pas d'état nouveau : `AddOngoingLeave` et
+ * `ApproveLeaveRequest` laissent déjà l'agent disponible quand la pause commence plus
+ * tard. « Pause `ongoing` à début futur, agent disponible » est donc une situation que
+ * le système accepte déjà — la correction s'y conforme au lieu de faire exception.
+ *
+ * ⚠️ Mais pas aveuglément : une AUTRE pause peut avoir réellement commencé. On ne rend
+ * disponible que si aucune pause en cours n'a débuté. Sans cette vérification, corriger
+ * une pause en remettrait l'agent en service alors qu'une seconde le retient.
  */
 final class UpdateOngoingLeave
 {
@@ -54,12 +59,28 @@ final class UpdateOngoingLeave
                 $this->vehicleService->correctPauseDates($pause->vehiclePause, $debut->toDateString());
             }
 
-            // Transposé à l'identique : seul le passage à `false` est atteignable.
-            if ($debut->lte(now()->startOfDay())) {
-                $pause->driver?->update(['is_available' => false]);
+            $agent = $pause->driver;
+
+            if ($agent) {
+                $agent->update(['is_available' => ! $this->unePauseACommence($agent)]);
             }
 
             return $pause->refresh();
         });
+    }
+
+    /**
+     * Une pause de cet agent a-t-elle RÉELLEMENT commencé ?
+     *
+     * `hasOngoingLeave()` ne suffit pas : il répond oui pour une pause `ongoing` dont la
+     * date de début est encore à venir, et bloquerait l'agent alors qu'il peut rouler.
+     * C'est la date qui décide, pas le statut.
+     */
+    private function unePauseACommence(Driver $agent): bool
+    {
+        return $agent->leaveRequests()
+            ->where('status', 'ongoing')
+            ->whereDate('start_date', '<=', now()->startOfDay())
+            ->exists();
     }
 }

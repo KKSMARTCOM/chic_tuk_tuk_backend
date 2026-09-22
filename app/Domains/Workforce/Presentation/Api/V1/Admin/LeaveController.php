@@ -5,7 +5,7 @@ namespace App\Domains\Workforce\Presentation\Api\V1\Admin;
 use App\Domains\Workforce\Application\Actions\AddHistoricalLeave;
 use App\Domains\Workforce\Application\Actions\AddOngoingLeave;
 use App\Domains\Workforce\Application\Actions\ApproveLeaveRequest;
-use App\Domains\Workforce\Application\Actions\DeleteHistoricalLeave;
+use App\Domains\Workforce\Application\Actions\DeleteLeave;
 use App\Domains\Workforce\Application\Actions\EndLeave;
 use App\Domains\Workforce\Application\Actions\ListDriversForLeaves;
 use App\Domains\Workforce\Application\Actions\RejectLeaveRequest;
@@ -199,7 +199,7 @@ final class LeaveController
         }
     }
 
-    public function destroy(Request $request, string $id, DeleteHistoricalLeave $supprimer): Response|JsonResponse
+    public function destroy(Request $request, string $id, DeleteLeave $supprimer): Response|JsonResponse
     {
         try {
             $supprimer(LeaveRequest::findOrFail($id));

@@ -440,6 +440,125 @@ class AdminLeaveWritesTest extends TestCase
         );
     }
 
+    public function test_repousser_une_pause_en_cours_rend_l_agent_a_nouveau_disponible(): void
+    {
+        // ⚠️ Changement de règle assumé le 2026-09-22. Le Blade ne réévaluait la
+        // disponibilité que vers le bas : un agent dont la pause était repoussée au mois
+        // prochain restait bloqué d'ici là, sans pouvoir prendre de course.
+        //
+        // Ce n'est pas un état nouveau : `AddOngoingLeave` et `ApproveLeaveRequest`
+        // laissent déjà l'agent disponible quand la pause commence plus tard.
+        $agent = $this->agent();
+        $demande = $this->demande($agent, 'today');
+        $token = $this->admin();
+
+        $this->entete($token)->postJson("/api/v1/admin/leave-requests/{$demande->id}/approve")->assertOk();
+        $this->assertFalse($agent->fresh()->is_available);
+
+        $this->entete($token)
+            ->patchJson("/api/v1/admin/leaves/{$demande->id}/ongoing", [
+                'start_date' => now()->addMonth()->toDateString(),
+                'requested_days' => 3,
+            ])
+            ->assertOk();
+
+        $this->assertTrue($agent->fresh()->is_available, "l'agent est resté bloqué alors que sa pause est repoussée");
+    }
+
+    public function test_repousser_une_pause_ne_libere_pas_un_agent_qu_une_autre_pause_retient(): void
+    {
+        // ⚠️ Le garde-fou du changement ci-dessus. Sans lui, corriger une pause remettrait
+        // l'agent en service alors qu'une seconde, réellement commencée, le retient.
+        $agent = $this->agent();
+        $enCoursDepuisHier = LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $agent->id,
+            'driver_contract_id' => $agent->activeDriverContract->id,
+            'start_date' => now()->subDay()->toDateString(),
+        ]);
+        $aCorriger = LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $agent->id,
+            'driver_contract_id' => $agent->activeDriverContract->id,
+            'start_date' => now()->toDateString(),
+        ]);
+        $agent->update(['is_available' => false]);
+
+        $this->entete($this->admin())
+            ->patchJson("/api/v1/admin/leaves/{$aCorriger->id}/ongoing", [
+                'start_date' => now()->addMonth()->toDateString(),
+                'requested_days' => 2,
+            ])
+            ->assertOk();
+
+        $this->assertFalse(
+            $agent->fresh()->is_available,
+            "l'agent a été remis en service alors qu'une autre pause court depuis hier",
+        );
+        $this->assertSame('ongoing', $enCoursDepuisHier->fresh()->status);
+    }
+
+    public function test_supprimer_une_pause_en_cours_libere_l_agent_et_le_vehicule(): void
+    {
+        // ⚠️ Demandé le 2026-09-22. Avant cela, une pause en cours posée par erreur
+        // n'avait aucune issue : on ne pouvait que la « clôturer », ce qui enregistre des
+        // jours effectifs et les consomme — on gardait la trace d'une absence qui n'a pas
+        // eu lieu.
+        $agent = $this->agent();
+        $demande = $this->demande($agent, 'today');
+        $token = $this->admin();
+
+        $this->entete($token)->postJson("/api/v1/admin/leave-requests/{$demande->id}/approve")->assertOk();
+        $idPauseVehicule = $demande->fresh()->vehicle_pause_id;
+        $this->assertFalse($agent->fresh()->is_available);
+
+        $this->entete($token)->deleteJson("/api/v1/admin/leaves/{$demande->id}")->assertNoContent();
+
+        $this->assertDatabaseMissing('leave_requests', ['id' => $demande->id]);
+        // ⚠️ La pause véhicule est ANNULÉE, pas clôturée : la clôturer laisserait dans
+        // l'historique du propriétaire une immobilisation fictive.
+        $this->assertDatabaseMissing('vehicle_pauses', ['id' => $idPauseVehicule]);
+        $this->assertTrue($agent->fresh()->is_available, "l'agent est resté bloqué");
+    }
+
+    public function test_supprimer_une_pause_ne_libere_pas_un_agent_qu_une_autre_retient(): void
+    {
+        $agent = $this->agent();
+        LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $agent->id,
+            'driver_contract_id' => $agent->activeDriverContract->id,
+            'start_date' => now()->subDay()->toDateString(),
+        ]);
+        $aSupprimer = LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $agent->id,
+            'driver_contract_id' => $agent->activeDriverContract->id,
+            'start_date' => now()->toDateString(),
+        ]);
+        $agent->update(['is_available' => false]);
+
+        $this->entete($this->admin())->deleteJson("/api/v1/admin/leaves/{$aSupprimer->id}")->assertNoContent();
+
+        $this->assertFalse($agent->fresh()->is_available, 'remis en service alors qu\'une autre pause court');
+    }
+
+    public function test_une_pause_vecue_issue_d_une_demande_d_agent_ne_s_efface_pas(): void
+    {
+        // ⚠️ La limite du changement. Une pause terminée née d'une demande d'agent est un
+        // FAIT : l'effacer supprimerait une absence qui a eu lieu, pas une faute de
+        // frappe. Seules les saisies administratives s'effacent une fois terminées.
+        $agent = $this->agent();
+        $vecue = LeaveRequest::factory()->create([
+            'driver_id' => $agent->id,
+            'driver_contract_id' => $agent->activeDriverContract->id,
+            'source' => 'driver_request',
+        ]);
+
+        $this->entete($this->admin())
+            ->deleteJson("/api/v1/admin/leaves/{$vecue->id}")
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'LEAVE_NOT_DELETABLE');
+
+        $this->assertDatabaseHas('leave_requests', ['id' => $vecue->id]);
+    }
+
     // ----- Les gardes --------------------------------------------------------
 
     public function test_chaque_ecriture_exige_sa_propre_permission(): void

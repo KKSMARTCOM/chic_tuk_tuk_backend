@@ -382,14 +382,26 @@ réellement pris, clôture la pause véhicule, et ne rend l'agent disponible que
 reste AUCUNE autre pause en cours. Corriger une pause en cours répercute la date sur la
 pause véhicule — les laisser diverger est le défaut le plus coûteux de cet écran.
 
-⚠️ **Seules les pauses d'origine ADMINISTRATIVE se corrigent ou se suppriment**
-(`admin_historical`, `legacy`). Une pause terminée issue d'une demande d'agent a été
-vécue : la réécrire changerait un fait, pas une saisie.
+⚠️ **Une pause TERMINÉE ne se corrige et ne se supprime que si elle est d'origine
+ADMINISTRATIVE** (`admin_historical`, `legacy`). Une pause terminée issue d'une demande
+d'agent a été vécue : la réécrire ou l'effacer changerait un fait, pas une saisie.
 
-⚠️ `UpdateOngoingLeave` ne rend PAS l'agent disponible quand on repousse sa pause. Ce
-n'est pas un oubli : la branche correspondante du contrôleur Blade exige
-`! hasOngoingLeave()`, toujours faux puisque la pause reste `ongoing`, donc elle ne
-s'exécute jamais. Comportement repris tel quel — le changer serait une décision métier.
+⚠️ **Une pause EN COURS se supprime, quelle que soit son origine** — ajouté le
+2026-09-22. Rien n'a encore été consommé. Avant cela, une pause posée par erreur n'avait
+aucune issue : on ne pouvait que la « clôturer », ce qui enregistre des jours effectifs et
+les consomme, gardant la trace d'une absence qui n'a pas eu lieu.
+
+La suppression DÉFAIT les effets : la pause véhicule est **annulée** (`cancelPause`) et
+non clôturée — la clôturer laisserait dans l'historique du propriétaire une
+immobilisation fictive —, et l'agent redevient disponible. ⚠️ Pour une pause née d'une
+demande d'agent, l'effacement emporte la demande : l'agent devra la redéposer.
+
+⚠️ **La disponibilité se décide sur la DATE, pas sur le statut.** Une pause `ongoing`
+dont le début est à venir ne bloque personne — `AddOngoingLeave` et `ApproveLeaveRequest`
+laissent d'ailleurs l'agent disponible dans ce cas. `UpdateOngoingLeave` et `DeleteLeave`
+suivent la même règle depuis le 2026-09-22 : `hasOngoingLeave()` ne suffit pas, il répond
+oui pour une pause future. Et on ne libère jamais un agent qu'une AUTRE pause,
+réellement commencée, retient.
 
 ⚠️ Le profil `admin` recouvre DEUX rôles très différents : `admin` (62 permissions) et
 `utilisateur` — anciennement `lecteur`, libellé « Utilisateur » — qui en porte 41 dont 27

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Domains\Workforce\Application\Actions\AddHistoricalLeave;
 use App\Domains\Workforce\Application\Actions\AddOngoingLeave;
 use App\Domains\Workforce\Application\Actions\ApproveLeaveRequest;
-use App\Domains\Workforce\Application\Actions\DeleteHistoricalLeave;
+use App\Domains\Workforce\Application\Actions\DeleteLeave;
 use App\Domains\Workforce\Application\Actions\EndLeave;
 use App\Domains\Workforce\Application\Actions\RejectLeaveRequest;
 use App\Domains\Workforce\Application\Actions\UpdateHistoricalLeave;
@@ -271,7 +271,7 @@ class LeaveController extends Controller
     public function destroyHistoricalLeave(LeaveRequest $leaveRequest)
     {
         try {
-            app(DeleteHistoricalLeave::class)($leaveRequest);
+            app(DeleteLeave::class)($leaveRequest);
         } catch (ApiException $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
