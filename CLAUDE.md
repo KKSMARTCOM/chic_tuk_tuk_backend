@@ -367,6 +367,30 @@ divergeraient, et c'est ce qui avait produit l'écran contradictoire du 2026-09-
 ⚠️ L'acquisition d'un ancien agent s'arrête à la date de FIN de son contrat. Sans cette
 borne, quelqu'un parti il y a deux ans continuerait d'accumuler deux jours par mois.
 
+**Les huit écritures de congés** (approuver, refuser, clôturer, poser une pause en cours
+ou historique, corriger l'une ou l'autre, supprimer) vivent dans
+`app/Domains/Workforce/Application/Actions/`. ⚠️ `Admin\LeaveController` **DÉLÈGUE**
+depuis le 2026-09-22, comme `BookingService` pour les courses : toute modification de
+comportement se fait dans l'action, jamais dans le contrôleur, sous peine de recréer deux
+implémentations divergentes. Les refus sont des `ApiException` portant les messages
+d'origine mot pour mot ; le contrôleur les rend en flash, à l'identique.
+
+⚠️ **Ce sont les EFFETS DE BORD qui se perdent en transposant**, parce qu'ils ne se voient
+pas dans la réponse. Approuver crée une pause VÉHICULE et rend l'agent indisponible — mais
+seulement si la pause commence aujourd'hui ou avant. Clôturer recompte les jours OUVRÉS
+réellement pris, clôture la pause véhicule, et ne rend l'agent disponible que s'il ne lui
+reste AUCUNE autre pause en cours. Corriger une pause en cours répercute la date sur la
+pause véhicule — les laisser diverger est le défaut le plus coûteux de cet écran.
+
+⚠️ **Seules les pauses d'origine ADMINISTRATIVE se corrigent ou se suppriment**
+(`admin_historical`, `legacy`). Une pause terminée issue d'une demande d'agent a été
+vécue : la réécrire changerait un fait, pas une saisie.
+
+⚠️ `UpdateOngoingLeave` ne rend PAS l'agent disponible quand on repousse sa pause. Ce
+n'est pas un oubli : la branche correspondante du contrôleur Blade exige
+`! hasOngoingLeave()`, toujours faux puisque la pause reste `ongoing`, donc elle ne
+s'exécute jamais. Comportement repris tel quel — le changer serait une décision métier.
+
 ⚠️ Le profil `admin` recouvre DEUX rôles très différents : `admin` (62 permissions) et
 `utilisateur` — anciennement `lecteur`, libellé « Utilisateur » — qui en porte 41 dont 27
 écritures. La garde route par route est ce qui les distingue : ne jamais s'appuyer sur

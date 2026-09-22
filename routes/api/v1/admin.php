@@ -55,4 +55,39 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::get('/leave-requests', [LeaveController::class, 'requests'])
             ->middleware('permission:view-leave-requests')
             ->name('leave-requests.index');
+
+        /*
+         * Les écritures sur les congés.
+         *
+         * ⚠️ Six de ces huit routes n'ont AUCUNE garde de permission côté Blade — seulement
+         * `profil:admin`. L'API est donc plus stricte, comme au sous-lot 3a. Le profil ne
+         * suffit pas : il recouvre `admin` et `utilisateur`, et c'est la permission qui les
+         * distingue.
+         *
+         * ⚠️ `edit-leaves` a été ajoutée au catalogue le 2026-09-22 : clôturer ou corriger
+         * une pause n'est ni la créer ni la supprimer, et emprunter `create-leaves` aurait
+         * dit autre chose. Rejouer le seeder de référence après déploiement.
+         */
+        Route::post('/leave-requests/{leave}/approve', [LeaveController::class, 'approve'])
+            ->middleware('permission:approve-leave-requests')->name('leave-requests.approve');
+        Route::post('/leave-requests/{leave}/reject', [LeaveController::class, 'reject'])
+            ->middleware('permission:reject-leave-requests')->name('leave-requests.reject');
+
+        Route::middleware('permission:create-leaves')->group(function () {
+            Route::post('/drivers/{driver}/leaves/ongoing', [LeaveController::class, 'storeOngoing'])
+                ->name('leaves.store-ongoing');
+            Route::post('/drivers/{driver}/leaves/historical', [LeaveController::class, 'storeHistorical'])
+                ->name('leaves.store-historical');
+        });
+
+        Route::middleware('permission:edit-leaves')->group(function () {
+            Route::patch('/leaves/{leave}/end', [LeaveController::class, 'end'])->name('leaves.end');
+            Route::patch('/leaves/{leave}/historical', [LeaveController::class, 'updateHistorical'])
+                ->name('leaves.update-historical');
+            Route::patch('/leaves/{leave}/ongoing', [LeaveController::class, 'updateOngoing'])
+                ->name('leaves.update-ongoing');
+        });
+
+        Route::delete('/leaves/{leave}', [LeaveController::class, 'destroy'])
+            ->middleware('permission:delete-leaves')->name('leaves.destroy');
     });

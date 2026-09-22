@@ -2,24 +2,32 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domains\Workforce\Application\Actions\AddHistoricalLeave;
+use App\Domains\Workforce\Application\Actions\AddOngoingLeave;
+use App\Domains\Workforce\Application\Actions\ApproveLeaveRequest;
+use App\Domains\Workforce\Application\Actions\DeleteHistoricalLeave;
+use App\Domains\Workforce\Application\Actions\EndLeave;
+use App\Domains\Workforce\Application\Actions\RejectLeaveRequest;
+use App\Domains\Workforce\Application\Actions\UpdateHistoricalLeave;
+use App\Domains\Workforce\Application\Actions\UpdateOngoingLeave;
+use App\Shared\Http\ApiException;
 use App\Domains\Notification\Application\Notifier;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\LeaveRequest;
 use App\Models\User;
-use App\Services\VehicleService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class LeaveController extends Controller
 {
-    protected $vehicleService;
-
-    public function __construct(VehicleService $vehicleService)
-    {
-        $this->vehicleService = $vehicleService;
-    }
+    /*
+     * ⚠️ `VehicleService` n'est plus injecté ici depuis le 2026-09-22 : les pauses
+     * véhicule sont créées, clôturées et corrigées par les actions du domaine Workforce,
+     * qui portent désormais toute la logique d'écriture. Le garder aurait laissé croire
+     * que ce contrôleur fait encore quelque chose du parc.
+     */
 
     /**
      * Display all drivers with their leave information
@@ -144,43 +152,19 @@ class LeaveController extends Controller
     /**
      * Approve a leave request
      */
+    /**
+     * ⚠️ Le corps vit dans `ApproveLeaveRequest` depuis le 2026-09-22 : une seule
+     * implémentation pour le chemin Blade et pour l'API, comme les cinq écritures de
+     * course du sous-lot 3a. Les refus sont des `ApiException` portant les messages
+     * d'origine mot pour mot — on les rend ici en flash, à l'identique.
+     */
     public function approveRequest(LeaveRequest $leaveRequest)
     {
-        $driver = $leaveRequest->driver;
-
-        if (!$driver->activeDriverContract) {
-            return redirect()->back()->with('error', "Cet agent n'a pas de contrat actif. Impossible d'approuver la pause.");
+        try {
+            app(ApproveLeaveRequest::class)($leaveRequest);
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        if ($driver->hasOngoingLeave()) {
-            return redirect()->back()->with('error', "L'agent a déjà une pause en cours.");
-        }
-
-        // Approve the request
-        $leaveRequest->update([
-            'status' => 'ongoing',
-            'rejection_reason' => null,
-        ]);
-
-        $activeContract = $driver->activeDriverContract;
-        if ($activeContract) {
-            $pause = $this->vehicleService->createAutoAgentPause(
-                $activeContract->vehicle_id,
-                $activeContract->id,
-                $leaveRequest->start_date->toDateString()
-            );
-
-            $leaveRequest->update(['vehicle_pause_id' => $pause->id]);
-        }
-
-        // Add leave dates to driver
-        if ($leaveRequest->start_date->lte(now()->startOfDay())) {
-            $driver->update(['is_available' => false]);
-        }
-
-        // L'agent est prévenu, pas les administrateurs : c'est l'un d'eux qui vient de
-        // valider, et un accusé de réception de son propre geste serait du bruit.
-        app(Notifier::class)->leaveApproved($leaveRequest->refresh());
 
         return redirect()->back()->with('success', 'Demande de Pause approuvée avec succès.');
     }
@@ -190,63 +174,33 @@ class LeaveController extends Controller
      */
     public function rejectRequest(Request $request, LeaveRequest $leaveRequest)
     {
-        $request->validate([
-            'rejection_reason' => 'required|string|min:5',
-        ]);
+        $request->validate(['rejection_reason' => 'required|string|min:5']);
 
-        $leaveRequest->update([
-            'status' => 'rejected',
-            'rejection_reason' => $request->rejection_reason,
-        ]);
-
-        // Le motif voyage avec la notification : sans lui, l'agent doit ouvrir l'écran
-        // pour savoir pourquoi, et le refus paraît arbitraire.
-        app(Notifier::class)->leaveRejected($leaveRequest->refresh());
+        try {
+            app(RejectLeaveRequest::class)($leaveRequest, $request->rejection_reason);
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
 
         return redirect()->back()->with('success', 'Demande de Pause rejetée avec succès.');
     }
 
-    /**
-     * Add an instant leave directly for a driver
-     */
     public function addOngoingLeave(Request $request, string $id)
     {
-        $driver = Driver::findOrFail($id);
-
         $request->validate([
             'start_date' => 'required|date',
             'requested_days' => 'required|integer|min:1',
         ]);
 
-        if ($driver->hasOngoingLeave()) {
-            return redirect()->back()->with('error', "L'agent a déjà une pause en cours. Terminez-la d'abord.");
-        }
-
-        $activeContract = $driver->activeDriverContract;
-        if (!$activeContract) {
-            return redirect()->back()->with('error', 'Aucun contrat actif pour cet agent.');
-        }
-
-        $leaveRequest = LeaveRequest::create([
-            'driver_id' => $driver->id,
-            'driver_contract_id' => $activeContract->id,
-            'start_date' => $request->start_date,
-            'requested_days' => $request->requested_days,
-            'status' => 'ongoing',
-            'source' => 'admin_instant',
-            'created_by' => Auth::user()->id,
-        ]);
-
-        $pause = $this->vehicleService->createAutoAgentPause(
-            $activeContract->vehicle_id,
-            $activeContract->id,
-            $request->start_date
-        );
-
-        $leaveRequest->update(['vehicle_pause_id' => $pause->id]);
-
-        if (Carbon::parse($request->start_date)->lte(now()->startOfDay())) {
-            $driver->update(['is_available' => false]);
+        try {
+            app(AddOngoingLeave::class)(
+                Driver::findOrFail($id),
+                $request->start_date,
+                (int) $request->requested_days,
+                (string) Auth::id(),
+            );
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
 
         return redirect()->back()->with('success', 'Pause ajoutée et activée avec succès.');
@@ -257,40 +211,21 @@ class LeaveController extends Controller
      */
     public function addHistoricalLeave(Request $request, string $id)
     {
-        $driver = Driver::findOrFail($id);
-
         $request->validate([
             'start_date' => 'required|date|before:today',
             'requested_days' => 'required|integer|min:1',
         ]);
 
-        $contract = $driver->activeDriverContract;
-
-        $start = Carbon::parse($request->start_date)->startOfDay();
-
-        if ($start->lt(Carbon::parse($contract->start_date)->startOfDay())) {
-            return redirect()->back()->with('error', "La date de début de la pause ne peut pas être antérieure à la date de début du contrat (" . Carbon::parse($contract->start_date)->format('d/m/Y') . ").");
+        try {
+            app(AddHistoricalLeave::class)(
+                Driver::findOrFail($id),
+                $request->start_date,
+                (int) $request->requested_days,
+                (string) Auth::id(),
+            );
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        $end   = LeaveRequest::addBusinessDays($start, $request->requested_days);
-
-        if ($end->gte(now()->startOfDay())) {
-            return redirect()->back()->with('error', "Une pause historique doit être entièrement terminée avant aujourd'hui.");
-        }
-
-        LeaveRequest::create([
-            'driver_id' => $driver->id,
-            'driver_contract_id' => $driver->activeDriverContract?->id,
-            'start_date' => $start->toDateString(),
-            'requested_days' => $request->requested_days,
-            'end_date' => $end->toDateString(),
-            'effective_days' => $request->requested_days,
-            'status' => 'completed',
-            'source' => 'admin_historical',
-            'created_by' => Auth::user()->id,
-        ]);
-
-        $driver->markLeaveDaysUsed($request->requested_days);
 
         return redirect()->back()->with('success', 'Pause historique ajoutée avec succès.');
     }
@@ -300,37 +235,15 @@ class LeaveController extends Controller
      */
     public function endLeave(Request $request, LeaveRequest $leaveRequest)
     {
-        if ($leaveRequest->status !== 'ongoing') {
-            return redirect()->back()->with('error', "Cette pause n'est pas en cours.");
-        }
-
         $request->validate(['end_date' => 'required|date']);
 
-        $end = Carbon::parse($request->end_date)->startOfDay();
-        if ($end->lt($leaveRequest->start_date)) {
-            return redirect()->back()->with('error', 'La date de fin ne peut pas précéder la date de début.');
+        try {
+            $cloturee = app(EndLeave::class)($leaveRequest, $request->end_date);
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
 
-        $effectiveDays = LeaveRequest::countBusinessDays($leaveRequest->start_date, $end);
-
-        $leaveRequest->update([
-            'end_date' => $end->toDateString(),
-            'effective_days' => $effectiveDays,
-            'status' => 'completed',
-        ]);
-
-        $driver = $leaveRequest->driver;
-        $driver->markLeaveDaysUsed($effectiveDays);
-
-        if ($leaveRequest->vehiclePause) {
-            $this->vehicleService->endPause($leaveRequest->vehiclePause, $end->toDateString());
-        }
-
-        if (!$driver->hasOngoingLeave()) {
-            $driver->update(['is_available' => true]);
-        }
-
-        return redirect()->back()->with('success', "Pause terminée. Jours effectifs : {$effectiveDays}.");
+        return redirect()->back()->with('success', "Pause terminée. Jours effectifs : {$cloturee->effective_days}.");
     }
 
     /**
@@ -338,35 +251,16 @@ class LeaveController extends Controller
      */
     public function updateHistoricalLeave(Request $request, LeaveRequest $leaveRequest)
     {
-        if (!in_array($leaveRequest->source, ['admin_historical', 'legacy']) || $leaveRequest->status !== 'completed') {
-            return redirect()->back()->with('error', "Seules les pauses historiques peuvent être modifiées.");
-        }
-
         $request->validate([
             'start_date' => 'required|date|before:today',
             'requested_days' => 'required|integer|min:1',
         ]);
 
-        $start = Carbon::parse($request->start_date)->startOfDay();
-        $end   = LeaveRequest::addBusinessDays($start, $request->requested_days);
-
-        if ($end->gte(now()->startOfDay())) {
-            return redirect()->back()->with('error', "Une pause historique doit rester entièrement terminée avant aujourd'hui.");
+        try {
+            app(UpdateHistoricalLeave::class)($leaveRequest, $request->start_date, (int) $request->requested_days);
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        $driver = $leaveRequest->driver;
-
-        // On retire l'ancien décompte avant d'appliquer le nouveau
-        $driver->markLeaveDaysUsed(- ($leaveRequest->effective_days ?? 0));
-
-        $leaveRequest->update([
-            'start_date' => $start->toDateString(),
-            'requested_days' => $request->requested_days,
-            'end_date' => $end->toDateString(),
-            'effective_days' => $request->requested_days,
-        ]);
-
-        $driver->markLeaveDaysUsed($request->requested_days);
 
         return redirect()->back()->with('success', 'Pause historique modifiée avec succès.');
     }
@@ -376,51 +270,26 @@ class LeaveController extends Controller
      */
     public function destroyHistoricalLeave(LeaveRequest $leaveRequest)
     {
-        if (!in_array($leaveRequest->source, ['admin_historical', 'legacy']) || $leaveRequest->status !== 'completed') {
-            return redirect()->back()->with('error', "Seules les pauses historiques peuvent être supprimées.");
+        try {
+            app(DeleteHistoricalLeave::class)($leaveRequest);
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
-
-        $driver = $leaveRequest->driver;
-        $driver->markLeaveDaysUsed(- ($leaveRequest->effective_days ?? 0));
-
-        $leaveRequest->delete();
 
         return redirect()->back()->with('success', 'Pause historique supprimée avec succès.');
     }
 
     public function updateOngoingLeave(Request $request, LeaveRequest $leaveRequest)
     {
-        if ($leaveRequest->status !== 'ongoing') {
-            return redirect()->back()->with('error', "Seule une pause en cours peut être corrigée ici.");
-        }
-
         $request->validate([
             'start_date' => 'required|date',
             'requested_days' => 'required|integer|min:1',
         ]);
 
-        $driver = $leaveRequest->driver;
-        $newStart = Carbon::parse($request->start_date)->startOfDay();
-
-        $leaveRequest->update([
-            'start_date' => $newStart->toDateString(),
-            'requested_days' => $request->requested_days,
-        ]);
-
-        // Répercuter la correction sur la pause véhicule liée
-        if ($leaveRequest->vehiclePause) {
-            $this->vehicleService->correctPauseDates(
-                $leaveRequest->vehiclePause,
-                $newStart->toDateString()
-            );
-        }
-
-        // Réévaluer la disponibilité de l'agent selon la nouvelle date
-        if ($newStart->lte(now()->startOfDay())) {
-            $driver->update(['is_available' => false]);
-        } elseif ($driver->is_available === false && !$driver->hasOngoingLeave()) {
-            // Cas limite improbable ici puisque la pause reste ongoing, gardé par sécurité
-            $driver->update(['is_available' => true]);
+        try {
+            app(UpdateOngoingLeave::class)($leaveRequest, $request->start_date, (int) $request->requested_days);
+        } catch (ApiException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
 
         return redirect()->back()->with('success', 'Pause en cours corrigée avec succès.');
