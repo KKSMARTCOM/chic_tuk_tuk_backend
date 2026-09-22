@@ -98,6 +98,19 @@ final class BookingLifecycle
     }
 
     /**
+     * La CLÔTURE peut-elle être annulée ?
+     *
+     * ⚠️ C'est la seule issue d'une course terminée, et elle ne passe pas par la matrice
+     * de transitions : celle-ci ne décrit que des changements d'ÉTIQUETTE, alors que
+     * rouvrir défait la commission, le gain de l'agent et son compteur de trajets. Une
+     * clôture faite par erreur se rattrape donc, mais en défaisant, jamais en renommant.
+     */
+    public static function canReopen(Booking $booking): bool
+    {
+        return $booking->status === 'completed';
+    }
+
+    /**
      * La réservation peut-elle être SUPPRIMÉE ?
      *
      * ⚠️ Repris de `$canDelete` : seulement `cancelled` ou `expired`. Une course vivante

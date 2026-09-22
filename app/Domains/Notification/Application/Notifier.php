@@ -91,6 +91,25 @@ final class Notifier
         );
     }
 
+    /**
+     * La clôture d'une course a été annulée par l'administration.
+     *
+     * ⚠️ Prévient l'AGENT, et lui seul. Son gain lui a été retiré et sa commission
+     * effacée : c'est sur son compte que cela change quelque chose. Les administrateurs
+     * n'en sont pas informés pour la même raison qu'une pause validée ne leur revient
+     * pas — c'est l'un d'eux qui vient d'agir.
+     */
+    public function bookingReopened(Booking $booking): void
+    {
+        $this->vers(
+            $booking->driver?->user,
+            'Course rouverte',
+            'La course '.$booking->booking_number.' a été rouverte : son gain et sa commission ont été annulés.',
+            'warning',
+            '/driver/bookings/assigned',
+        );
+    }
+
     /** Un agent a pris une course. */
     public function bookingAccepted(Booking $booking, User $agent): void
     {

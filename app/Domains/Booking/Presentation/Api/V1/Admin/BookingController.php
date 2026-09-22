@@ -8,6 +8,7 @@ use App\Domains\Booking\Application\Actions\DeleteAdminBooking;
 use App\Domains\Booking\Application\Actions\ListAdminBookings;
 use App\Domains\Booking\Application\Actions\ListAssignableDrivers;
 use App\Domains\Booking\Application\Actions\RemoveDriverFromBooking;
+use App\Domains\Booking\Application\Actions\ReopenCompletedBooking;
 use App\Domains\Booking\Application\Data\AdminBookingDetailData;
 use App\Domains\Booking\Application\Data\AdminBookingPageData;
 use App\Domains\Booking\Application\Data\AssignableDriverData;
@@ -140,6 +141,29 @@ final class BookingController
         } catch (\Throwable $e) {
             return $this->failed($e, $request, 'le changement de statut d\'une réservation',
                 'Le statut n\'a pas pu être modifié.', 'BOOKING_STATUS_FAILED');
+        }
+    }
+
+    /**
+     * Annuler la clôture d'une course.
+     *
+     * ⚠️ Route à part, et non un statut de plus dans `changeStatus` : rouvrir DÉFAIT la
+     * commission, le gain de l'agent et son compteur de trajets. Glissée dans un menu
+     * déroulant, l'opération passerait pour un simple changement d'étiquette.
+     */
+    public function reopen(Request $request, string $bookingId, ReopenCompletedBooking $reopen): JsonResponse
+    {
+        try {
+            $booking = Booking::findOrFail($bookingId);
+
+            return response()->json(AdminBookingDetailData::fromModel(
+                $reopen($booking)->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
+            ));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failed($e, $request, 'la réouverture d\'une réservation',
+                'Cette réservation n\'a pas pu être rouverte.', 'BOOKING_REOPEN_FAILED');
         }
     }
 

@@ -130,6 +130,14 @@ final class AdminBookingDetailData extends BaseData
         public bool $canAssignDriver,
         public bool $canRemoveDriver,
         public bool $canDelete,
+        /**
+         * La clôture peut-elle être annulée ?
+         *
+         * ⚠️ C'est la SEULE issue d'une course terminée, et elle ne passe pas par le menu
+         * des statuts : rouvrir défait la commission, le gain de l'agent et son compteur
+         * de trajets, là où un changement de statut ne défait rien.
+         */
+        public bool $canReopen,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -199,6 +207,7 @@ final class AdminBookingDetailData extends BaseData
             canAssignDriver: BookingLifecycle::canAssignDriver($booking),
             canRemoveDriver: BookingLifecycle::canRemoveDriver($booking),
             canDelete: BookingLifecycle::canDelete($booking),
+            canReopen: BookingLifecycle::canReopen($booking),
         );
     }
 }

@@ -284,8 +284,13 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('can_delete', false);
     }
 
-    public function test_une_course_close_n_autorise_plus_rien(): void
+    public function test_une_course_close_n_autorise_plus_rien_sauf_rouvrir(): void
     {
+        /*
+         * ⚠️ « Rouvrir » est la SEULE issue d'une course terminée, et elle ne passe pas
+         * par le menu des statuts : elle défait la commission, le gain de l'agent et son
+         * compteur de trajets, là où un changement de statut ne défait rien.
+         */
         $booking = Booking::factory()->create(['status' => 'completed']);
 
         [, $token] = $this->login(Profil::Admin, ['view-bookings']);
@@ -295,7 +300,29 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('allowed_statuses', [])
             ->assertJsonPath('can_assign_driver', false)
             ->assertJsonPath('can_remove_driver', false)
-            ->assertJsonPath('can_delete', false);
+            ->assertJsonPath('can_delete', false)
+            ->assertJsonPath('can_reopen', true);
+    }
+
+    public function test_une_course_annulee_ne_se_rouvre_pas(): void
+    {
+        // Rouvrir ne défait qu'une CLÔTURE. Une course annulée a suivi un autre chemin,
+        // et n'a produit ni commission ni gain à retirer.
+        $booking = Booking::factory()->create(['status' => 'cancelled']);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertOk()->assertJsonPath('can_reopen', false);
+    }
+
+    public function test_rouvrir_exige_edit_bookings(): void
+    {
+        $booking = Booking::factory()->create(['status' => 'completed']);
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->postJson("/api/v1/admin/bookings/{$booking->id}/reopen")
+            ->assertForbidden();
     }
 
     public function test_une_course_annulee_est_la_seule_a_se_supprimer(): void

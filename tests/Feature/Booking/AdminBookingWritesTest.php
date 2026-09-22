@@ -6,6 +6,7 @@ use App\Domains\Booking\Application\Actions\AssignDriverToBooking;
 use App\Domains\Booking\Application\Actions\ChangeBookingStatus;
 use App\Domains\Booking\Application\Actions\ListAssignableDrivers;
 use App\Domains\Booking\Application\Actions\RemoveDriverFromBooking;
+use App\Domains\Booking\Application\Actions\ReopenCompletedBooking;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Booking;
 use App\Models\Commission;
@@ -213,6 +214,86 @@ class AdminBookingWritesTest extends TestCase
         $this->expectExceptionMessage('Depuis « En cours », seul « Terminée » est possible.');
 
         app(ChangeBookingStatus::class)($booking, 'cancelled');
+    }
+
+    // ----- Annuler la clôture ------------------------------------------------
+
+    public function test_rouvrir_defait_tout_ce_que_la_cloture_avait_fait(): void
+    {
+        /*
+         * ⚠️ C'est le point de cette action, et la raison pour laquelle elle n'est PAS un
+         * statut de plus dans le menu : clôturer a produit une commission, un gain
+         * d'agent et un trajet de plus à son compteur. Un changement de statut ne défait
+         * rien de cela — c'est exactement le défaut que la matrice de transitions a
+         * fermé. Rouvrir défait.
+         */
+        $driver = $this->driver();
+        $booking = $this->booking([
+            'driver_id' => $driver->id,
+            'status' => 'in_progress',
+            'base_price' => 3000,
+        ]);
+
+        app(ChangeBookingStatus::class)($booking, 'completed');
+        $this->assertSame(1, Commission::where('booking_id', $booking->id)->count());
+        $this->assertSame(1, (int) $driver->refresh()->total_trips);
+
+        app(ReopenCompletedBooking::class)($booking->refresh());
+
+        $booking->refresh();
+
+        $this->assertSame('in_progress', $booking->status, 'la course n\'est pas revenue en cours');
+        $this->assertNull($booking->completed_at, 'la date de clôture est restée');
+        $this->assertSame(0, (int) $booking->commission, 'la commission est restée sur la course');
+        $this->assertSame(0, (int) $booking->driver_earning, 'le gain de l\'agent est resté');
+        $this->assertSame(
+            0,
+            Commission::where('booking_id', $booking->id)->count(),
+            'la ligne comptable est restée'
+        );
+        $this->assertSame(0, (int) $driver->refresh()->total_trips, 'le compteur de trajets n\'a pas été rendu');
+    }
+
+    public function test_le_compteur_de_trajets_ne_devient_jamais_negatif(): void
+    {
+        // Le compteur a pu être remis à plat par ailleurs : un décrément aveugle rendrait
+        // « -1 course conduite », un chiffre que personne ne saurait lire.
+        $driver = $this->driver();
+        $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'completed']);
+        $driver->update(['total_trips' => 0]);
+
+        app(ReopenCompletedBooking::class)($booking);
+
+        $this->assertSame(0, (int) $driver->refresh()->total_trips);
+    }
+
+    public function test_seule_une_course_terminee_se_rouvre(): void
+    {
+        $driver = $this->driver();
+        $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'in_progress']);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('Seule une course terminée peut être rouverte.');
+
+        app(ReopenCompletedBooking::class)($booking);
+    }
+
+    public function test_une_course_rouverte_peut_etre_cloturee_a_nouveau(): void
+    {
+        // Le cas pour lequel l'action existe : on a clôturé par erreur, on rouvre, on
+        // corrige, on reclôture. Et la commission est recréée une seule fois.
+        $driver = $this->driver();
+        $booking = $this->booking([
+            'driver_id' => $driver->id, 'status' => 'in_progress', 'base_price' => 3000,
+        ]);
+
+        app(ChangeBookingStatus::class)($booking, 'completed');
+        app(ReopenCompletedBooking::class)($booking->refresh());
+        app(ChangeBookingStatus::class)($booking->refresh(), 'completed');
+
+        $this->assertSame('completed', $booking->refresh()->status);
+        $this->assertSame(1, Commission::where('booking_id', $booking->id)->count());
+        $this->assertSame(1, (int) $driver->refresh()->total_trips);
     }
 
     // ----- Affecter et retirer -----------------------------------------------

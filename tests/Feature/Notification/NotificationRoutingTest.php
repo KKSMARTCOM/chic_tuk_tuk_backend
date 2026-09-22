@@ -149,6 +149,21 @@ class NotificationRoutingTest extends TestCase
         $this->assertSame("/admin/bookings/{$course->id}", $parPersonne['Admin Un']->data['url']);
     }
 
+    public function test_une_course_rouverte_previent_l_agent_seul(): void
+    {
+        // ⚠️ Son gain lui a été retiré et sa commission effacée : c'est sur SON compte que
+        // cela change quelque chose. Les administrateurs n'en sont pas informés — c'est
+        // l'un d'eux qui vient d'agir, comme pour une pause qu'ils valident.
+        // `$this->agent` est un COMPTE : la course pointe vers l'AGENT, qu'il faut créer.
+        $driver = Driver::factory()->create(['user_id' => $this->agent->id]);
+        $course = $this->course();
+        $course->update(['driver_id' => $driver->id, 'status' => 'completed']);
+
+        $this->notifier()->bookingReopened($course->refresh());
+
+        $this->assertSame([$this->agent->name], $this->destinataires());
+    }
+
     // ----- Pauses agent ------------------------------------------------------
 
     public function test_une_demande_de_pause_remonte_aux_administrateurs(): void

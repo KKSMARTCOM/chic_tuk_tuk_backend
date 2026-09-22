@@ -63,6 +63,10 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
                 ->name('bookings.remove-driver');
             Route::post('/bookings/{booking}/status', [BookingController::class, 'changeStatus'])
                 ->name('bookings.status');
+            // ⚠️ À part de `status` : rouvrir DÉFAIT la commission, le gain de l'agent et
+            // son compteur de trajets. Ce n'est pas un changement d'étiquette.
+            Route::post('/bookings/{booking}/reopen', [BookingController::class, 'reopen'])
+                ->name('bookings.reopen');
         });
 
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])
