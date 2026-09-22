@@ -4,17 +4,17 @@ namespace App\Domains\Booking\Presentation\Api\V1\Admin;
 
 use App\Domains\Booking\Application\Actions\AssignDriverToBooking;
 use App\Domains\Booking\Application\Actions\ChangeBookingStatus;
+use App\Domains\Booking\Application\Actions\DeleteAdminBooking;
 use App\Domains\Booking\Application\Actions\ListAdminBookings;
 use App\Domains\Booking\Application\Actions\ListAssignableDrivers;
 use App\Domains\Booking\Application\Actions\RemoveDriverFromBooking;
 use App\Domains\Booking\Application\Data\AdminBookingDetailData;
-use App\Domains\Booking\Application\Data\AdminBookingListItemData;
+use App\Domains\Booking\Application\Data\AdminBookingPageData;
 use App\Domains\Booking\Application\Data\AssignableDriverData;
 use App\Domains\Booking\Application\Data\AssignDriverData;
 use App\Domains\Booking\Application\Data\ChangeBookingStatusData;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use App\Shared\Http\ApiException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -36,15 +36,15 @@ final class BookingController
     public function index(Request $request, ListAdminBookings $list): JsonResponse
     {
         try {
-            $bookings = $list([
+            $page = $list([
                 'status' => $request->query('status'),
                 'search' => $request->query('search'),
                 'sort' => $request->query('sort'),
+                'page' => $request->query('page'),
+                'per_page' => $request->query('per_page'),
             ]);
 
-            return response()->json(
-                $bookings->map(fn (Booking $b) => AdminBookingListItemData::fromModel($b))->all()
-            );
+            return response()->json(AdminBookingPageData::fromPaginator($page));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -143,13 +143,10 @@ final class BookingController
         }
     }
 
-    public function destroy(Request $request, string $bookingId, BookingService $bookingService): Response|JsonResponse
+    public function destroy(Request $request, string $bookingId, DeleteAdminBooking $delete): Response|JsonResponse
     {
         try {
-            // La suppression reste dans `BookingService` : elle n'a pas été transposée en
-            // action, et la dupliquer ici pour la forme créerait la divergence que la
-            // délégation cherche justement à éviter.
-            $bookingService->delete(Booking::findOrFail($bookingId)->id);
+            $delete(Booking::findOrFail($bookingId));
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

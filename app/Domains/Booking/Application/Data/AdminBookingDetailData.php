@@ -4,6 +4,7 @@ namespace App\Domains\Booking\Application\Data;
 
 use App\Domains\Booking\Application\Data\Concerns\DescribesBookingKind;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
+use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
 
@@ -110,6 +111,25 @@ final class AdminBookingDetailData extends BaseData
          * maintenir.
          */
         public bool $canBeCancelled,
+
+        /**
+         * Ce que l'écran a le droit de proposer SUR CETTE course.
+         *
+         * ⚠️ Ces quatre champs sont la correction d'un défaut de conception du Blade :
+         * ses règles d'action vivaient en conditions de gabarit (`$canAssign`,
+         * `$canRemoveDriver`, `$canDelete` en tête de `show.blade.php`), donc invisibles
+         * de l'API et contournables par un appel direct. Le serveur les APPLIQUE et les
+         * ANNONCE : le front affiche ce qu'on lui dit, il ne recalcule rien.
+         *
+         * `allowedStatuses` est vide sur une course close — c'est ainsi que l'écran sait
+         * qu'il n'y a plus rien à proposer, sans connaître la matrice de transitions.
+         *
+         * @var array<int, string>
+         */
+        public array $allowedStatuses,
+        public bool $canAssignDriver,
+        public bool $canRemoveDriver,
+        public bool $canDelete,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -174,6 +194,11 @@ final class AdminBookingDetailData extends BaseData
             updatedAt: $booking->updated_at->toIso8601String(),
 
             canBeCancelled: (bool) $booking->canBeCancelled(),
+
+            allowedStatuses: BookingLifecycle::allowedStatusesFrom($booking->status),
+            canAssignDriver: BookingLifecycle::canAssignDriver($booking),
+            canRemoveDriver: BookingLifecycle::canRemoveDriver($booking),
+            canDelete: BookingLifecycle::canDelete($booking),
         );
     }
 }

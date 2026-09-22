@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Application\Actions;
 
+use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
@@ -25,20 +26,20 @@ use Illuminate\Support\Facades\DB;
  */
 final class RemoveDriverFromBooking
 {
-    /** Les statuts où la course est encore devant nous et peut changer de mains. */
-    private const REMOVABLE_STATUSES = ['confirmed', 'in_progress'];
-
     public function __invoke(Booking $booking): Booking
     {
         if (! $booking->driver_id) {
             throw new ApiException(409, 'BOOKING_NO_DRIVER', 'Aucun agent n\'est affecté à cette course.');
         }
 
-        if (! in_array($booking->status, self::REMOVABLE_STATUSES, true)) {
+        // ⚠️ Repris de `$canRemoveDriver` : tout sauf les trois statuts de clôture.
+        // Retirer l'agent d'une course terminée effacerait celui à qui la commission a
+        // été versée.
+        if (! BookingLifecycle::canRemoveDriver($booking)) {
             throw new ApiException(
                 409,
                 'BOOKING_DRIVER_NOT_REMOVABLE',
-                'L\'agent ne peut plus être retiré pour ce statut de réservation.'
+                'L\'agent ne peut plus être retiré d\'une réservation close.'
             );
         }
 

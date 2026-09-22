@@ -108,7 +108,7 @@ class AdminBookingsApiTest extends TestCase
 
         [, $token] = $this->login(Profil::Admin, ['view-bookings']);
 
-        $kinds = collect($this->header($token)->getJson('/api/v1/admin/bookings')->assertOk()->json())
+        $kinds = collect($this->header($token)->getJson('/api/v1/admin/bookings')->assertOk()->json('data'))
             ->pluck('kind')
             ->sort()
             ->values()
@@ -127,10 +127,12 @@ class AdminBookingsApiTest extends TestCase
         [, $token] = $this->login(Profil::Admin, ['view-bookings']);
 
         $this->header($token)->getJson('/api/v1/admin/bookings?status=pending')
-            ->assertOk()->assertJsonCount(1)->assertJsonPath('0.from_location', 'Cotonou, Ganhi');
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.from_location', 'Cotonou, Ganhi');
 
         $this->header($token)->getJson('/api/v1/admin/bookings?search=Parakou')
-            ->assertOk()->assertJsonCount(1)->assertJsonPath('0.from_location', 'Parakou, Centre');
+            ->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.from_location', 'Parakou, Centre');
     }
 
     public function test_le_dossier_distingue_les_montants_reels_de_l_estimation(): void
@@ -186,10 +188,139 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('0.name', 'Awa Dossou');
     }
 
-    public function test_une_liste_vide_est_un_tableau_vide_et_non_une_erreur(): void
+    public function test_une_liste_vide_est_une_page_vide_et_non_une_erreur(): void
     {
         [, $token] = $this->login(Profil::Admin, ['view-bookings']);
 
-        $this->header($token)->getJson('/api/v1/admin/bookings')->assertOk()->assertExactJson([]);
+        $this->header($token)->getJson('/api/v1/admin/bookings')
+            ->assertOk()
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('total', 0)
+            ->assertJsonPath('last_page', 1);
+    }
+
+    public function test_la_liste_est_paginee(): void
+    {
+        /*
+         * ⚠️ Les réservations s'accumulent sans fin, contrairement aux agents : tout
+         * renvoyer aurait fini par charger des milliers de lignes dans un seul appel.
+         */
+        Booking::factory()->count(30)->create();
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson('/api/v1/admin/bookings')
+            ->assertOk()
+            ->assertJsonCount(25, 'data')
+            ->assertJsonPath('total', 30)
+            ->assertJsonPath('last_page', 2)
+            ->assertJsonPath('current_page', 1);
+
+        $this->header($token)->getJson('/api/v1/admin/bookings?page=2')
+            ->assertOk()
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('current_page', 2);
+    }
+
+    public function test_la_pagination_ne_laisse_pas_tout_charger(): void
+    {
+        // Sans plafond, `per_page=100000` rendrait la pagination décorative.
+        Booking::factory()->count(30)->create();
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson('/api/v1/admin/bookings?per_page=100000')
+            ->assertOk()
+            ->assertJsonPath('per_page', 100);
+    }
+
+    public function test_l_ordre_est_departage_quand_les_dates_sont_identiques(): void
+    {
+        /*
+         * ⚠️ `created_at` n'est PAS unique — le cron crée toutes les courses filles d'un
+         * abonnement dans la même seconde. Sans second critère de tri, PostgreSQL rend
+         * ces lignes dans l'ordre qui l'arrange, et rien ne garantit qu'il soit le même
+         * d'une requête à l'autre : une course peut alors paraître sur deux pages, ou sur
+         * aucune.
+         *
+         * ⚠️ Le test ne peut PAS reproduire l'instabilité — sur une table fraîche,
+         * PostgreSQL rend l'ordre physique, qui se trouve être stable. Il vérifie donc
+         * que le départage EST APPLIQUÉ, en exigeant l'ordre décroissant des `id` : c'est
+         * la seule chose observable, et elle tombe dès que le second `orderBy` disparaît.
+         */
+        $instant = now()->subDay();
+        Booking::factory()->count(6)->create(['created_at' => $instant, 'updated_at' => $instant]);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $ids = collect($this->header($token)->getJson('/api/v1/admin/bookings')->json('data'))
+            ->pluck('id')
+            ->all();
+
+        $attendu = $ids;
+        rsort($attendu);
+
+        $this->assertSame($attendu, $ids, 'les dates identiques ne sont pas départagées par l\'identifiant');
+    }
+
+    public function test_le_dossier_annonce_ce_qu_il_autorise(): void
+    {
+        /*
+         * ⚠️ Les règles d'action du Blade vivaient en conditions de GABARIT — `$canAssign`,
+         * `$canRemoveDriver`, `$canDelete` en tête de `show.blade.php` — donc invisibles
+         * de l'API et contournables par un appel direct. Le serveur les applique ET les
+         * annonce : le front affiche ce qu'on lui dit, il ne recalcule rien.
+         */
+        $booking = Booking::factory()->create(['status' => 'pending', 'driver_id' => null]);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('allowed_statuses', ['confirmed', 'cancelled'])
+            ->assertJsonPath('can_assign_driver', true)
+            ->assertJsonPath('can_remove_driver', false)
+            // Une course vivante ne se supprime pas : elle s'annule.
+            ->assertJsonPath('can_delete', false);
+    }
+
+    public function test_une_course_close_n_autorise_plus_rien(): void
+    {
+        $booking = Booking::factory()->create(['status' => 'completed']);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('allowed_statuses', [])
+            ->assertJsonPath('can_assign_driver', false)
+            ->assertJsonPath('can_remove_driver', false)
+            ->assertJsonPath('can_delete', false);
+    }
+
+    public function test_une_course_annulee_est_la_seule_a_se_supprimer(): void
+    {
+        $booking = Booking::factory()->create(['status' => 'cancelled']);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings', 'delete-bookings']);
+
+        $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertOk()->assertJsonPath('can_delete', true);
+
+        $this->header($token)->deleteJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertNoContent();
+    }
+
+    public function test_une_course_vivante_ne_se_supprime_pas_par_appel_direct(): void
+    {
+        // ⚠️ Le contrôleur Blade supprimait SANS condition ; seule sa vue décidait
+        // d'afficher le bouton. La règle n'existait donc que dans le gabarit.
+        $booking = Booking::factory()->create(['status' => 'pending']);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings', 'delete-bookings']);
+
+        $this->header($token)->deleteJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'BOOKING_NOT_DELETABLE');
     }
 }

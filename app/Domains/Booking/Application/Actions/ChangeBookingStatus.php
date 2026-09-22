@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Application\Actions;
 
+use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
@@ -29,10 +30,21 @@ use Illuminate\Support\Facades\DB;
  * `pending` et `confirmed` à CHAQUE mise à jour partielle — y compris passer le parent à
  * « Confirmée », ou lui retirer son agent. Seule l'ANNULATION doit propager, et c'est ce
  * que fait cette action.
+ *
+ * ⚠️ **N'IMPORTE quel statut pouvait suivre n'importe quel autre.** Le contrôleur Blade
+ * validait `status` par un simple `in:...` : on remettait « En attente » une course
+ * terminée, on reprenait une course annulée. `BookingLifecycle` porte désormais les
+ * transitions permises, et les trois statuts de clôture ne laissent rien sortir.
  */
 final class ChangeBookingStatus
 {
-    /** Les statuts qu'un administrateur peut poser, repris de la validation du Blade. */
+    /**
+     * Les statuts qu'un administrateur peut poser, TOUS états confondus.
+     *
+     * ⚠️ Ne sert qu'à la validation de FORME du corps de requête : ce qui décide vraiment
+     * est `BookingLifecycle::allowedStatusesFrom()`, qui dépend d'où la course en est.
+     * `expired` n'y figure pas — seule la commande `app:expire-bookings` le pose.
+     */
     public const ALLOWED = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'];
 
     public function __construct(private readonly CompleteBooking $completeBooking) {}
@@ -41,6 +53,32 @@ final class ChangeBookingStatus
     {
         if (! in_array($status, self::ALLOWED, true)) {
             throw new ApiException(422, 'BOOKING_STATUS_INVALID', 'Le statut sélectionné est invalide.');
+        }
+
+        if (BookingLifecycle::isTerminal($booking->status)) {
+            throw new ApiException(
+                409,
+                'BOOKING_STATUS_FINAL',
+                'Cette réservation est close : son statut ne peut plus changer.'
+            );
+        }
+
+        $allowed = BookingLifecycle::allowedStatusesFrom($booking->status);
+
+        if (! in_array($status, $allowed, true)) {
+            // Le message NOMME ce qui est possible : « ce changement n'est pas possible »
+            // laisse chercher lequel le serait, et l'écran n'a pas toujours de quoi le
+            // dire — un appel direct n'en a jamais.
+            $possibles = implode(' ou ', array_map(
+                fn (string $s) => '« '.bookingStatusLabel($s).' »',
+                $allowed
+            ));
+
+            throw new ApiException(
+                409,
+                'BOOKING_TRANSITION_REFUSED',
+                'Depuis « '.bookingStatusLabel($booking->status).' », seul '.$possibles.' est possible.'
+            );
         }
 
         if ($status === 'completed') {
@@ -59,9 +97,10 @@ final class ChangeBookingStatus
     /**
      * Clôturer, par le MÊME chemin que l'agent.
      *
-     * Les deux refus sont énoncés avant l'appel pour qu'ils portent un message qui parle
-     * à un administrateur : `CompleteBooking` répond `BOOKING_NOT_COMPLETABLE` sans dire
-     * ce qui manque, parce que côté agent une seule des deux causes est possible.
+     * ⚠️ Le seul refus restant est l'agent manquant. « La course n'est pas en cours » est
+     * désormais tranché en amont par la matrice de transitions, qui le dit mieux — elle
+     * nomme le statut possible. `CompleteBooking`, lui, répond `BOOKING_NOT_COMPLETABLE`
+     * sans dire ce qui manque, parce que côté agent une seule des deux causes existe.
      */
     private function complete(Booking $booking): Booking
     {
@@ -70,14 +109,6 @@ final class ChangeBookingStatus
                 409,
                 'BOOKING_NO_DRIVER',
                 'Cette course n\'a pas d\'agent : elle ne peut pas être terminée. Affectez-en un d\'abord.'
-            );
-        }
-
-        if ($booking->status !== 'in_progress') {
-            throw new ApiException(
-                409,
-                'BOOKING_NOT_IN_PROGRESS',
-                'Seule une course en cours peut être terminée.'
             );
         }
 

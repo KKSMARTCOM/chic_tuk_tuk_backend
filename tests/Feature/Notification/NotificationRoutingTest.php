@@ -118,11 +118,35 @@ class NotificationRoutingTest extends TestCase
         $this->assertStringContainsString('Client absent', Notification::first()->message);
     }
 
-    public function test_une_nouvelle_reservation_previent_tous_les_agents_et_aucun_admin(): void
+    public function test_une_nouvelle_reservation_previent_les_agents_e_t_les_administrateurs(): void
     {
+        // ⚠️ Les administrateurs ont été ajoutés le 2026-09-22 : ils ne voyaient une
+        // nouvelle réservation qu'en ouvrant l'application, alors que ce sont eux qui
+        // affectent les courses qu'aucun agent ne prend.
         $this->notifier()->bookingCreated($this->course());
 
-        $this->assertSame(['Awa Dossou', 'Kofi Mensah'], $this->destinataires());
+        $this->assertSame(
+            ['Admin Deux', 'Admin Un', 'Awa Dossou', 'Kofi Mensah'],
+            $this->destinataires()
+        );
+    }
+
+    public function test_agents_et_administrateurs_ne_recoivent_pas_le_meme_message(): void
+    {
+        /*
+         * ⚠️ Deux publics, deux messages, deux destinations. L'agent est INVITÉ à prendre
+         * la course et repart vers les courses disponibles ; l'administrateur est INFORMÉ
+         * qu'elle est arrivée et repart vers son dossier. Un envoi commun aurait renvoyé
+         * les administrateurs vers un écran d'agent que leur jeton refuse.
+         */
+        $course = $this->course();
+
+        $this->notifier()->bookingCreated($course);
+
+        $parPersonne = Notification::with('user')->get()->keyBy(fn ($n) => $n->user->name);
+
+        $this->assertSame('/driver/bookings/available', $parPersonne['Awa Dossou']->data['url']);
+        $this->assertSame("/admin/bookings/{$course->id}", $parPersonne['Admin Un']->data['url']);
     }
 
     // ----- Pauses agent ------------------------------------------------------
@@ -256,13 +280,22 @@ class NotificationRoutingTest extends TestCase
 
     // ----- Destinations ------------------------------------------------------
 
-    public function test_les_notifications_d_administrateur_ne_portent_pas_de_destination(): void
+    public function test_les_notifications_d_administrateur_menent_aux_ecrans_livres(): void
     {
-        // L'espace admin du front n'est pas migré : une destination mènerait à un écran
-        // inexistant, ce qui est pire que pas de destination du tout.
-        $this->notifier()->bookingAccepted($this->course(), $this->agent);
+        /*
+         * ⚠️ Elles n'en portaient aucune tant que l'espace admin du front n'existait pas :
+         * une destination vers un écran inexistant est pire qu'aucune destination. Les
+         * écrans de réservations ont été livrés le 2026-09-22.
+         *
+         * ⚠️ N'ajouter une destination qu'une fois l'écran EN LIGNE, pas une fois écrit :
+         * le backend se déploie avant le front, et une notification partie entre les deux
+         * mènerait à un 404 que personne ne saurait expliquer.
+         */
+        $course = $this->course();
 
-        $this->assertArrayNotHasKey('url', Notification::first()->data ?? []);
+        $this->notifier()->bookingAccepted($course, $this->agent);
+
+        $this->assertSame("/admin/bookings/{$course->id}", Notification::first()->data['url']);
     }
 
     public function test_les_notifications_d_agent_et_de_proprietaire_mènent_a_un_ecran(): void

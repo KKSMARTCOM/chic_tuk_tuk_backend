@@ -45,10 +45,14 @@ use Illuminate\Support\Facades\Log;
  *
  * ## Les destinations
  *
- * ⚠️ Les notifications destinées aux ADMINISTRATEURS ne portent pas d'URL, et ce n'est
- * pas un oubli : l'espace admin du front Nuxt n'est pas encore migré, et une destination
- * qui mène à un écran inexistant est pire qu'aucune destination. À rétablir quand cet
- * espace existera — les chemins sont indiqués en commentaire à chaque appel.
+ * Les notifications destinées aux ADMINISTRATEURS n'en portaient aucune tant que leur
+ * espace n'existait pas dans le front Nuxt : une destination qui mène à un écran
+ * inexistant est pire qu'aucune destination. Les écrans de RÉSERVATIONS et de PAUSES
+ * ayant été livrés le 2026-09-22, leurs notifications pointent désormais dessus.
+ *
+ * ⚠️ N'ajouter une destination qu'une fois l'écran EN LIGNE, pas une fois écrit : le
+ * backend se déploie avant le front, et une notification partie entre les deux mènerait
+ * à un 404 que personne ne saurait expliquer.
  */
 final class Notifier
 {
@@ -56,25 +60,45 @@ final class Notifier
 
     // ----- Réservations ------------------------------------------------------
 
-    /** Une réservation vient d'être créée : tous les agents peuvent la prendre. */
+    /**
+     * Une réservation vient d'être créée.
+     *
+     * Deux publics, deux messages — et c'est voulu. Les AGENTS sont invités à la prendre
+     * et repartent vers les courses disponibles ; les ADMINISTRATEURS sont informés
+     * qu'elle est arrivée, et repartent vers son dossier. Un seul envoi commun aurait
+     * renvoyé les administrateurs vers un écran d'agent que leur jeton refuse.
+     *
+     * ⚠️ Les administrateurs ont été ajoutés le 2026-09-22 : ils ne voyaient une nouvelle
+     * réservation qu'en ouvrant l'application, alors que ce sont eux qui affectent les
+     * courses qu'aucun agent ne prend.
+     */
     public function bookingCreated(Booking $booking): void
     {
+        $trajet = "Trajet : {$booking->from_location} → {$booking->to_location}";
+
         $this->versLesAgents(
             'Nouvelle réservation disponible',
-            "Trajet : {$booking->from_location} → {$booking->to_location}",
+            $trajet,
             'info',
             '/driver/bookings/available',
+        );
+
+        $this->versLesAdmins(
+            'Nouvelle réservation',
+            $booking->booking_number.' — '.$trajet,
+            'info',
+            "/admin/bookings/{$booking->id}",
         );
     }
 
     /** Un agent a pris une course. */
     public function bookingAccepted(Booking $booking, User $agent): void
     {
-        // Destination future : /admin/bookings/{$booking->id}
         $this->versLesAdmins(
             'Course acceptée',
             $this->nomDe($agent).' a accepté la course '.$booking->booking_number,
             'success',
+            "/admin/bookings/{$booking->id}",
         );
     }
 
@@ -125,7 +149,8 @@ final class Notifier
     {
         $agent = $demande->driver?->user;
 
-        // Destination future : /admin/leaves/requests
+        // La file des demandes n'est plus au menu depuis le 2026-09-22, mais sa route
+        // existe toujours : c'est bien là qu'on tranche une demande.
         $this->versLesAdmins(
             'Nouvelle demande de pause',
             $this->nomDe($agent).' demande '.$demande->requested_days.' jour(s) à partir du '

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Application\Actions;
 
+use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Models\Driver;
 use App\Services\BookingService;
@@ -40,6 +41,20 @@ final class AssignDriverToBooking
                 409,
                 'BOOKING_ALREADY_ASSIGNED',
                 'Cette course a déjà un agent. Retirez-le avant d\'en affecter un autre.'
+            );
+        }
+
+        // ⚠️ Les deux autres conditions de `$canAssign` (show.blade.php), qui n'existaient
+        // que dans le gabarit : une course close ou expirée n'a plus besoin d'agent, et
+        // une course fille d'abonnement revient au TITULAIRE — lui en affecter un autre
+        // briserait la chaîne.
+        if (! BookingLifecycle::canAssignDriver($booking)) {
+            throw new ApiException(
+                409,
+                'BOOKING_NOT_ASSIGNABLE',
+                $booking->is_subscription_child
+                    ? 'Une course d\'abonnement revient à l\'agent titulaire : affectez-le sur l\'abonnement.'
+                    : 'Un agent ne peut être affecté qu\'à une course en attente.'
             );
         }
 

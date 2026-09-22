@@ -77,7 +77,7 @@ class AdminBookingWritesTest extends TestCase
     {
         // Conséquence assumée du correctif : on ne clôture pas une course que personne
         // n'a conduite. Le Blade l'acceptait et produisait un trajet à zéro franc.
-        $booking = $this->booking(['driver_id' => null, 'status' => 'pending']);
+        $booking = $this->booking(['driver_id' => null, 'status' => 'in_progress']);
 
         $this->expectException(ApiException::class);
         $this->expectExceptionMessage('Cette course n\'a pas d\'agent');
@@ -91,9 +91,64 @@ class AdminBookingWritesTest extends TestCase
         $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'confirmed']);
 
         $this->expectException(ApiException::class);
-        $this->expectExceptionMessage('Seule une course en cours peut être terminée.');
+        // Le message NOMME ce qui est possible, plutôt que de laisser chercher.
+        $this->expectExceptionMessage('Depuis « Confirmée », seul « En cours » ou « Annulée » est possible.');
 
         app(ChangeBookingStatus::class)($booking, 'completed');
+    }
+
+    // ----- Le cycle de vie ---------------------------------------------------
+
+    public function test_une_course_terminee_ne_change_plus_de_statut(): void
+    {
+        /*
+         * ⚠️ Le contrôleur Blade validait `status` par un simple `in:...` : n'importe quel
+         * statut pouvait suivre n'importe quel autre. On remettait « En attente » une
+         * course terminée — qui a pourtant produit une commission et un gain d'agent —
+         * sans rien défaire de ces effets. Signalé le 2026-09-22.
+         */
+        $driver = $this->driver();
+        $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'completed']);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('close');
+
+        app(ChangeBookingStatus::class)($booking, 'pending');
+    }
+
+    public function test_une_course_annulee_ne_se_reprend_pas(): void
+    {
+        $booking = $this->booking(['status' => 'cancelled']);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('close');
+
+        app(ChangeBookingStatus::class)($booking, 'in_progress');
+    }
+
+    public function test_une_course_expiree_ne_se_ranime_pas(): void
+    {
+        // Elle a raté son heure de départ : la rouvrir fabriquerait une course dont
+        // l'historique ment.
+        $booking = $this->booking(['status' => 'expired']);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('close');
+
+        app(ChangeBookingStatus::class)($booking, 'pending');
+    }
+
+    public function test_le_cycle_normal_reste_possible(): void
+    {
+        // Le pendant des trois tests ci-dessus : on ne ferme pas le chemin ordinaire.
+        $driver = $this->driver();
+        $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'confirmed']);
+
+        app(ChangeBookingStatus::class)($booking, 'in_progress');
+        $this->assertSame('in_progress', $booking->refresh()->status);
+
+        app(ChangeBookingStatus::class)($booking, 'completed');
+        $this->assertSame('completed', $booking->refresh()->status);
     }
 
     // ----- Annuler -----------------------------------------------------------
@@ -149,11 +204,13 @@ class AdminBookingWritesTest extends TestCase
 
     public function test_une_course_en_cours_ne_s_annule_pas(): void
     {
+        // Elle se termine, elle ne s'annule pas — c'est ce que le Blade refusait déjà, et
+        // que la matrice de transitions dit désormais en nommant la seule issue.
         $driver = $this->driver();
         $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'in_progress']);
 
         $this->expectException(ApiException::class);
-        $this->expectExceptionMessage('Une course en cours ne peut pas être annulée.');
+        $this->expectExceptionMessage('Depuis « En cours », seul « Terminée » est possible.');
 
         app(ChangeBookingStatus::class)($booking, 'cancelled');
     }
@@ -172,6 +229,66 @@ class AdminBookingWritesTest extends TestCase
 
         $this->assertSame($driver->id, $booking->refresh()->driver_id);
         $this->assertSame('confirmed', $booking->status);
+    }
+
+    public function test_une_course_expiree_ne_recoit_plus_d_agent(): void
+    {
+        // ⚠️ `$canAssign` du Blade exige `status === 'pending'`, mais cette règle ne
+        // vivait que dans le gabarit : un appel direct affectait un agent à une course
+        // expirée, qui a pourtant raté son heure de départ.
+        $driver = $this->driver();
+        $booking = $this->booking(['driver_id' => null, 'status' => 'expired']);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('en attente');
+
+        app(AssignDriverToBooking::class)($booking, $driver->id);
+    }
+
+    public function test_une_course_annulee_ne_recoit_plus_d_agent(): void
+    {
+        $driver = $this->driver();
+        $booking = $this->booking(['driver_id' => null, 'status' => 'cancelled']);
+
+        $this->expectException(ApiException::class);
+
+        app(AssignDriverToBooking::class)($booking, $driver->id);
+    }
+
+    public function test_une_course_fille_d_abonnement_revient_a_son_titulaire(): void
+    {
+        /*
+         * ⚠️ La troisième condition de `$canAssign`, la plus facile à perdre. Les courses
+         * filles reviennent au TITULAIRE de l'abonnement ; en affecter une à quelqu'un
+         * d'autre briserait la chaîne, et le prochain enfant créé par le cron repartirait
+         * quand même vers le titulaire.
+         */
+        $driver = $this->driver();
+        $parent = $this->booking(['is_recurring' => true, 'parent_booking_id' => null]);
+        $fille = $this->booking([
+            'parent_booking_id' => $parent->id,
+            'is_recurring' => false,
+            'driver_id' => null,
+            'status' => 'pending',
+        ]);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('agent titulaire');
+
+        app(AssignDriverToBooking::class)($fille, $driver->id);
+    }
+
+    public function test_une_course_terminee_garde_son_agent(): void
+    {
+        // Retirer l'agent d'une course terminée effacerait celui à qui la commission a
+        // été versée.
+        $driver = $this->driver();
+        $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'completed']);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('close');
+
+        app(RemoveDriverFromBooking::class)($booking);
     }
 
     public function test_un_compte_desactive_ne_recoit_pas_de_course(): void
@@ -232,17 +349,6 @@ class AdminBookingWritesTest extends TestCase
         $this->expectExceptionMessage('Des courses filles existent déjà');
 
         app(RemoveDriverFromBooking::class)($parent);
-    }
-
-    public function test_une_course_terminee_ne_rend_plus_son_agent(): void
-    {
-        $driver = $this->driver();
-        $booking = $this->booking(['driver_id' => $driver->id, 'status' => 'completed']);
-
-        $this->expectException(ApiException::class);
-        $this->expectExceptionMessage('ne peut plus être retiré');
-
-        app(RemoveDriverFromBooking::class)($booking);
     }
 
     // ----- Les agents affectables --------------------------------------------
