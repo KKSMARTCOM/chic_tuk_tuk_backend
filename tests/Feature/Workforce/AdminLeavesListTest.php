@@ -175,6 +175,28 @@ class AdminLeavesListTest extends TestCase
         $this->assertSame(['Sans demande'], array_column($this->lister(['pending' => 'no']), 'name'));
     }
 
+    public function test_le_filtre_de_duree_de_contrat_porte_sur_la_valeur_affichee(): void
+    {
+        // ⚠️ CORRIGÉ le 2026-09-22. Le contrôleur Blade filtrait sur
+        // `drivers.contract_type`, une colonne héritée que plus rien n'écrit et qui vaut
+        // NULL sur toute la flotte, alors que la colonne « Durée contrat » affiche
+        // `contract_months` du CONTRAT. Choisir une durée ne rendait donc jamais rien.
+        $user = User::factory()->profil(Profil::Driver)->create(['name' => 'Douze mois']);
+        $court = Driver::factory()->create(['user_id' => $user->id]);
+        DriverContract::factory()->create([
+            'driver_id' => $court->id,
+            'start_date' => now()->subMonths(3)->startOfDay(),
+            'end_date' => null,
+            'contract_months' => 12,
+            'status' => 'active',
+        ]);
+
+        $this->agent('Vingt-quatre mois', 'active');
+
+        $this->assertSame(['Douze mois'], array_column($this->lister(['contract' => 12]), 'name'));
+        $this->assertSame(['Vingt-quatre mois'], array_column($this->lister(['contract' => 24]), 'name'));
+    }
+
     public function test_une_pause_en_cours_est_signalee_avec_sa_date(): void
     {
         $driver = $this->agent('En pause', 'active');

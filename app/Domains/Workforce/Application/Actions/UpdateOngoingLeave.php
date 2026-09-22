@@ -37,9 +37,9 @@ final class UpdateOngoingLeave
 {
     public function __construct(private readonly VehicleService $vehicleService) {}
 
-    public function __invoke(LeaveRequest $pause, string $dateDeDebut, int $joursDemandes): LeaveRequest
+    public function __invoke(LeaveRequest $leave, string $dateDeDebut, int $joursDemandes): LeaveRequest
     {
-        if ($pause->status !== 'ongoing') {
+        if ($leave->status !== 'ongoing') {
             throw new ApiException(
                 409,
                 'LEAVE_NOT_ONGOING',
@@ -49,23 +49,23 @@ final class UpdateOngoingLeave
 
         $debut = Carbon::parse($dateDeDebut)->startOfDay();
 
-        return DB::transaction(function () use ($pause, $debut, $joursDemandes) {
-            $pause->update([
+        return DB::transaction(function () use ($leave, $debut, $joursDemandes) {
+            $leave->update([
                 'start_date' => $debut->toDateString(),
                 'requested_days' => $joursDemandes,
             ]);
 
-            if ($pause->vehiclePause) {
-                $this->vehicleService->correctPauseDates($pause->vehiclePause, $debut->toDateString());
+            if ($leave->vehiclePause) {
+                $this->vehicleService->correctPauseDates($leave->vehiclePause, $debut->toDateString());
             }
 
-            $agent = $pause->driver;
+            $driver = $leave->driver;
 
-            if ($agent) {
-                $agent->update(['is_available' => ! $this->unePauseACommence($agent)]);
+            if ($driver) {
+                $driver->update(['is_available' => ! $this->aLeaveHasStarted($driver)]);
             }
 
-            return $pause->refresh();
+            return $leave->refresh();
         });
     }
 
@@ -76,9 +76,9 @@ final class UpdateOngoingLeave
      * date de début est encore à venir, et bloquerait l'agent alors qu'il peut rouler.
      * C'est la date qui décide, pas le statut.
      */
-    private function unePauseACommence(Driver $agent): bool
+    private function aLeaveHasStarted(Driver $driver): bool
     {
-        return $agent->leaveRequests()
+        return $driver->leaveRequests()
             ->where('status', 'ongoing')
             ->whereDate('start_date', '<=', now()->startOfDay())
             ->exists();

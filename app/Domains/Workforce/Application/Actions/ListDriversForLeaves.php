@@ -20,65 +20,77 @@ use Illuminate\Support\Collection;
  * Un agent n'ayant JAMAIS eu de contrat reste écarté : il n'a pas de dossier de congés,
  * seulement une fiche d'agent.
  *
- * ⚠️ Deux des quatre filtres s'appliquent APRÈS la requête, en PHP. `available` et
- * `pending` portent sur des valeurs CALCULÉES — le solde disponible croise l'acquisition
- * mensuelle et trois statuts de pause — qu'aucune colonne ne contient. Les pousser en SQL
- * demanderait de réécrire le calcul en base, donc d'en tenir deux versions. Le contrôleur
- * Blade fait déjà ainsi ; on garde ce choix, et il tient tant que la flotte se compte en
- * dizaines.
+ * ⚠️ Trois des cinq filtres s'appliquent APRÈS la requête, en PHP. `available`, `pending`
+ * et `contract` portent sur des valeurs CALCULÉES — le solde disponible croise
+ * l'acquisition mensuelle et trois statuts de pause, et la durée du contrat suit le
+ * contrat de RÉFÉRENCE — qu'aucune colonne ne contient. Les pousser en SQL demanderait de
+ * réécrire ces calculs en base, donc d'en tenir deux versions. Le contrôleur Blade fait
+ * déjà ainsi pour les deux premiers ; on garde ce choix, et il tient tant que la flotte se
+ * compte en dizaines.
  */
 final class ListDriversForLeaves
 {
     /**
-     * @param  array{search?: ?string, contract?: ?int, available?: ?string, pending?: ?string, status?: ?string}  $filtres
+     * @param  array{search?: ?string, contract?: ?int, available?: ?string, pending?: ?string, status?: ?string}  $filters
      * @return Collection<int, Driver>
      */
-    public function __invoke(array $filtres = []): Collection
+    public function __invoke(array $filters = []): Collection
     {
-        $requete = Driver::query()
+        $query = Driver::query()
             ->with(['user', 'activeDriverContract'])
             ->whereHas('driverContracts');
 
-        if (! empty($filtres['search'])) {
-            $recherche = $filtres['search'];
-            $requete->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$recherche}%"));
+        if (! empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
         }
 
-        if (! empty($filtres['status'])) {
+        if (! empty($filters['status'])) {
             // Le filtre ajouté avec les anciens agents : sans lui, la liste mélange ceux
             // qu'on gère au quotidien et ceux qu'on ne consulte qu'à l'occasion.
-            $requete->when(
-                $filtres['status'] === 'active',
+            $query->when(
+                $filters['status'] === 'active',
                 fn ($q) => $q->whereHas('activeDriverContract'),
                 fn ($q) => $q->whereDoesntHave('activeDriverContract'),
             );
         }
 
-        if (! empty($filtres['contract'])) {
-            // ⚠️ `contract_type` sur `drivers`, et non `contract_months` sur le contrat :
-            // c'est la colonne que filtre le contrôleur Blade. Les deux se ressemblent et
-            // ne disent pas la même chose.
-            $requete->where('contract_type', (int) $filtres['contract']);
-        }
+        $drivers = $query->get();
 
-        $agents = $requete->get();
-
-        if (! empty($filtres['available'])) {
-            $veutDisponible = $filtres['available'] === 'yes';
-            $agents = $agents->filter(
-                fn (Driver $d) => $veutDisponible ? $d->available_leave_days > 0 : $d->available_leave_days <= 0
+        if (! empty($filters['contract'])) {
+            // ⚠️ CORRIGÉ le 2026-09-22. Le contrôleur Blade filtrait sur
+            // `drivers.contract_type`, une colonne héritée que plus rien n'écrit — elle a
+            // quitté `$fillable`, aucun service ni aucune graine ne la renseigne, et elle
+            // vaut NULL sur toute la flotte. Le menu déroulant, lui, était bâti sur la
+            // valeur AFFICHÉE dans la colonne « Durée contrat », qui vient du CONTRAT.
+            // Choisir « 24 mois » ne pouvait donc rendre qu'une liste vide.
+            //
+            // On filtre désormais sur ce que la colonne montre : les mois du contrat de
+            // référence. En PHP comme `available` et `pending`, et pour la même raison —
+            // le contrat de référence est l'actif s'il y en a un, sinon le dernier, ce
+            // qu'une clause SQL simple ne sait pas dire.
+            $months = (int) $filters['contract'];
+            $drivers = $drivers->filter(
+                fn (Driver $d) => (int) ($d->contratDeReference()?->contract_months ?? 0) === $months
             );
         }
 
-        if (! empty($filtres['pending'])) {
-            $veutEnAttente = $filtres['pending'] === 'yes';
-            $agents = $agents->filter(function (Driver $d) use ($veutEnAttente) {
-                $enAttente = $d->leaveRequests()->where('status', 'pending')->count();
+        if (! empty($filters['available'])) {
+            $wantsAvailable = $filters['available'] === 'yes';
+            $drivers = $drivers->filter(
+                fn (Driver $d) => $wantsAvailable ? $d->available_leave_days > 0 : $d->available_leave_days <= 0
+            );
+        }
 
-                return $veutEnAttente ? $enAttente > 0 : $enAttente === 0;
+        if (! empty($filters['pending'])) {
+            $wantsPending = $filters['pending'] === 'yes';
+            $drivers = $drivers->filter(function (Driver $d) use ($wantsPending) {
+                $pendingCount = $d->leaveRequests()->where('status', 'pending')->count();
+
+                return $wantsPending ? $pendingCount > 0 : $pendingCount === 0;
             });
         }
 
-        return $agents->values();
+        return $drivers->values();
     }
 }

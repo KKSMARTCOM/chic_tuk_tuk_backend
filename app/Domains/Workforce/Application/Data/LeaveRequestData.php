@@ -36,6 +36,16 @@ final class LeaveRequestData extends BaseData
         public ?string $expectedEndDate,
         /** La pause en cours dépasse-t-elle sa durée prévue ? */
         public bool $isOverdue,
+        /**
+         * Pause TERMINÉE saisie par un administrateur (`admin_historical`, `legacy`).
+         *
+         * ⚠️ C'est ce drapeau — et non le statut — qui dit si une pause terminée se
+         * corrige et se supprime : une pause terminée issue d'une demande d'agent a été
+         * vécue, et `DeleteLeave` la refuse. Sans ce champ, l'écran d'administration
+         * proposerait « Modifier » et « Supprimer » sur des pauses que l'API rejette,
+         * et l'administrateur ne découvrirait le refus qu'au clic.
+         */
+        public bool $isHistorical,
         public ?string $rejectionReason,
         /** Quand la demande a été déposée — « Demande du … » dans la vue. */
         public string $requestedAt,
@@ -52,6 +62,7 @@ final class LeaveRequestData extends BaseData
             effectiveDays: $demande->effective_days !== null ? (int) $demande->effective_days : null,
             expectedEndDate: $demande->expected_end_date?->format('Y-m-d'),
             isOverdue: $demande->is_overdue,
+            isHistorical: $demande->is_historical,
             rejectionReason: $demande->rejection_reason,
             requestedAt: $demande->created_at->toIso8601String(),
         );

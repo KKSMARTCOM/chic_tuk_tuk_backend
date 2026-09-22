@@ -60,6 +60,17 @@ sur plus de 130 fichiers existants. Toujours lui passer explicitement les fichie
 nouvellement créés — un `vendor/bin/pint` sans argument, ou appliqué à un fichier
 préexistant, produit un diff massif sans rapport avec la livraison en cours.
 
+## Nommage : identifiants en anglais, commentaires en français
+
+Les **identifiants** — variables, fonctions, méthodes, classes, propriétés, paramètres,
+constantes — s'écrivent en **anglais**. Les **commentaires** et les docblocks restent en
+**français**, comme les libellés affichés aux utilisateurs.
+
+C'est la convention du projet, posée le 2026-09-22. Une partie du code antérieur porte
+encore des noms français ; ne pas s'en servir comme précédent. Les renommer quand on
+touche un fichier pour une autre raison est bienvenu ; une campagne transverse se décide
+avec le mainteneur.
+
 ## Stack technique
 
 - Laravel 11 (bootstrap/app.php, pas de Kernel.php)

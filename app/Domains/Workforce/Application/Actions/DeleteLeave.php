@@ -40,16 +40,16 @@ use Illuminate\Support\Facades\DB;
 final class DeleteLeave
 {
     /** Les origines qu'un administrateur a saisies lui-même, et peut donc défaire. */
-    private const SOURCES_ADMINISTRATIVES = ['admin_historical', 'legacy'];
+    private const ADMIN_SOURCES = ['admin_historical', 'legacy'];
 
     public function __construct(private readonly VehicleService $vehicleService) {}
 
-    public function __invoke(LeaveRequest $pause): void
+    public function __invoke(LeaveRequest $leave): void
     {
-        $estHistoriqueAdministrative = $pause->status === 'completed'
-            && in_array($pause->source, self::SOURCES_ADMINISTRATIVES, true);
+        $isAdminEntry = $leave->status === 'completed'
+            && in_array($leave->source, self::ADMIN_SOURCES, true);
 
-        if (! $estHistoriqueAdministrative && $pause->status !== 'ongoing') {
+        if (! $isAdminEntry && $leave->status !== 'ongoing') {
             throw new ApiException(
                 409,
                 'LEAVE_NOT_DELETABLE',
@@ -57,24 +57,24 @@ final class DeleteLeave
             );
         }
 
-        DB::transaction(function () use ($pause) {
-            $agent = $pause->driver;
+        DB::transaction(function () use ($leave) {
+            $driver = $leave->driver;
 
-            if ($pause->status === 'completed') {
+            if ($leave->status === 'completed') {
                 // Compteur indicatif : retirer ce que la saisie avait ajouté.
-                $agent?->markLeaveDaysUsed(-($pause->effective_days ?? 0));
+                $driver?->markLeaveDaysUsed(-($leave->effective_days ?? 0));
             }
 
-            if ($pause->vehiclePause) {
-                $this->vehicleService->cancelPause($pause->vehiclePause);
+            if ($leave->vehiclePause) {
+                $this->vehicleService->cancelPause($leave->vehiclePause);
             }
 
-            $pause->delete();
+            $leave->delete();
 
             // ⚠️ APRÈS la suppression : sinon la pause qu'on efface se compte elle-même
             // parmi celles qui retiennent l'agent, et il resterait indisponible.
-            if ($agent) {
-                $agent->update(['is_available' => ! $this->unePauseACommence($agent)]);
+            if ($driver) {
+                $driver->update(['is_available' => ! $this->aLeaveHasStarted($driver)]);
             }
         });
     }
@@ -85,9 +85,9 @@ final class DeleteLeave
      * Le statut ne suffit pas : une pause `ongoing` dont le début est à venir ne bloque
      * personne. C'est la date qui décide.
      */
-    private function unePauseACommence(Driver $agent): bool
+    private function aLeaveHasStarted(Driver $driver): bool
     {
-        return $agent->leaveRequests()
+        return $driver->leaveRequests()
             ->where('status', 'ongoing')
             ->whereDate('start_date', '<=', now()->startOfDay())
             ->exists();

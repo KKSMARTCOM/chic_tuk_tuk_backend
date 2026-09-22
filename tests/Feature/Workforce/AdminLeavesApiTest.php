@@ -170,6 +170,39 @@ class AdminLeavesApiTest extends TestCase
             ->assertJsonPath('0.available_leave_days', 12);
     }
 
+    public function test_l_historique_distingue_la_saisie_administrative_de_la_pause_vecue(): void
+    {
+        // ⚠️ C'est ce drapeau, et non le statut, qui dit si une pause terminée se corrige
+        // et se supprime : `DeleteLeave` refuse une pause terminée issue d'une demande
+        // d'agent. Sans lui dans le JSON, l'écran proposerait « Modifier » et
+        // « Supprimer » sur des pauses que l'API rejette, et le refus ne se découvrirait
+        // qu'au clic.
+        $agent = $this->agent();
+        $contrat = $agent->activeDriverContract;
+
+        LeaveRequest::factory()->create([
+            'driver_id' => $agent->id, 'driver_contract_id' => $contrat->id,
+            'status' => 'completed', 'source' => 'admin_historical',
+            'start_date' => now()->subMonths(2)->toDateString(),
+            'requested_days' => 2, 'effective_days' => 2,
+        ]);
+        LeaveRequest::factory()->create([
+            'driver_id' => $agent->id, 'driver_contract_id' => $contrat->id,
+            'status' => 'completed', 'source' => 'driver_request',
+            'start_date' => now()->subMonth()->toDateString(),
+            'requested_days' => 3, 'effective_days' => 3,
+        ]);
+
+        [, $token] = $this->connecter(Profil::Admin, ['view-leaves']);
+
+        $historique = collect(
+            $this->entete($token)->getJson("/api/v1/admin/leaves/{$agent->id}")->assertOk()->json('history')
+        )->keyBy('effective_days');
+
+        $this->assertTrue($historique[2]['is_historical'], 'la saisie administrative n\'est pas reconnue');
+        $this->assertFalse($historique[3]['is_historical'], 'une pause vécue est présentée comme corrigeable');
+    }
+
     public function test_une_liste_vide_est_un_tableau_vide_et_non_une_erreur(): void
     {
         [, $token] = $this->connecter(Profil::Admin, ['view-leaves', 'view-leave-requests']);
