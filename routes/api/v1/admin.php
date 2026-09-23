@@ -42,8 +42,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->name('dashboard');
 
         /*
-         * Les agents, en LECTURE SEULE pour l'instant — ex-Admin\DriverController
-         * (index, show). Création, édition et actions restent à faire.
+         * Les agents — ex-Admin\DriverController. Création et édition restent à faire :
+         * elles embarquent le choix d'un propriétaire, d'un véhicule et d'un mode de
+         * contrat, un sous-système à part entière.
          *
          * ⚠️ `{driver}` est l'identifiant de l'AGENT (`drivers.id`), comme pour les
          * pauses — pas celui de son compte (`users.id`) que prend le Blade.
@@ -52,6 +53,19 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
             Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
         });
+
+        Route::middleware('permission:edit-drivers')->group(function () {
+            Route::post('/drivers/{driver}/toggle-availability', [DriverController::class, 'toggleAvailability'])
+                ->name('drivers.toggle-availability');
+            Route::post('/drivers/{driver}/toggle-status', [DriverController::class, 'toggleStatus'])
+                ->name('drivers.toggle-status');
+            Route::post('/drivers/{driver}/password', [DriverController::class, 'updatePassword'])
+                ->name('drivers.update-password');
+        });
+
+        Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])
+            ->middleware('permission:delete-drivers')
+            ->name('drivers.destroy');
 
         /*
          * Les réservations.

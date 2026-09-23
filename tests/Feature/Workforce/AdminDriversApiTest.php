@@ -16,8 +16,8 @@ use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
- * La liste des agents et leur dossier, en LECTURE SEULE — ex-Admin\DriverController
- * (index, show). Le sous-lot suivant couvrira création, édition et actions.
+ * La liste des agents et leur dossier — ex-Admin\DriverController (index, show).
+ * `AdminDriversWritesTest` couvre les actions ; création et édition restent à faire.
  */
 class AdminDriversApiTest extends TestCase
 {
