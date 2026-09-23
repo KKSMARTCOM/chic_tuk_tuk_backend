@@ -64,7 +64,7 @@ class PaymentController extends Controller
         try {
             $validated = $request->validate([
                 'driver_id' => 'required|exists:drivers,id',
-                'payment_type' => 'required|in:commission,contract',
+                'payment_type' => 'required|in:commission,contract,subscription_revenue',
                 'amount'           => 'required|numeric|min:0.01',
                 'payment_method' => 'required|in:cash,bank_transfer,check,mobile_money,other',
                 'payment_date' => 'required|date',

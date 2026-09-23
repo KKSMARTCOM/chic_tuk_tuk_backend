@@ -22,8 +22,15 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
-        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <!--
+            Base de test DÉDIÉE. Ne jamais pointer sur la base de développement :
+            RefreshDatabase la viderait à chaque exécution.
+            SQLite n'est pas utilisable ici — les migrations et les requêtes du projet
+            sont spécifiques à PostgreSQL (casts uuid, (pickup_date::date + pickup_time::time)).
+            Création : createdb -U postgres chic_tuktuk_db_test
+        -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_DATABASE" value="chic_tuktuk_db_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

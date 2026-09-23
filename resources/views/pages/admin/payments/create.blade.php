@@ -61,6 +61,9 @@
                         </option>
                         <option value="contract" {{ old('payment_type') == 'contract' ? 'selected' : '' }}>Contractuel
                         </option>
+                        <option value="subscription_revenue"
+                            {{ old('payment_type') == 'subscription_revenue' ? 'selected' : '' }}>Revenus abonnement
+                        </option>
                     </select>
                     @error('payment_type')
                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>

@@ -86,6 +86,51 @@
                 </div>
             </div>
 
+            {{-- Revenus abonnements --}}
+            @if ($subscriptionRevenue['subscriptions']->isNotEmpty())
+                <div class="bg-white rounded-lg shadow-md">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-base font-bold text-gray-800">Revenus abonnements</h3>
+                    </div>
+                    <div class="px-6 py-5">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                            <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                                <div class="text-xl font-bold text-yellow-600">
+                                    {{ number_format($subscriptionRevenue['total_due'], 0, ',', ' ') }}</div>
+                                <div class="text-xs text-gray-600">Total dû (FCFA)</div>
+                            </div>
+                            <div class="text-center p-4 bg-green-50 rounded-lg">
+                                <div class="text-xl font-bold text-green-600">
+                                    {{ number_format($subscriptionRevenue['total_paid'], 0, ',', ' ') }}</div>
+                                <div class="text-xs text-gray-600">Total payé (FCFA)</div>
+                            </div>
+                            <div class="text-center p-4 bg-orange-50 rounded-lg">
+                                <div class="text-xl font-bold text-orange-600">
+                                    {{ number_format($subscriptionRevenue['balance_due'], 0, ',', ' ') }}</div>
+                                <div class="text-xs text-gray-600">Solde dû (FCFA)</div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            @foreach ($subscriptionRevenue['subscriptions'] as $subscription)
+                                <div
+                                    class="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-800">
+                                            Abonn. {{ $subscription['booking_number'] }}</p>
+                                        <p class="text-xs text-gray-400">
+                                            {{ $subscription['bookings_count'] }}
+                                            {{ Str::plural('course', $subscription['bookings_count']) }} effectuée(s)
+                                        </p>
+                                    </div>
+                                    <p class="text-sm font-semibold text-gray-700">
+                                        {{ number_format($subscription['amount'], 0, ',', ' ') }} FCFA</p>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             {{-- Stats commissions --}}
             <div class="bg-white rounded-lg shadow-md">
                 <div class="px-6 py-4 border-b border-gray-200">
@@ -281,6 +326,12 @@
                         class="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold">
                         <i class="fas fa-money-bill mr-2"></i> Enregistrer le pymt d'une commission
                     </button>
+                    @if ($subscriptionRevenue['subscriptions']->isNotEmpty())
+                        <button onclick="openSubscriptionRevenuePaymentModal()"
+                            class="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition text-sm font-semibold">
+                            <i class="fas fa-hand-holding-usd mr-2"></i> Enregistrer le pymt de revenus abonnement
+                        </button>
+                    @endif
                     <a href="{{ route('admin.payments.driver-details', $driverProfile->id) }}"
                         class="block w-full text-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-semibold">
                         <i class="fas fa-chart-line mr-2"></i> Voir les paiements
@@ -343,6 +394,9 @@
     {{-- Modal paiement --}}
     @include('inc.modals.drivers.payment')
 
+    {{-- Modal paiement revenus abonnement --}}
+    @include('inc.modals.drivers.subscription-revenue-payment')
+
     {{-- Modals confirmation disponibilité --}}
     @include('inc.modals.drivers.availability')
 
@@ -390,6 +444,14 @@
 
             function closePaymentModal() {
                 document.getElementById('paymentModal').classList.replace('flex', 'hidden');
+            }
+
+            function openSubscriptionRevenuePaymentModal() {
+                document.getElementById('subscriptionRevenuePaymentModal').classList.replace('hidden', 'flex');
+            }
+
+            function closeSubscriptionRevenuePaymentModal() {
+                document.getElementById('subscriptionRevenuePaymentModal').classList.replace('flex', 'hidden');
             }
 
             // Disponibilité
