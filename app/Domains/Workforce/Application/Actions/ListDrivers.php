@@ -37,10 +37,15 @@ final class ListDrivers
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhereHas('driver', function ($driverQuery) use ($search) {
-                        $driverQuery->where('license_number', 'like', "%{$search}%")
-                            ->orWhere('vehicle_number', 'like', "%{$search}%");
-                    });
+                    ->orWhereHas('driver', fn ($driverQuery) => $driverQuery->where('license_number', 'like', "%{$search}%"))
+                    // ⚠️ Le VÉHICULE ACTUEL, via `currentVehicle` (table `vehicles`) — pas
+                    // `drivers.vehicle_number`, une colonne vestigiale que les migrations du
+                    // dépôt déclarent mais que la base de staging n'a plus (constaté le
+                    // 2026-09-23 : `column "vehicle_number" does not exist`). Cette clause
+                    // faisait partie de TOUTE recherche, peu importe le terme tapé — la
+                    // recherche d'agent était donc cassée sans exception, y compris côté
+                    // Blade, qui porte la même requête.
+                    ->orWhereHas('driver.currentVehicle', fn ($vehicleQuery) => $vehicleQuery->where('vehicle_number', 'like', "%{$search}%"));
             });
         }
 

@@ -113,6 +113,33 @@ class AdminDriversApiTest extends TestCase
     }
 
     /**
+     * ⚠️ Le test qui ferme le défaut trouvé sur staging : la recherche interrogeait
+     * `drivers.vehicle_number`, une colonne que les migrations du dépôt déclarent mais que
+     * la base de staging n'a plus (`column "vehicle_number" does not exist`, constaté en
+     * production le 2026-09-23). Cette clause faisait partie de TOUTE recherche, donc
+     * TOUTE recherche y échouait. La plaque cherchée doit venir du véhicule ACTUEL de
+     * l'agent, via `currentVehicle` (table `vehicles`), jamais de `drivers` directement.
+     */
+    public function test_la_recherche_par_plaque_porte_sur_le_vehicule_actuel(): void
+    {
+        $driver = Driver::factory()->create();
+        $vehicle = Vehicle::factory()->create(['vehicle_number' => 'T-9001']);
+        $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create();
+        DriverContract::factory()->forVehicleContract($vehicleContract)->create(['driver_id' => $driver->id]);
+
+        Driver::factory()->create(); // un autre agent, sans ce véhicule
+
+        [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
+
+        $response = $this->entete($token)
+            ->getJson('/api/v1/admin/drivers?search=T-9001')
+            ->assertOk();
+
+        $response->assertJsonCount(1, 'drivers');
+        $response->assertJsonPath('drivers.0.id', $driver->id);
+    }
+
+    /**
      * ⚠️ Le test qui ferme le défaut trouvé en comparant au Blade : choisir explicitement
      * « Tous les statuts » soumet `is_active=` (chaîne vide), que `DriverService`
      * traitait comme une vraie valeur de filtre — une comparaison Postgres invalide sur
