@@ -2,6 +2,7 @@
 
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
+use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\LeaveController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,6 +40,18 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::get('/dashboard', DashboardController::class)
             ->middleware('permission:view-dashboard')
             ->name('dashboard');
+
+        /*
+         * Les agents, en LECTURE SEULE pour l'instant — ex-Admin\DriverController
+         * (index, show). Création, édition et actions restent à faire.
+         *
+         * ⚠️ `{driver}` est l'identifiant de l'AGENT (`drivers.id`), comme pour les
+         * pauses — pas celui de son compte (`users.id`) que prend le Blade.
+         */
+        Route::middleware('permission:view-drivers')->group(function () {
+            Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
+            Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
+        });
 
         /*
          * Les réservations.

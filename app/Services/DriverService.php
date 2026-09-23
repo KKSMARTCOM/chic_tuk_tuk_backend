@@ -42,11 +42,11 @@ class DriverService
             });
         }
 
-        if (isset($filters['is_active'])) {
+        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
             $query->where('is_active', $filters['is_active']);
         }
 
-        if (isset($filters['is_available'])) {
+        if (isset($filters['is_available']) && $filters['is_available'] !== '') {
             $query->whereHas('driver', function ($q) use ($filters) {
                 $q->where('is_available', $filters['is_available']);
             });
@@ -446,11 +446,11 @@ class DriverService
             });
         }
 
-        if (isset($filters['is_active'])) {
+        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
             $query->where('is_active', $filters['is_active']);
         }
 
-        if (isset($filters['is_available'])) {
+        if (isset($filters['is_available']) && $filters['is_available'] !== '') {
             $query->whereHas('driver', function ($q) use ($filters) {
                 $q->where('is_available', $filters['is_available']);
             });
