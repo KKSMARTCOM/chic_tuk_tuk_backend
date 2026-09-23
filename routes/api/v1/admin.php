@@ -56,7 +56,18 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
         });
 
+        // Le devis sert AUX DEUX formulaires, création et édition : n'importe laquelle
+        // des deux permissions suffit à le demander.
+        Route::post('/bookings/quote', [BookingController::class, 'quote'])
+            ->middleware('permission:create-bookings,edit-bookings')
+            ->name('bookings.quote');
+
+        Route::post('/bookings', [BookingController::class, 'store'])
+            ->middleware('permission:create-bookings')->name('bookings.store');
+
         Route::middleware('permission:edit-bookings')->group(function () {
+            Route::put('/bookings/{booking}', [BookingController::class, 'update'])
+                ->name('bookings.update');
             Route::post('/bookings/{booking}/assign-driver', [BookingController::class, 'assignDriver'])
                 ->name('bookings.assign-driver');
             Route::post('/bookings/{booking}/remove-driver', [BookingController::class, 'removeDriver'])

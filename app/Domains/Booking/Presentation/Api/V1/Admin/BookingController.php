@@ -4,16 +4,22 @@ namespace App\Domains\Booking\Presentation\Api\V1\Admin;
 
 use App\Domains\Booking\Application\Actions\AssignDriverToBooking;
 use App\Domains\Booking\Application\Actions\ChangeBookingStatus;
+use App\Domains\Booking\Application\Actions\CreateAdminBooking;
 use App\Domains\Booking\Application\Actions\DeleteAdminBooking;
 use App\Domains\Booking\Application\Actions\ListAdminBookings;
 use App\Domains\Booking\Application\Actions\ListAssignableDrivers;
+use App\Domains\Booking\Application\Actions\QuotePrice;
 use App\Domains\Booking\Application\Actions\RemoveDriverFromBooking;
 use App\Domains\Booking\Application\Actions\ReopenCompletedBooking;
+use App\Domains\Booking\Application\Actions\UpdateAdminBooking;
 use App\Domains\Booking\Application\Data\AdminBookingDetailData;
 use App\Domains\Booking\Application\Data\AdminBookingPageData;
 use App\Domains\Booking\Application\Data\AssignableDriverData;
 use App\Domains\Booking\Application\Data\AssignDriverData;
+use App\Domains\Booking\Application\Data\CalculatePriceData;
 use App\Domains\Booking\Application\Data\ChangeBookingStatusData;
+use App\Domains\Booking\Application\Data\CreateAdminBookingData;
+use App\Domains\Booking\Application\Data\UpdateAdminBookingData;
 use App\Models\Booking;
 use App\Models\Driver;
 use App\Shared\Http\ApiException;
@@ -93,7 +99,55 @@ final class BookingController
         }
     }
 
+    /**
+     * Devis pour le formulaire de création ou d'édition.
+     *
+     * ⚠️ Réutilise `QuotePrice`, l'action du tunnel PUBLIC, plutôt que d'en tenir une
+     * seconde copie : c'est la même tarification, base + majoration horaire selon
+     * l'heure de départ et de retour. Route à part et non `/public/pricing/quote`,
+     * pour ne pas faire concourir l'usage authentifié de l'administration avec le
+     * throttling posé sur l'endpoint anonyme.
+     */
+    public function quote(Request $request, CalculatePriceData $data, QuotePrice $quote): JsonResponse
+    {
+        try {
+            return response()->json($quote->execute($data));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failed($e, $request, 'le calcul d\'un devis',
+                'Le devis n\'a pas pu être calculé. Vérifiez le trajet et réessayez.', 'ADMIN_BOOKING_QUOTE_FAILED');
+        }
+    }
+
     // ----- Les écritures -----------------------------------------------------
+
+    /**
+     * Créer une réservation depuis l'administration.
+     *
+     * ⚠️ Seule route de création qui accepte un prix en entrée : `CreateAdminBookingData`
+     * le documente. Aucune anticipation de 24 heures n'est exigée, contrairement au
+     * tunnel public — un administrateur saisit souvent une course déjà négociée par
+     * téléphone.
+     */
+    public function store(Request $request, CreateAdminBookingData $data, CreateAdminBooking $create): JsonResponse
+    {
+        try {
+            $booking = $create($data);
+
+            return response()->json(
+                AdminBookingDetailData::fromModel(
+                    $booking->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
+                ),
+                201,
+            );
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failed($e, $request, 'la création d\'une réservation',
+                'Cette réservation n\'a pas pu être créée. Vérifiez le trajet et réessayez.', 'BOOKING_CREATE_FAILED');
+        }
+    }
 
     public function assignDriver(Request $request, string $bookingId, AssignDriverData $data, AssignDriverToBooking $assign): JsonResponse
     {
@@ -124,6 +178,29 @@ final class BookingController
         } catch (\Throwable $e) {
             return $this->failed($e, $request, 'le retrait d\'un agent',
                 'Cet agent n\'a pas pu être retiré.', 'BOOKING_REMOVE_DRIVER_FAILED');
+        }
+    }
+
+    /**
+     * Modifier le trajet et le prix d'une réservation EN ATTENTE.
+     *
+     * ⚠️ N'accepte AUCUN champ de statut : voir `UpdateAdminBookingData`. Le seul chemin
+     * de changement de statut reste `changeStatus()`, qui applique la matrice de
+     * transitions et notifie.
+     */
+    public function update(Request $request, string $bookingId, UpdateAdminBookingData $data, UpdateAdminBooking $update): JsonResponse
+    {
+        try {
+            $booking = Booking::findOrFail($bookingId);
+
+            return response()->json(AdminBookingDetailData::fromModel(
+                $update($booking, $data)->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
+            ));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failed($e, $request, 'la modification d\'une réservation',
+                'Cette réservation n\'a pas pu être modifiée. Vérifiez le trajet et réessayez.', 'BOOKING_UPDATE_FAILED');
         }
     }
 

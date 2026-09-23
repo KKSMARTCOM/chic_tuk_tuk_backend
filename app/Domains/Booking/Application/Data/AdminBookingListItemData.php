@@ -3,8 +3,8 @@
 namespace App\Domains\Booking\Application\Data;
 
 use App\Domains\Booking\Application\Data\Concerns\DescribesBookingKind;
-use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
+use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
 
@@ -59,6 +59,8 @@ final class AdminBookingListItemData extends BaseData
          */
         public bool $canAssignDriver,
         public bool $canRemoveDriver,
+        /** Le lien « Modifier » du tableau Blade — uniquement une réservation EN ATTENTE. */
+        public bool $canEdit,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -89,6 +91,7 @@ final class AdminBookingListItemData extends BaseData
             createdAt: $booking->created_at->toIso8601String(),
             canAssignDriver: BookingLifecycle::canAssignDriver($booking),
             canRemoveDriver: BookingLifecycle::canRemoveDriver($booking),
+            canEdit: BookingLifecycle::canEdit($booking),
         );
     }
 }

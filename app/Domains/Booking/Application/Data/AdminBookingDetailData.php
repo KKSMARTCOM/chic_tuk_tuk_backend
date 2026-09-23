@@ -138,6 +138,8 @@ final class AdminBookingDetailData extends BaseData
          * de trajets, là où un changement de statut ne défait rien.
          */
         public bool $canReopen,
+        /** Le bouton « Modifier » — uniquement une réservation EN ATTENTE. */
+        public bool $canEdit,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -208,6 +210,7 @@ final class AdminBookingDetailData extends BaseData
             canRemoveDriver: BookingLifecycle::canRemoveDriver($booking),
             canDelete: BookingLifecycle::canDelete($booking),
             canReopen: BookingLifecycle::canReopen($booking),
+            canEdit: BookingLifecycle::canEdit($booking),
         );
     }
 }

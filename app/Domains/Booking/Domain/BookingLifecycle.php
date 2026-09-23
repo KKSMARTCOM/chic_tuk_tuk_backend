@@ -98,6 +98,25 @@ final class BookingLifecycle
     }
 
     /**
+     * Les DÉTAILS de la course peuvent-ils être modifiés (trajet, horaires, prix) ?
+     *
+     * ⚠️ Repris de la garde qui entoure le lien « Modifier », identique sur la liste et
+     * sur le dossier : `status === 'pending'`. Rien d'autre — y compris une course fille
+     * d'abonnement, que le Blade laisse éditer tant qu'elle est en attente.
+     *
+     * ⚠️ Ce n'est PAS un chemin de changement de statut. `UpdateAdminBooking` n'accepte
+     * jamais de champ `status` : le seul chemin qui en change est `ChangeBookingStatus`,
+     * qui applique la matrice de transitions et notifie. Le contrôleur Blade, lui,
+     * validait `status` dans le MÊME formulaire que l'édition du trajet — un
+     * administrateur pouvait donc confirmer ou annuler une course sans jamais passer par
+     * la logique déjà en place pour ce geste.
+     */
+    public static function canEdit(Booking $booking): bool
+    {
+        return $booking->status === 'pending';
+    }
+
+    /**
      * La CLÔTURE peut-elle être annulée ?
      *
      * ⚠️ C'est la seule issue d'une course terminée, et elle ne passe pas par la matrice
