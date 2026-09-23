@@ -50,6 +50,17 @@ final class AdminBookingDetailData extends BaseData
         // ----- Le trajet -----------------------------------------------------
         public string $fromLocation,
         public string $toLocation,
+        /**
+         * Coordonnées du trajet — absentes de `AdminBookingListItemData`, où rien n'en a
+         * besoin. Le formulaire d'ÉDITION, lui, doit pouvoir présélectionner le trajet dans
+         * l'autocomplétion sans obliger l'administrateur à le ressaisir : sans elles, tout
+         * enregistrement qui ne touche pas au lieu enverrait des coordonnées à zéro et
+         * effacerait le trajet existant.
+         */
+        public ?float $fromLat,
+        public ?float $fromLng,
+        public ?float $toLat,
+        public ?float $toLng,
         /** Kilomètres, tels que le service de tarification les a calculés. */
         public ?float $distance,
         /** Heure MURALE, sans décalage — voir la règle du projet sur `pickup_at`. */
@@ -162,6 +173,10 @@ final class AdminBookingDetailData extends BaseData
 
             fromLocation: $booking->from_location,
             toLocation: $booking->to_location,
+            fromLat: $booking->from_lat !== null ? (float) $booking->from_lat : null,
+            fromLng: $booking->from_lng !== null ? (float) $booking->from_lng : null,
+            toLat: $booking->to_lat !== null ? (float) $booking->to_lat : null,
+            toLng: $booking->to_lng !== null ? (float) $booking->to_lng : null,
             distance: $booking->distance !== null ? (float) $booking->distance : null,
             pickupAt: self::pickupAt($booking),
             returnTime: $booking->return_time ? substr((string) $booking->return_time, 0, 5) : null,

@@ -182,6 +182,27 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('can_be_cancelled', true);
     }
 
+    public function test_le_dossier_porte_les_coordonnees_du_trajet(): void
+    {
+        /*
+         * ⚠️ Sans elles, le formulaire d'ÉDITION ne peut pas présélectionner le trajet
+         * dans l'autocomplétion : tout enregistrement qui ne touche pas au lieu
+         * enverrait des coordonnées à zéro et effacerait le trajet existant.
+         */
+        $booking = Booking::factory()->create([
+            'from_lat' => 6.36, 'from_lng' => 2.38, 'to_lat' => 6.37, 'to_lng' => 2.35,
+        ]);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('from_lat', 6.36)
+            ->assertJsonPath('from_lng', 2.38)
+            ->assertJsonPath('to_lat', 6.37)
+            ->assertJsonPath('to_lng', 2.35);
+    }
+
     public function test_une_reservation_introuvable_donne_404(): void
     {
         [, $token] = $this->login(Profil::Admin, ['view-bookings']);
