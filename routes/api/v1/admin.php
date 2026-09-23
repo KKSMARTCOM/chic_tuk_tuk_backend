@@ -42,19 +42,38 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->name('dashboard');
 
         /*
-         * Les agents — ex-Admin\DriverController. Création et édition restent à faire :
-         * elles embarquent le choix d'un propriétaire, d'un véhicule et d'un mode de
-         * contrat, un sous-système à part entière.
+         * Les agents — ex-Admin\DriverController.
          *
          * ⚠️ `{driver}` est l'identifiant de l'AGENT (`drivers.id`), comme pour les
          * pauses — pas celui de son compte (`users.id`) que prend le Blade.
+         *
+         * ⚠️ Les deux routes `owners-for-*` sont déclarées AVANT `/drivers/{driver}` :
+         * sinon Laravel confronterait « owners-for-new-contract » au paramètre
+         * `{driver}` en premier, et chercherait un agent dont l'identifiant est
+         * « owners-for-new-contract ». Même piège que `bookings/assignable-drivers`.
+         *
+         * Le sélecteur propriétaire/véhicule sert À LA FOIS la création (create-drivers)
+         * et l'édition (edit-drivers) : d'où l'OR sur les deux permissions.
          */
+        Route::middleware('permission:create-drivers,edit-drivers')->group(function () {
+            Route::get('/drivers/owners-for-new-contract', [DriverController::class, 'ownersForNewContract'])
+                ->name('drivers.owners-for-new-contract');
+            Route::get('/drivers/owners-for-renewal', [DriverController::class, 'ownersForRenewal'])
+                ->name('drivers.owners-for-renewal');
+        });
+
         Route::middleware('permission:view-drivers')->group(function () {
             Route::get('/drivers', [DriverController::class, 'index'])->name('drivers.index');
             Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
         });
 
+        Route::post('/drivers', [DriverController::class, 'store'])
+            ->middleware('permission:create-drivers')
+            ->name('drivers.store');
+
         Route::middleware('permission:edit-drivers')->group(function () {
+            Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
+            Route::patch('/drivers/{driver}', [DriverController::class, 'update']);
             Route::post('/drivers/{driver}/toggle-availability', [DriverController::class, 'toggleAvailability'])
                 ->name('drivers.toggle-availability');
             Route::post('/drivers/{driver}/toggle-status', [DriverController::class, 'toggleStatus'])

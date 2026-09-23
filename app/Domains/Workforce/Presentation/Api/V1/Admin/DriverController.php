@@ -2,14 +2,20 @@
 
 namespace App\Domains\Workforce\Presentation\Api\V1\Admin;
 
+use App\Domains\Workforce\Application\Actions\CreateDriver;
 use App\Domains\Workforce\Application\Actions\DeleteDriver;
 use App\Domains\Workforce\Application\Actions\ListDrivers;
+use App\Domains\Workforce\Application\Actions\ListOwnersForNewContract;
+use App\Domains\Workforce\Application\Actions\ListOwnersForRenewal;
 use App\Domains\Workforce\Application\Actions\ShowDriverDetail;
 use App\Domains\Workforce\Application\Actions\ToggleDriverAvailability;
 use App\Domains\Workforce\Application\Actions\ToggleDriverStatus;
+use App\Domains\Workforce\Application\Actions\UpdateDriver;
 use App\Domains\Workforce\Application\Actions\UpdateDriverPassword;
+use App\Domains\Workforce\Application\Data\CreateDriverData;
 use App\Domains\Workforce\Application\Data\ToggleDriverAvailabilityData;
 use App\Domains\Workforce\Application\Data\ToggleDriverStatusData;
+use App\Domains\Workforce\Application\Data\UpdateDriverData;
 use App\Domains\Workforce\Application\Data\UpdateDriverPasswordData;
 use App\Models\Driver;
 use App\Shared\Http\ApiException;
@@ -21,9 +27,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Les agents, vus de l'administration — ex-Admin\DriverController. Création et édition
- * restent à faire dans un sous-lot suivant : elles embarquent le choix d'un propriétaire,
- * d'un véhicule et d'un mode de contrat, un sous-système à part entière.
+ * Les agents, vus de l'administration — ex-Admin\DriverController.
  *
  * Mêmes règles de try/catch que le reste de l'API v1 : ValidationException, ApiException
  * et ModelNotFoundException relancées en premier, `\Throwable` et non `\Exception`, le
@@ -58,6 +62,63 @@ final class DriverController
         } catch (\Throwable $e) {
             return $this->echec($e, $request, 'le dossier de l\'agent',
                 'Le dossier de cet agent n\'a pas pu être chargé. Réessayez.', 'ADMIN_DRIVER_FAILED');
+        }
+    }
+
+    public function ownersForNewContract(Request $request, ListOwnersForNewContract $list): JsonResponse
+    {
+        try {
+            return response()->json($list());
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->echec($e, $request, 'les propriétaires proposés',
+                'La liste des propriétaires n\'a pas pu être chargée. Réessayez.', 'ADMIN_OWNERS_FAILED');
+        }
+    }
+
+    public function ownersForRenewal(Request $request, ListOwnersForRenewal $list): JsonResponse
+    {
+        try {
+            return response()->json($list());
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->echec($e, $request, 'les propriétaires proposés pour reconduction',
+                'La liste des propriétaires n\'a pas pu être chargée. Réessayez.', 'ADMIN_OWNERS_FAILED');
+        }
+    }
+
+    public function store(Request $request, CreateDriverData $data, CreateDriver $create, ShowDriverDetail $show): JsonResponse
+    {
+        try {
+            $user = $create($data);
+
+            return response()->json($show($user->driver->id), 201);
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->echec($e, $request, 'la création de l\'agent',
+                'Cet agent n\'a pas pu être créé.', 'DRIVER_CREATE_FAILED');
+        }
+    }
+
+    public function update(
+        Request $request,
+        string $driverId,
+        UpdateDriverData $data,
+        UpdateDriver $update,
+        ShowDriverDetail $show,
+    ): JsonResponse {
+        try {
+            $update(Driver::findOrFail($driverId), $data);
+
+            return response()->json($show($driverId));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->echec($e, $request, 'la modification de l\'agent',
+                'Cet agent n\'a pas pu être modifié.', 'DRIVER_UPDATE_FAILED');
         }
     }
 
