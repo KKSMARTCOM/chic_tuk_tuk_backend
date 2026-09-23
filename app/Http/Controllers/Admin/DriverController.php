@@ -215,12 +215,14 @@ class DriverController extends Controller
 
             $commissionStats = $this->commissionService->getDriverCommissions($driver->driver->id);
 
+            $subscriptionRevenue = $this->commissionService->getDriverSubscriptionRevenue($driver->driver->id);
+
             $owners   = User::whereHas('roles', fn($q) => $q->where('name', 'proprietaire'))
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'phone']);
 
-            return view('pages.admin.drivers.show', compact('driverData', 'bookingStats', 'commissionStats', 'owners'));
+            return view('pages.admin.drivers.show', compact('driverData', 'bookingStats', 'commissionStats', 'subscriptionRevenue', 'owners'));
         } catch (\Exception $e) {
             Log::error('Erreur lors de l’affichage du profil agent : ' . $e->getMessage(), ['exception' => $e]);
             return redirect()->back()->withInput()->with('error', $e->getMessage());
