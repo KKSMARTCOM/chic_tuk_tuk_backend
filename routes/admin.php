@@ -28,7 +28,19 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::get('drivers/import/form',                   [DriverController::class, 'importForm'])->name('drivers.import.form')->middleware('permission:import-drivers');
     Route::post('drivers/import',                       [DriverController::class, 'import'])->name('drivers.import')->middleware('permission:import-drivers');
     Route::get('drivers/template/download',             [DriverController::class, 'downloadTemplate'])->name('drivers.template.download')->middleware('permission:import-drivers');
-    Route::resource('drivers',                          DriverController::class)->middleware('permission:view-drivers');
+    // ⚠️ Route::resource(...)->middleware('permission:view-drivers') gardait AUSSI
+    // store/update/destroy derrière la seule view-drivers : un rôle qui n'a que voir les
+    // agents pouvait les créer, modifier ET supprimer. Corrigé le 2026-09-23 — trouvé en
+    // comparant les permissions déclarées au catalogue avec celles réellement exigées par
+    // les routes.
+    Route::get('drivers',                                [DriverController::class, 'index'])->name('drivers.index')->middleware('permission:view-drivers');
+    Route::get('drivers/create',                          [DriverController::class, 'create'])->name('drivers.create')->middleware('permission:create-drivers');
+    Route::post('drivers',                                [DriverController::class, 'store'])->name('drivers.store')->middleware('permission:create-drivers');
+    Route::get('drivers/{driver}',                        [DriverController::class, 'show'])->name('drivers.show')->middleware('permission:view-drivers');
+    Route::get('drivers/{driver}/edit',                   [DriverController::class, 'edit'])->name('drivers.edit')->middleware('permission:edit-drivers');
+    Route::put('drivers/{driver}',                        [DriverController::class, 'update'])->name('drivers.update')->middleware('permission:edit-drivers');
+    Route::patch('drivers/{driver}',                       [DriverController::class, 'update'])->middleware('permission:edit-drivers');
+    Route::delete('drivers/{driver}',                     [DriverController::class, 'destroy'])->name('drivers.destroy')->middleware('permission:delete-drivers');
     Route::post('drivers/{driver}/toggle-availability', [DriverController::class, 'toggleAvailability'])->name('drivers.toggle-availability')->middleware('permission:edit-drivers');
     Route::post('drivers/{driver}/toggle-status',       [DriverController::class, 'toggleStatus'])->name('drivers.toggle-status')->middleware('permission:edit-drivers');
     Route::post('drivers/{driver}/update-password',     [DriverController::class, 'updatePassword'])->name('drivers.update-password')->middleware('permission:edit-drivers');
