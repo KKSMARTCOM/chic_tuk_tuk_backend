@@ -20,6 +20,16 @@
     $canAssign = !$booking->driver_id && in_array($booking->status, ['pending']) && !$isChild;
     // Peut-on retirer l'agent ?
 $canRemoveDriver = $booking->driver_id && !in_array($booking->status, ['completed', 'cancelled', 'expired', 'missed']);
+// Peut-on transférer l'abonnement à un autre agent ? Seulement un parent déjà pris, tant
+// qu'il reste des courses à faire.
+$canTransfer =
+    $isParent &&
+    $booking->subscription_driver_id &&
+    !in_array($booking->status, ['cancelled', 'expired']) &&
+    ($booking->remaining_days > 0 ||
+        $booking->makeup_go_count > 0 ||
+        $booking->makeup_return_count > 0 ||
+        $booking->childBookings->whereIn('status', ['pending', 'confirmed'])->isNotEmpty());
 // Peut-on supprimer ?
 $canDelete = in_array($booking->status, ['cancelled', 'expired']);
 @endphp
@@ -386,6 +396,13 @@ $canDelete = in_array($booking->status, ['cancelled', 'expired']);
                             <i class="fas fa-user-plus mr-2"></i> Assigner un Agent
                         </button>
                     @endif
+                    {{-- Transférer l'abonnement --}}
+                    @if ($canTransfer)
+                        <button onclick="openTransferModal()"
+                            class="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                            <i class="fas fa-exchange-alt mr-2"></i> Transférer l'abonnement
+                        </button>
+                    @endif
                     {{-- Retirer l'agent --}}
                     @if ($canRemoveDriver)
                         <button onclick="confirmRemoveDriver('{{ $booking->id }}')"
@@ -448,6 +465,11 @@ $canDelete = in_array($booking->status, ['cancelled', 'expired']);
     <!-- Modal pour assigner un Agent -->
     @include('inc.modals.bookings.assign-driver')
 
+    <!-- Modal de transfert d'abonnement -->
+    @if ($canTransfer)
+        @include('inc.modals.bookings.transfer-subscription')
+    @endif
+
     <!-- Modal de retrait -->
     @include('inc.modals.bookings.remove-driver')
 
@@ -498,6 +520,40 @@ $canDelete = in_array($booking->status, ['cancelled', 'expired']);
                     error: function(xhr) {
                         console.error('Erreur chargement Agents:', xhr.status, xhr.responseText);
                         $select.html('<option value="">Erreur de chargement</option>');
+                    }
+                });
+            }
+
+            function openTransferModal() {
+                $('#transferSubscriptionModal').removeClass('hidden').addClass('flex');
+            }
+
+            function closeTransferModal() {
+                $('#transferSubscriptionModal').addClass('hidden').removeClass('flex');
+            }
+
+            function confirmTransfer() {
+                const driverId = $('#transferDriverSelect').val();
+
+                if (!driverId) {
+                    showAlert('error', 'Veuillez sélectionner le nouvel agent');
+                    return;
+                }
+
+                $.ajax({
+                    url: `/admin/bookings/{{ $booking->id }}/transfer-subscription`,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        driver_id: driverId
+                    }),
+                    success: function(data) {
+                        closeTransferModal();
+                        showAlert('success', data.message);
+                        setTimeout(() => location.reload(), 2000);
+                    },
+                    error: function(xhr) {
+                        showAlert('error', xhr.responseJSON?.message ?? 'Le transfert a échoué.');
                     }
                 });
             }

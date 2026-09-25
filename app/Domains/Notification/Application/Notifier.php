@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Log;
  * | Nouvelle réservation             | tous les agents                    |
  * | Course acceptée / démarrée /     | les administrateurs                |
  * | terminée / annulée / révoquée    |                                    |
+ * | Abonnement transféré             | le nouvel agent titulaire          |
  * | Demande de pause déposée         | les administrateurs                |
  * | Pause validée / refusée          | l'agent concerné                   |
  * | Véhicule mis en pause / reprise  | le propriétaire du véhicule        |
@@ -158,6 +159,23 @@ final class Notifier
             $this->nomDe($agent).' a révoqué la course '.$booking->booking_number
                 .' : elle redevient disponible pour tous.',
             'warning',
+        );
+    }
+
+    /**
+     * Un administrateur a transféré un abonnement à un autre agent : le NOUVEAU titulaire
+     * est prévenu, puisque des courses lui arrivent sans qu'il les ait demandées. Pas les
+     * administrateurs : c'est l'un d'eux qui agit.
+     */
+    public function subscriptionTransferred(Booking $parent, User $newAgent): void
+    {
+        $this->vers(
+            $newAgent,
+            'Abonnement transféré',
+            "Vous êtes désormais titulaire de l'abonnement {$parent->booking_number} : "
+                ."{$parent->from_location} → {$parent->to_location}",
+            'info',
+            '/driver/bookings/available',
         );
     }
 
