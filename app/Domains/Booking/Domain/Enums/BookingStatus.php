@@ -51,7 +51,7 @@ enum BookingStatus: string
             self::Completed  => 'bg-green-100 text-green-800',
             self::Cancelled  => 'bg-red-100 text-red-800',
             self::Expired    => 'bg-gray-100 text-gray-800',
-            self::Missed     => 'bg-amber-100 text-amber-800',
+            self::Missed     => 'bg-orange-100 text-orange-800',
         };
     }
 
