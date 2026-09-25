@@ -8,7 +8,7 @@
     // même si J1 complété)
     $isActiveSubscription =
         $isParent &&
-        ($booking->remaining_days > 0 || $booking->makeup_go_count > 0 || $booking->makeup_return_count > 0) &&
+        ($booking->remaining_days > 1 || $booking->makeup_go_count > 0 || $booking->makeup_return_count > 0) &&
         !in_array($booking->status, ['cancelled', 'expired']);
     // Peut-on annuler ?
     $canCancel =
@@ -26,7 +26,7 @@ $canTransfer =
     $isParent &&
     $booking->subscription_driver_id &&
     !in_array($booking->status, ['cancelled', 'expired']) &&
-    ($booking->remaining_days > 0 ||
+    ($booking->remaining_days > 1 ||
         $booking->makeup_go_count > 0 ||
         $booking->makeup_return_count > 0 ||
         $booking->childBookings->whereIn('status', ['pending', 'confirmed'])->isNotEmpty());

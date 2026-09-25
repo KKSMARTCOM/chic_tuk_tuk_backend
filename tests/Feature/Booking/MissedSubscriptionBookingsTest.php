@@ -37,7 +37,7 @@ class MissedSubscriptionBookingsTest extends TestCase
     public function test_une_course_enfant_en_attente_24h_apres_passe_non_traitee_et_se_rattrape(): void
     {
         // Il reste un jour normal, dont la génération est à venir : rien n'est dû maintenant.
-        $parent = $this->makeParent(['remaining_days' => 1, 'next_recurring_date' => '2026-10-04 01:00:00']);
+        $parent = $this->makeParent(['remaining_days' => 2, 'next_recurring_date' => '2026-10-04 01:00:00']);
         $child = $this->makeChild($parent, ['pickup_date' => '2026-09-29']);
 
         Carbon::setTestNow('2026-09-30 09:00:00');
@@ -87,9 +87,9 @@ class MissedSubscriptionBookingsTest extends TestCase
 
     public function test_le_rattrapage_arrive_apres_les_jours_normaux(): void
     {
-        // Deux journées restent à générer (mardi 29, mercredi 30) ; celle de mardi ne sera
-        // pas traitée.
-        $parent = $this->makeParent(['remaining_days' => 2]);
+        // Trois journées restent, celle en cours comprise : lundi 28 (le parent), puis
+        // mardi 29 et mercredi 30 à générer. Celle de mardi ne sera pas traitée.
+        $parent = $this->makeParent(['remaining_days' => 3]);
 
         Carbon::setTestNow('2026-09-28 01:00:05');
         $this->service()->createRecurringBookings(); // mardi 29
@@ -125,7 +125,7 @@ class MissedSubscriptionBookingsTest extends TestCase
     public function test_un_retour_manque_ne_rattrape_que_le_retour(): void
     {
         $parent = $this->makeParent([
-            'days' => 2, 'remaining_days' => 0, 'round_trip' => true, 'return_time' => '17:00:00',
+            'days' => 2, 'remaining_days' => 1, 'round_trip' => true, 'return_time' => '17:00:00',
             'next_recurring_date' => null, 'subscription_end_date' => '2026-09-29',
         ]);
         $this->makeChild($parent, ['pickup_date' => '2026-09-29', 'status' => 'completed']);
@@ -156,11 +156,11 @@ class MissedSubscriptionBookingsTest extends TestCase
     {
         Carbon::setTestNow('2026-09-30 09:00:00');
 
-        $ongoing = $this->makeParent(['remaining_days' => 1, 'next_recurring_date' => '2026-09-30 01:00:00']);
+        $ongoing = $this->makeParent(['remaining_days' => 2, 'next_recurring_date' => '2026-09-30 01:00:00']);
         $ongoingExpired = $this->makeChild($ongoing, ['status' => 'expired', 'expired_at' => now()]);
 
         $finished = $this->makeParent([
-            'pickup_date' => '2026-09-01', 'remaining_days' => 0, 'next_recurring_date' => null,
+            'pickup_date' => '2026-09-01', 'remaining_days' => 1, 'next_recurring_date' => null,
             'booking_number' => 'CTT-'.strtoupper(Str::random(8)),
         ]);
         $this->makeChild($finished, ['pickup_date' => '2026-09-03', 'status' => 'completed']);

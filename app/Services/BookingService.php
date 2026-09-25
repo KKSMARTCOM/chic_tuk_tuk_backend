@@ -703,7 +703,7 @@ class BookingService
             // Abonnement déjà au bout de ses jours normaux : la génération s'était arrêtée.
             // Elle reprend sur le prochain jour autorisé qui n'a pas encore sa course —
             // jamais aujourd'hui, pour que le rattrapage soit lui aussi généré la veille.
-            if (!$parent->next_recurring_date && $parent->remaining_days <= 0) {
+            if (!$parent->next_recurring_date && $parent->remaining_days <= 1) {
                 $lastChildDate = Booking::where('parent_booking_id', $parent->id)->max('pickup_date');
                 $base = Carbon::parse(max($lastChildDate ?? $parent->pickup_date, now()->toDateString()));
                 $makeupDay = getNextAllowedDay($base, $parent->week_days ?? 'lun_dim');
@@ -742,7 +742,7 @@ class BookingService
                     ->whereNull('parent_booking_id')
                     ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
                     ->where(function ($ongoing) use ($today) {
-                        $ongoing->where('remaining_days', '>', 0)
+                        $ongoing->where('remaining_days', '>', 1)
                             ->orWhereHas('childBookings', fn ($c) => $c->whereDate('pickup_date', '>=', $today));
                     });
             })
@@ -757,7 +757,10 @@ class BookingService
         $recurringBookings = Booking::where('is_recurring', true)
             ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
             ->where(function ($query) {
-                $query->where('remaining_days', '>', 0)
+                // ⚠️ > 1 et non > 0 : `remaining_days` inclut la journée en cours
+                // (`days` à la création, « Dernier jour » à 1). Générer jusqu'à 0 donnait
+                // N+1 journées pour un abonnement de N jours.
+                $query->where('remaining_days', '>', 1)
                     ->orWhere('makeup_go_count', '>', 0)
                     ->orWhere('makeup_return_count', '>', 0);
             })
@@ -809,7 +812,7 @@ class BookingService
                 !$booking
                 || !$booking->is_subscription_parent
                 || $booking->trip_type !== 'go'
-                || ($booking->remaining_days <= 0 && $booking->makeup_go_count <= 0 && $booking->makeup_return_count <= 0)
+                || ($booking->remaining_days <= 1 && $booking->makeup_go_count <= 0 && $booking->makeup_return_count <= 0)
                 || !in_array($booking->status, ['confirmed', 'in_progress', 'completed'])
                 || ($booking->next_recurring_date && $booking->next_recurring_date->isFuture())
             ) {
@@ -825,16 +828,17 @@ class BookingService
             // Jours normaux d'abord ; une fois épuisés, les trajets dus au client après une
             // course non traitée — et seulement ceux-là, sens par sens.
             $hasReturnLeg = $booking->round_trip && $booking->return_time;
-            $isMakeup     = $booking->remaining_days <= 0;
+            $isMakeup     = $booking->remaining_days <= 1;
             $withGo       = !$isMakeup || $booking->makeup_go_count > 0;
             $withReturn   = $hasReturnLeg && (!$isMakeup || $booking->makeup_return_count > 0);
 
-            $newRemaining = $isMakeup ? 0 : $booking->remaining_days - 1;
+            // Un rattrapage ne consomme pas de jour normal : il reste « dernier jour ».
+            $newRemaining = $isMakeup ? $booking->remaining_days : $booking->remaining_days - 1;
             $goLeft       = $booking->makeup_go_count - ($isMakeup && $withGo ? 1 : 0);
             // Sans heure de retour, un retour dû ne peut pas être généré : il ne doit pas
             // non plus faire tourner la commande indéfiniment.
             $returnLeft   = $hasReturnLeg ? $booking->makeup_return_count - ($isMakeup && $withReturn ? 1 : 0) : 0;
-            $moreToDo     = $newRemaining > 0 || $goLeft > 0 || $returnLeft > 0;
+            $moreToDo     = $newRemaining > 1 || $goLeft > 0 || $returnLeft > 0;
 
             // Prochain passage du cron = jour suivant autorisé à 1h
             $nextAllowedForCron = getNextAllowedDay($nextAllowedDay, $booking->week_days ?? 'lun_dim');
