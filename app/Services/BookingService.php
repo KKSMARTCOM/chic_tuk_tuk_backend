@@ -616,16 +616,55 @@ class BookingService
             ->get();
 
         foreach ($recurringBookings as $booking) {
-            // Recharger avec verrou
-            $booking = Booking::lockForUpdate()->find($booking->id);
+            $this->generateNextRecurringDay($booking->id);
+        }
 
-            if ($booking->next_recurring_date && $booking->next_recurring_date->isFuture()) {
-                continue;
+        return $recurringBookings->count();
+    }
+
+    /**
+     * Génère les journées d'un abonnement dont l'heure de génération est déjà passée.
+     *
+     * ⚠️ Appelée à l'acceptation : la commande de 1h ne voit que les abonnements déjà
+     * acceptés. Accepté le jour de son démarrage APRÈS 1h, un abonnement attendait le
+     * passage suivant — le jour J lui-même — pour générer la course du lendemain.
+     */
+    public function catchUpRecurringBookings(string $bookingId): int
+    {
+        $generated = 0;
+
+        // Borné par le nombre de jours de l'abonnement : chaque tour en consomme un.
+        while ($this->generateNextRecurringDay($bookingId)) {
+            $generated++;
+        }
+
+        return $generated;
+    }
+
+    /**
+     * Génère la journée suivante d'un abonnement si son heure est venue. Renvoie false
+     * s'il n'y avait rien à générer.
+     */
+    private function generateNextRecurringDay(string $bookingId): bool
+    {
+        return DB::transaction(function () use ($bookingId) {
+            // Recharger avec verrou
+            $booking = Booking::lockForUpdate()->find($bookingId);
+
+            if (
+                !$booking
+                || !$booking->is_subscription_parent
+                || $booking->trip_type !== 'go'
+                || $booking->remaining_days <= 0
+                || !in_array($booking->status, ['confirmed', 'in_progress', 'completed'])
+                || ($booking->next_recurring_date && $booking->next_recurring_date->isFuture())
+            ) {
+                return false;
             }
 
             // Créer la nouvelle course pour le jour suivant
             $nextAllowedDay = $booking->next_recurring_date ? Carbon::parse($booking->next_recurring_date)->addDay()->startOfDay() : getNextAllowedDay(Carbon::parse($booking->pickup_date), $booking->week_days ?? 'lun_dim');
-            if (!$nextAllowedDay) continue;
+            if (!$nextAllowedDay) return false;
 
             $newPickupDate  = $nextAllowedDay->copy()->setTimeFromTimeString($booking->pickup_time);
             $newRemaining   = $booking->remaining_days - 1;
@@ -717,8 +756,8 @@ class BookingService
                 // récap des revenus, et les courses du dernier jour devenaient visibles de
                 // tous. `remaining_days` à 0 suffit à arrêter la génération.
             ]);
-        }
 
-        return $recurringBookings->count();
+            return true;
+        });
     }
 }

@@ -4,6 +4,7 @@ namespace App\Domains\Booking\Application\Actions;
 
 use App\Domains\Notification\Application\Notifier;
 use App\Models\Booking;
+use App\Services\BookingService;
 use App\Models\Driver;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
@@ -93,6 +94,12 @@ final class AcceptBooking
          * est un effet de bord, elle ne doit pas pouvoir casser l'action métier.
          */
         $this->previenir($bookingId, $driverId);
+
+        // ⚠️ La commande de 1h ne voit que les abonnements déjà acceptés : accepté le jour
+        // de son démarrage après 1h, un abonnement attendait le passage suivant — le jour
+        // J lui-même — pour générer la course du lendemain. Constaté en production. Hors
+        // de la transaction : chaque journée prend son propre verrou.
+        app(BookingService::class)->catchUpRecurringBookings($bookingId);
     }
 
     private function previenir(string $bookingId, string $driverId): void

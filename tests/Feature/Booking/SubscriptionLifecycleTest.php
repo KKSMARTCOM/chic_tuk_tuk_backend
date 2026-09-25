@@ -149,4 +149,54 @@ class SubscriptionLifecycleTest extends TestCase
         $this->assertTrue($child->is_subscription_child);
         $this->assertFalse($simple->refresh()->is_recurring, 'une course simple n\'est pas un abonnement');
     }
+
+    /**
+     * ⚠️ La commande de 1h ne voit que les abonnements déjà acceptés. Accepté le jour même
+     * de son démarrage, APRÈS 1h, un abonnement attendait le passage suivant — le jour J —
+     * pour générer la course du lendemain : constaté en production.
+     */
+    public function test_accepte_apres_le_passage_de_1h_la_course_du_lendemain_est_generee_aussitot(): void
+    {
+        $parent = $this->makeParent(['status' => 'pending']);
+        $driver = $this->makeDriver();
+
+        Carbon::setTestNow('2026-09-28 01:00:05');
+        app(BookingService::class)->createRecurringBookings();
+        $this->assertSame(0, Booking::where('parent_booking_id', $parent->id)->count(), 'pas encore accepté, rien de généré');
+
+        Carbon::setTestNow('2026-09-28 07:30:00');
+        app(BookingService::class)->take($parent->id, $driver->id);
+
+        $child = Booking::where('parent_booking_id', $parent->id)->firstOrFail();
+        $this->assertSame('2026-09-29', $child->pickup_date->toDateString());
+        $this->assertSame($driver->id, $child->subscription_driver_id);
+        $this->assertSame(2, $parent->refresh()->remaining_days);
+    }
+
+    public function test_accepte_avant_le_passage_de_1h_rien_nest_genere_en_avance(): void
+    {
+        $parent = $this->makeParent(['status' => 'pending']);
+        $driver = $this->makeDriver();
+
+        Carbon::setTestNow('2026-09-27 15:00:00');
+        app(BookingService::class)->take($parent->id, $driver->id);
+
+        $this->assertSame(0, Booking::where('parent_booking_id', $parent->id)->count());
+    }
+
+    /** Le rattrapage ne génère pas deux fois la même journée si la commande repasse. */
+    public function test_la_commande_ne_double_pas_une_journee_deja_rattrapee(): void
+    {
+        $parent = $this->makeParent(['status' => 'pending']);
+        $driver = $this->makeDriver();
+
+        Carbon::setTestNow('2026-09-28 07:30:00');
+        app(BookingService::class)->take($parent->id, $driver->id);
+        Carbon::setTestNow('2026-09-29 01:00:05');
+        app(BookingService::class)->createRecurringBookings();
+
+        $dates = Booking::where('parent_booking_id', $parent->id)->pluck('pickup_date')
+            ->map(fn ($d) => $d->toDateString())->sort()->values()->all();
+        $this->assertSame(['2026-09-29', '2026-09-30'], $dates);
+    }
 }
