@@ -87,9 +87,9 @@ class PageController extends Controller
                 ->paginate($perPage)
                 ->withQueryString();
         }
-        // Si c'est un admin, afficher l'historique avec toutes les courses (incluant expired)
+        // Si c'est un admin, afficher l'historique avec toutes les courses (incluant expired et missed)
         elseif ($user->profil === 'admin') {
-            $query = \App\Models\Booking::query()->whereIn('status', ['completed', 'cancelled', 'expired']);
+            $query = \App\Models\Booking::query()->whereIn('status', ['completed', 'cancelled', 'expired', 'missed']);
 
             if ($globalSearch) {
                 $query->where(function ($q) use ($globalSearch) {

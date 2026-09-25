@@ -52,6 +52,7 @@ if (!function_exists('bookingStatusBadge')) {
             'completed'   => 'bg-green-100 text-green-800',
             'cancelled'   => 'bg-red-100 text-red-800',
             'expired'     => 'bg-gray-100 text-gray-800',
+            'missed'      => 'bg-orange-100 text-orange-800',
             default       => 'bg-gray-100 text-gray-800',
         };
     }
@@ -67,6 +68,7 @@ if (!function_exists('bookingStatusLabel')) {
             'completed'   => 'Terminée',
             'cancelled'   => 'Annulée',
             'expired'     => 'Expirée',
+            'missed'      => 'Non traitée',
             default       => 'Inconnu',
         };
     }

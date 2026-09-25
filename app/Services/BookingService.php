@@ -9,7 +9,6 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-use function Symfony\Component\Clock\now;
 
 class BookingService
 {
@@ -370,6 +369,9 @@ class BookingService
 
             Log::info("[take] Booking {$bookingId} accepté par driver {$driverId}");
         });
+
+        // Hors de la transaction d'acceptation : chaque journée prend son propre verrou.
+        $this->catchUpRecurringBookings($bookingId);
     }
 
     public function cancel(string $bookingId, string $driverId, string $reason): Booking
@@ -693,6 +695,84 @@ class BookingService
         });
     }
 
+    /**
+     * Change le titulaire d'un abonnement déjà pris — ex. quand l'agent titulaire ne tient
+     * plus ses engagements. Jusqu'ici, lui seul pouvait libérer ses courses, en les
+     * révoquant une à une.
+     *
+     * Passent au nouvel agent :
+     *  - le parent (titulaire), et son J1 s'il est accepté mais pas encore démarré ;
+     *  - les courses enfants à venir : en attente, ou déjà acceptées par l'ancien titulaire
+     *    — elles restent acceptées, pour B, sans rien à refaire ;
+     *  - les courses que l'ancien titulaire avait révoquées et que personne n'a reprises.
+     *
+     * Ne bougent pas : ce qui est en cours ou terminé — les revenus restent à qui a roulé —,
+     * ni une course révoquée déjà reprise par un autre agent, qui s'y est engagé.
+     * Les courses générées ensuite reprennent le titulaire du parent, donc le nouvel agent.
+     */
+    public function transferSubscription(string $parentId, string $newDriverId): Booking
+    {
+        $parent = DB::transaction(function () use ($parentId, $newDriverId) {
+            $parent = Booking::lockForUpdate()->findOrFail($parentId);
+
+            if (!$parent->is_subscription_parent) {
+                throw new \Exception('Seul un abonnement parent peut être transféré.');
+            }
+            if (in_array($parent->status, ['cancelled', 'expired'])) {
+                throw new \Exception('Cet abonnement est annulé ou expiré.');
+            }
+            if (!$parent->subscription_driver_id) {
+                throw new \Exception("Cet abonnement n'a pas encore de titulaire : affectez-le plutôt.");
+            }
+            if ($parent->subscription_driver_id === $newDriverId) {
+                throw new \Exception('Cet agent est déjà titulaire de cet abonnement.');
+            }
+
+            $newDriver = Driver::with('user')->findOrFail($newDriverId);
+            if ($newDriver->user?->profil !== 'driver' || !$newDriver->user?->is_active) {
+                throw new \Exception("Cet agent n'est pas disponible.");
+            }
+
+            $oldDriverId = $parent->subscription_driver_id;
+
+            $parentUpdate = ['subscription_driver_id' => $newDriverId];
+            if ($parent->status === 'confirmed' && $parent->driver_id === $oldDriverId) {
+                $parentUpdate['driver_id'] = $newDriverId;
+            }
+            $parent->update($parentUpdate);
+
+            $children = Booking::where('parent_booking_id', $parent->id);
+
+            // Déjà acceptées par l'ancien titulaire, pas encore démarrées.
+            (clone $children)->where('status', 'confirmed')->where('driver_id', $oldDriverId)
+                ->update(['driver_id' => $newDriverId, 'subscription_driver_id' => $newDriverId]);
+
+            // En attente — liées à l'ancien titulaire, ou révoquées par lui sans preneur.
+            (clone $children)->where('status', 'pending')->whereNull('driver_id')
+                ->where(fn ($q) => $q->where('subscription_driver_id', $oldDriverId)->orWhere('is_revoked', true))
+                ->update(['subscription_driver_id' => $newDriverId, 'is_revoked' => false, 'revoked_at' => null]);
+
+            Log::info("[transferSubscription] Abonnement {$parent->id} transféré de {$oldDriverId} à {$newDriverId}");
+
+            return $parent;
+        });
+
+        // Après validation : un échec d'envoi ne doit pas annuler le transfert.
+        try {
+            $newDriver = Driver::with('user')->find($newDriverId);
+            app(FcmNotificationService::class)->sendToUser(
+                $newDriver->user,
+                'Abonnement transféré',
+                "Vous êtes désormais titulaire de l'abonnement {$parent->booking_number} : {$parent->from_location} → {$parent->to_location}",
+                ['url' => route('driver.bookings.available')]
+            );
+        } catch (\Throwable $e) {
+            Log::warning("[transferSubscription] Notification non envoyée : {$e->getMessage()}");
+        }
+
+        return $parent->refresh();
+    }
+
     public function revokeFromSubscription(string $bookingId, string $driverId): Booking
     {
         return DB::transaction(function () use ($bookingId, $driverId) {
@@ -952,6 +1032,11 @@ class BookingService
             ->get();
 
         foreach ($expiredBookings as $booking) {
+            if ($booking->is_subscription_child) {
+                $this->recordMissedChild($booking->id);
+                continue;
+            }
+
             $booking->update([
                 'status' => 'expired',
                 'expired_at' => Carbon::now(),
@@ -961,11 +1046,91 @@ class BookingService
         return $expiredBookings->count();
     }
 
+    /**
+     * Une course enfant d'abonnement que personne n'a prise : elle passe « non traitée »
+     * (`missed`), et le trajet est dû au client, rattrapé à la fin de l'abonnement.
+     *
+     * ⚠️ Le compteur est tenu PAR SENS : un aller-retour dont seul le retour a été manqué
+     * ne rattrape que le retour — un jour entier donnerait au client un aller de trop.
+     *
+     * `expired_at` garde son rôle de date du constat, et empêche un second passage.
+     */
+    public function recordMissedChild(string $childId): void
+    {
+        DB::transaction(function () use ($childId) {
+            $child = Booking::lockForUpdate()->find($childId);
+            if (!$child || !in_array($child->status, ['pending', 'expired'])) return;
+
+            $parent = Booking::lockForUpdate()->find($child->parent_booking_id);
+            if (!$parent) return;
+
+            $child->update(['status' => 'missed', 'expired_at' => $child->expired_at ?? now()]);
+            $parent->increment($child->trip_type === 'return' ? 'makeup_return_count' : 'makeup_go_count');
+
+            // Abonnement déjà au bout de ses jours normaux : la génération s'était arrêtée.
+            // Elle reprend sur le prochain jour autorisé qui n'a pas encore sa course —
+            // jamais aujourd'hui, pour que le rattrapage soit lui aussi généré la veille.
+            if (!$parent->next_recurring_date && $parent->remaining_days <= 1) {
+                $lastChildDate = Booking::where('parent_booking_id', $parent->id)->max('pickup_date');
+                $base = Carbon::parse(max($lastChildDate ?? $parent->pickup_date, now()->toDateString()));
+                $makeupDay = getNextAllowedDay($base, $parent->week_days ?? 'lun_dim');
+
+                if ($makeupDay) {
+                    $parent->update(['next_recurring_date' => $makeupDay->copy()->subDay()->setTime(1, 0)]);
+                }
+            }
+        });
+
+        $child = Booking::find($childId);
+        if ($child?->parent_booking_id) {
+            $this->catchUpRecurringBookings($child->parent_booking_id);
+        }
+    }
+
+    /**
+     * Reprise du passé : les courses enfants déjà marquées « expirée » des abonnements
+     * ENCORE EN COURS passent « non traitée », et sont rattrapées. Les abonnements terminés
+     * restent en l'état — décision de l'utilisateur.
+     *
+     * Un abonnement est en cours s'il lui reste des jours à générer, ou si sa dernière
+     * course n'est pas encore passée.
+     *
+     * @return \Illuminate\Support\Collection<int, Booking> les courses concernées
+     */
+    public function expiredChildrenOfOngoingSubscriptions(): \Illuminate\Support\Collection
+    {
+        $today = now()->toDateString();
+
+        return Booking::with('parentBooking')
+            ->where('status', 'expired')
+            ->whereNotNull('parent_booking_id')
+            ->whereHas('parentBooking', function ($parent) use ($today) {
+                $parent->where('is_recurring', true)
+                    ->whereNull('parent_booking_id')
+                    ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
+                    ->where(function ($ongoing) use ($today) {
+                        $ongoing->where('remaining_days', '>', 1)
+                            ->orWhereHas('childBookings', fn ($c) => $c->whereDate('pickup_date', '>=', $today));
+                    });
+            })
+            ->orderBy('pickup_date')
+            ->get()
+            ->filter(fn ($booking) => $booking->is_subscription_child)
+            ->values();
+    }
+
     public function createRecurringBookings()
     {
         $recurringBookings = Booking::where('is_recurring', true)
             ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
-            ->where('remaining_days', '>', 0)
+            ->where(function ($query) {
+                // ⚠️ > 1 et non > 0 : `remaining_days` inclut la journée en cours
+                // (`days` à la création, « Dernier jour » à 1). Générer jusqu'à 0 donnait
+                // N+1 journées pour un abonnement de N jours.
+                $query->where('remaining_days', '>', 1)
+                    ->orWhere('makeup_go_count', '>', 0)
+                    ->orWhere('makeup_return_count', '>', 0);
+            })
             ->where('trip_type', 'go')
             ->whereNull('parent_booking_id')
             ->where(function ($query) {
@@ -975,33 +1140,81 @@ class BookingService
             ->get();
 
         foreach ($recurringBookings as $booking) {
-            // Recharger avec verrou
-            $booking = Booking::lockForUpdate()->find($booking->id);
+            $this->generateNextRecurringDay($booking->id);
+        }
 
-            if ($booking->next_recurring_date && $booking->next_recurring_date->isFuture()) {
-                continue;
+        return $recurringBookings->count();
+    }
+
+    /**
+     * Génère les journées d'un abonnement dont l'heure de génération est déjà passée.
+     *
+     * ⚠️ Appelée à l'acceptation : la commande de 1h ne voit que les abonnements déjà
+     * acceptés. Accepté le jour de son démarrage APRÈS 1h, un abonnement attendait le
+     * passage suivant — le jour J lui-même — pour générer la course du lendemain.
+     */
+    public function catchUpRecurringBookings(string $bookingId): int
+    {
+        $generated = 0;
+
+        // Borné par le nombre de jours de l'abonnement : chaque tour en consomme un.
+        while ($this->generateNextRecurringDay($bookingId)) {
+            $generated++;
+        }
+
+        return $generated;
+    }
+
+    /**
+     * Génère la journée suivante d'un abonnement si son heure est venue. Renvoie false
+     * s'il n'y avait rien à générer.
+     */
+    private function generateNextRecurringDay(string $bookingId): bool
+    {
+        return DB::transaction(function () use ($bookingId) {
+            // Recharger avec verrou
+            $booking = Booking::lockForUpdate()->find($bookingId);
+
+            if (
+                !$booking
+                || !$booking->is_subscription_parent
+                || $booking->trip_type !== 'go'
+                || ($booking->remaining_days <= 1 && $booking->makeup_go_count <= 0 && $booking->makeup_return_count <= 0)
+                || !in_array($booking->status, ['confirmed', 'in_progress', 'completed'])
+                || ($booking->next_recurring_date && $booking->next_recurring_date->isFuture())
+            ) {
+                return false;
             }
 
             // Créer la nouvelle course pour le jour suivant
             $nextAllowedDay = $booking->next_recurring_date ? Carbon::parse($booking->next_recurring_date)->addDay()->startOfDay() : getNextAllowedDay(Carbon::parse($booking->pickup_date), $booking->week_days ?? 'lun_dim');
-            if (!$nextAllowedDay) continue;
+            if (!$nextAllowedDay) return false;
 
             $newPickupDate  = $nextAllowedDay->copy()->setTimeFromTimeString($booking->pickup_time);
-            $newRemaining   = $booking->remaining_days - 1;
+
+            // Jours normaux d'abord ; une fois épuisés, les trajets dus au client après une
+            // course non traitée — et seulement ceux-là, sens par sens.
+            $hasReturnLeg = $booking->round_trip && $booking->return_time;
+            $isMakeup     = $booking->remaining_days <= 1;
+            $withGo       = !$isMakeup || $booking->makeup_go_count > 0;
+            $withReturn   = $hasReturnLeg && (!$isMakeup || $booking->makeup_return_count > 0);
+
+            // Un rattrapage ne consomme pas de jour normal : il reste « dernier jour ».
+            $newRemaining = $isMakeup ? $booking->remaining_days : $booking->remaining_days - 1;
+            $goLeft       = $booking->makeup_go_count - ($isMakeup && $withGo ? 1 : 0);
+            // Sans heure de retour, un retour dû ne peut pas être généré : il ne doit pas
+            // non plus faire tourner la commande indéfiniment.
+            $returnLeft   = $hasReturnLeg ? $booking->makeup_return_count - ($isMakeup && $withReturn ? 1 : 0) : 0;
+            $moreToDo     = $newRemaining > 1 || $goLeft > 0 || $returnLeft > 0;
 
             // Prochain passage du cron = jour suivant autorisé à 1h
             $nextAllowedForCron = getNextAllowedDay($nextAllowedDay, $booking->week_days ?? 'lun_dim');
-            $nextRecurring = $newRemaining > 0 && $nextAllowedForCron ? $nextAllowedForCron->copy()->subDay()->setTime(1, 0) : null;
-
-            // Si plus de jours restants, pas de next_recurring_date
-            if ($newRemaining <= 0) {
-                $nextRecurring = null;
-            }
+            $nextRecurring = $moreToDo && $nextAllowedForCron ? $nextAllowedForCron->copy()->subDay()->setTime(1, 0) : null;
 
             $subDriverId = $booking->subscription_driver_id;
 
             // --- Course ALLER ---
-            Booking::create([
+            if ($withGo) Booking::create([
                 'from_location'          => $booking->from_location,
                 'to_location'            => $booking->to_location,
                 'from_lng'               => $booking->from_lng,
@@ -1033,7 +1246,7 @@ class BookingService
             ]);
 
             // --- Course RETOUR (si aller-retour) ---
-            if ($booking->round_trip && $booking->return_time) {
+            if ($withReturn) {
                 $returnDate = $newPickupDate->copy()->setTimeFromTimeString($booking->return_time);
 
                 Booking::create([
@@ -1068,13 +1281,21 @@ class BookingService
             }
 
             // Mettre à jour la course actuelle avec le nombre de jours restants
+            $endDate = $booking->subscription_end_date;
             $booking->update([
-                'remaining_days'      => $newRemaining,
-                'next_recurring_date' => $newRemaining > 0 ? $nextRecurring : null,
-                'is_recurring'        => $newRemaining > 0, // désactive si dernier jour
+                'remaining_days'        => $newRemaining,
+                'makeup_go_count'       => max(0, $goLeft),
+                'makeup_return_count'   => max(0, $returnLeft),
+                'next_recurring_date'   => $nextRecurring,
+                // Un rattrapage repousse la fin de l'abonnement.
+                'subscription_end_date' => $endDate && $endDate->greaterThan($newPickupDate) ? $endDate : $newPickupDate->toDateString(),
+                // ⚠️ Ne PAS repasser `is_recurring` à false au dernier jour : le parent
+                // cesserait d'être un abonnement, et ses enfants avec lui — ils sortaient du
+                // récap des revenus, et les courses du dernier jour devenaient visibles de
+                // tous. `remaining_days` à 0 suffit à arrêter la génération.
             ]);
-        }
 
-        return $recurringBookings->count();
+            return true;
+        });
     }
 }

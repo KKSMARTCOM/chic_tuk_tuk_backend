@@ -184,6 +184,28 @@ class BookingController extends Controller
         }
     }
 
+    /**
+     * Change le titulaire d'un abonnement déjà pris : voir
+     * `BookingService::transferSubscription()` pour ce qui passe au nouvel agent.
+     */
+    public function transferSubscription(Request $request, Booking $booking)
+    {
+        $validated = $request->validate(
+            ['driver_id' => 'required|exists:drivers,id'],
+            ['driver_id.required' => 'Sélectionnez le nouvel agent.', 'driver_id.exists' => "Cet agent n'existe pas."]
+        );
+
+        try {
+            $this->bookingService->transferSubscription($booking->id, $validated['driver_id']);
+
+            return response()->json(['success' => true, 'message' => 'Abonnement transféré au nouvel agent.']);
+        } catch (\Exception $e) {
+            Log::error("Erreur lors du transfert d'abonnement : " . $e->getMessage(), ['exception' => $e]);
+
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
     public function removeDriver(Booking $booking)
     {
         try {
