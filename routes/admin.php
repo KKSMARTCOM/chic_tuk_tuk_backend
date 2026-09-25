@@ -116,7 +116,15 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::resource('users', UserController::class)->except(['show', 'create', 'edit'])->middleware('permission:view-users');
 
     // Véhicules
-    Route::resource('vehicles', VehicleController::class)->middleware('permission:view-vehicles');
+    // ⚠️ Route::resource(...)->middleware('permission:view-vehicles') gardait AUSSI
+    // store/update/destroy par cette seule permission — même défaut que les agents,
+    // fermé le 2026-09-25. Les écrans `create` et `edit` n'ont pas de vue (modales).
+    Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index')->middleware('permission:view-vehicles');
+    Route::post('vehicles', [VehicleController::class, 'store'])->name('vehicles.store')->middleware('permission:create-vehicles');
+    Route::get('vehicles/{vehicle}', [VehicleController::class, 'show'])->name('vehicles.show')->middleware('permission:view-vehicles');
+    Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update')->middleware('permission:edit-vehicles');
+    Route::patch('vehicles/{vehicle}', [VehicleController::class, 'update'])->middleware('permission:edit-vehicles');
+    Route::delete('vehicles/{vehicle}', [VehicleController::class, 'destroy'])->name('vehicles.destroy')->middleware('permission:delete-vehicles');
     Route::post('vehicles/{vehicle}/toggle-status', [VehicleController::class, 'toggleStatus'])->name('vehicles.toggle-status')->middleware('permission:edit-vehicles');
     Route::post('vehicles/{vehicle}/add-pause', [VehicleController::class, 'addPause'])->name('vehicles.add-pause')->middleware('permission:manage-vehicle-pauses');
     Route::post('vehicles/{vehiclePause}/destroy-pause', [VehicleController::class, 'destroyPause'])->name('vehicles.destroy-pause')->middleware('permission:manage-vehicle-pauses');

@@ -3,6 +3,7 @@
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
+use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\LeaveController;
@@ -122,6 +123,39 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::delete('/owners/{owner}', [OwnerController::class, 'destroy'])
             ->middleware('permission:delete-owners')
             ->name('owners.destroy');
+
+        /*
+         * Les véhicules et leurs pauses — ex-Admin\VehicleController.
+         *
+         * ⚠️ Côté Blade, `Route::resource('vehicles')` n'exigeait que `view-vehicles`,
+         * création, modification et suppression comprises. Ici, une permission par écriture.
+         */
+        Route::middleware('permission:view-vehicles')->group(function () {
+            Route::get('/vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
+            Route::get('/vehicles/{vehicle}', [VehicleController::class, 'show'])->name('vehicles.show');
+        });
+
+        Route::post('/vehicles', [VehicleController::class, 'store'])
+            ->middleware('permission:create-vehicles')->name('vehicles.store');
+
+        Route::middleware('permission:edit-vehicles')->group(function () {
+            Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
+            Route::post('/vehicles/{vehicle}/toggle-status', [VehicleController::class, 'setStatus'])
+                ->name('vehicles.toggle-status');
+        });
+
+        Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy'])
+            ->middleware('permission:delete-vehicles')->name('vehicles.destroy');
+
+        // ⚠️ Les pauses VÉHICULE, à ne pas confondre avec les pauses AGENT de `/leaves`.
+        Route::middleware('permission:manage-vehicle-pauses')->group(function () {
+            Route::post('/vehicles/{vehicle}/pauses', [VehicleController::class, 'storePause'])
+                ->name('vehicles.pauses.store');
+            Route::patch('/vehicle-pauses/{pause}/end', [VehicleController::class, 'endPause'])
+                ->name('vehicle-pauses.end');
+            Route::delete('/vehicle-pauses/{pause}', [VehicleController::class, 'cancelPause'])
+                ->name('vehicle-pauses.cancel');
+        });
 
         // Ce qui préremplit un contrat propriétaire-véhicule. Toute permission qui en fait
         // saisir un l'ouvre : les écrans propriétaires, puis ceux des contrats (F3).

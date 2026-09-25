@@ -46,7 +46,7 @@ use Illuminate\Database\Seeder;
  * laissent croire à un accès en lecture. **C'est faux** : sur ses 41 permissions,
  * 27 sont des écritures — `create-drivers`, `manage-payments`, `manage-settings`,
  * `approve-leave-requests`… Il ne lui manque, par rapport à `admin`, que la gestion
- * des rôles, des permissions et des véhicules.
+ * des rôles et des permissions, et quelques suppressions (propriétaires, véhicules).
  *
  * Cet état est repris tel quel, sur décision explicite du 2026-09-17, pour ne rien
  * retirer à des comptes en service. Mais le libellé décrit mal ce niveau d'accès :
@@ -219,6 +219,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'create-payments',
                 'create-pricing',
                 'create-promo-codes',
+                'create-vehicles',
                 'create-zones',
                 'delete-leaves',
                 'edit-bookings',
@@ -228,6 +229,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'edit-owners',
                 'edit-pricing',
                 'edit-promo-codes',
+                'edit-vehicles',
                 'edit-zones',
                 'export-drivers',
                 'export-reports',
@@ -237,6 +239,8 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'manage-payments',
                 'manage-pricing',
                 'manage-settings',
+                // Ajoutée le 2026-09-25 : l'utilisateur gère déjà les pauses des agents.
+                'manage-vehicle-pauses',
                 'manage-zones',
                 'moderate-testimonials',
                 'reject-leave-requests',
@@ -257,6 +261,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'view-reports',
                 'view-testimonials',
                 'view-users',
+                // Véhicules ouverts le 2026-09-25 comme les propriétaires : voir, créer,
+                // modifier — pas supprimer.
+                'view-vehicles',
                 'view-zones',
             ],
         ],

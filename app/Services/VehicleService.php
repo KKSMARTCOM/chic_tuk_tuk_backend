@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -55,12 +56,39 @@ class VehicleService
             $vehicle->update([
                 'vehicle_number' => $data['vehicle_number'] ?? $vehicle->vehicle_number,
                 'vehicle_type'   => $data['vehicle_type'] ?? $vehicle->vehicle_type,
-                'notes'          => $data['notes'] ?? $vehicle->notes,
+                // Une note vidée efface la note (corrigé le 2026-09-25 : `??` gardait
+                // l'ancienne). `toggleStatus` et les autres appelants n'envoient pas la clé.
+                'notes'          => array_key_exists('notes', $data) ? $data['notes'] : $vehicle->notes,
                 'is_active'      => $data['is_active'] ?? $vehicle->is_active,
             ]);
 
             return $vehicle->refresh();
         });
+    }
+
+    /**
+     * Supprimer un véhicule — décidé le 2026-09-25 : seulement s'il n'a AUCUN historique.
+     *
+     * Les clés étrangères sont en cascade : supprimer le véhicule effaçait ses contrats
+     * véhicule, même terminés, les contrats agents qui s'y rattachent et ses pauses, et
+     * détachait ses paiements de leur contrat. Seul un agent ACTIF l'empêchait. Un
+     * véhicule qui a servi se désactive.
+     *
+     * Des `ApiException` : le Blade les affiche en message flash comme avant.
+     */
+    public function delete(Vehicle $vehicle): void
+    {
+        $hasHistory = $vehicle->vehicleContracts()->exists() || $vehicle->driverContracts()->exists();
+
+        if ($hasHistory) {
+            throw new ApiException(
+                409,
+                'VEHICLE_NOT_DELETABLE',
+                "Impossible de supprimer le véhicule {$vehicle->vehicle_number} : il a des contrats, en cours ou terminés. Désactivez-le à la place."
+            );
+        }
+
+        $vehicle->delete();
     }
 
     public function toggleStatus(Vehicle $vehicle): Vehicle
@@ -76,7 +104,11 @@ class VehicleService
             // Vérifier si il y a un contrat actif
             $activeContract = $vehicle->activeVehicleContract;
             if (!$activeContract) {
-                throw new \Exception("Impossible de mettre le véhicule en pause car il n'a pas de contrat actif.");
+                throw new ApiException(
+                    409,
+                    'VEHICLE_WITHOUT_CONTRACT',
+                    "Impossible de mettre le véhicule en pause car il n'a pas de contrat actif."
+                );
             }
 
             // Clôturer la pause active si existante
@@ -96,7 +128,18 @@ class VehicleService
                 'is_auto'             => false,
             ]);
 
-            $vehicle->update(['is_active' => false]);
+            // Désactiver le véhicule seulement si la pause couvre AUJOURD'HUI — la règle de
+            // `createAutoAgentPause()`. Corrigé le 2026-09-25 : une pause posée avec une
+            // date de fin passée désactivait quand même le véhicule, et comme
+            // `activePause` ne voit que les pauses sans date de fin, il restait inactif,
+            // sans pause en cours ni bouton pour y mettre fin.
+            $today = Carbon::today();
+            $start = Carbon::parse($pause->start_date)->startOfDay();
+            $end = $pause->end_date ? Carbon::parse($pause->end_date)->startOfDay() : null;
+
+            if ($start->lte($today) && (! $end || $end->gte($today))) {
+                $vehicle->update(['is_active' => false]);
+            }
 
             return $pause;
         });
@@ -151,6 +194,26 @@ class VehicleService
                 $vehicule->update(['is_active' => true]);
             }
         });
+    }
+
+    /**
+     * Annuler une pause posée À LA MAIN par erreur — décidé le 2026-09-25.
+     *
+     * Une pause automatique suit la pause d'un agent : l'annuler ici désynchroniserait les
+     * deux. Elle se corrige ou se supprime depuis l'écran des pauses des agents, qui passe
+     * par `cancelPause()`.
+     */
+    public function cancelManualPause(VehiclePause $pause): void
+    {
+        if ($pause->is_auto) {
+            throw new ApiException(
+                409,
+                'VEHICLE_PAUSE_AUTOMATIC',
+                "Cette pause suit la pause d'un agent : elle se gère depuis l'écran des pauses."
+            );
+        }
+
+        $this->cancelPause($pause);
     }
 
     // Créer automatiquement une pause véhicule suite à l'absence d'un agent

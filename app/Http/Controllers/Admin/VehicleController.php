@@ -134,11 +134,9 @@ class VehicleController extends Controller
     public function destroy(Vehicle $vehicle)
     {
         try {
-            if ($vehicle->activeDriverContract) {
-                throw new \Exception('Impossible de supprimer un véhicule avec un agent actif assigné.');
-            }
-
-            $vehicle->delete();
+            // La règle vit dans le service, partagée avec l'API (2026-09-25) : pas de
+            // suppression dès qu'il existe un contrat, véhicule ou agent, même terminé.
+            $this->vehicleService->delete($vehicle);
 
             return back()->with('success', 'Véhicule supprimé avec succès.');
         } catch (\Exception $e) {
@@ -202,7 +200,9 @@ class VehicleController extends Controller
     public function destroyPause(VehiclePause $vehiclePause)
     {
         try {
-            $vehiclePause->delete();
+            // `cancelManualPause` réactive le véhicule — un simple delete() le laissait
+            // inactif (corrigé le 2026-09-25) — et refuse une pause automatique.
+            $this->vehicleService->cancelManualPause($vehiclePause);
             return back()->with('success', 'Pause supprimée avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de la suppression de la pause: ' . $e->getMessage(), ['exception' => $e]);

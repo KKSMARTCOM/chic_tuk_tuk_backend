@@ -110,6 +110,21 @@ class ReferenceRolesSeederTest extends TestCase
         );
     }
 
+    public function test_utilisateur_manages_vehicles_like_owners_without_deleting(): void
+    {
+        $this->semer();
+
+        // Accordées le 2026-09-25 : les véhicules s'ouvrent à l'utilisateur comme les
+        // propriétaires — voir, créer, modifier, mais pas supprimer.
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        // `manage-vehicle-pauses` ajoutée le même jour : il gère déjà les pauses des agents.
+        foreach (['view-vehicles', 'create-vehicles', 'edit-vehicles', 'manage-vehicle-pauses'] as $permission) {
+            $this->assertTrue($user->hasPermissionTo($permission), "utilisateur doit porter {$permission}");
+        }
+        $this->assertFalse($user->hasPermissionTo('delete-vehicles'));
+    }
+
     public function test_no_label_says_conge(): void
     {
         $this->semer();

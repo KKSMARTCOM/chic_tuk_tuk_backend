@@ -409,6 +409,107 @@ has_driver: boolean;
 driver_name: string | null;
 contract: App.Domains.Fleet.Application.Data.AdminOwnerVehicleContractData | null;
 };
+export type AdminVehicleActiveContractData = {
+id: string;
+total_amount: number;
+monthly_payment: number;
+total_paid: number;
+remaining_amount: number;
+surplus: number;
+progress_percentage: number;
+start_date: string | null;
+end_date: string | null;
+recent_payments: Array<App.Domains.Fleet.Application.Data.AdminVehiclePaymentData>;
+payments_count: number;
+};
+export type AdminVehicleContractProgressData = {
+total_paid: number;
+total_amount: number;
+progress_percentage: number;
+};
+export type AdminVehicleCurrentDriverData = {
+driver_id: string;
+name: string | null;
+phone: string | null;
+start_date: string | null;
+contract_months: number;
+accrued_leave_days: number;
+used_leave_days: number;
+};
+export type AdminVehicleDetailData = {
+id: string;
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+notes: string | null;
+is_active: boolean;
+active_pause: App.Domains.Fleet.Application.Data.VehiclePauseData | null;
+contract: App.Domains.Fleet.Application.Data.AdminVehicleActiveContractData | null;
+past_contracts: Array<App.Domains.Fleet.Application.Data.AdminVehiclePastContractData>;
+driver_history: Array<App.Domains.Fleet.Application.Data.AdminVehicleDriverContractData>;
+owner: App.Domains.Fleet.Application.Data.AdminVehicleOwnerData | null;
+current_driver: App.Domains.Fleet.Application.Data.AdminVehicleCurrentDriverData | null;
+pauses: Array<App.Domains.Fleet.Application.Data.VehiclePauseData>;
+};
+export type AdminVehicleDriverContractData = {
+id: string;
+driver_id: string | null;
+driver_name: string | null;
+start_date: string | null;
+end_date: string | null;
+contract_months: number;
+is_active: boolean;
+end_reason: string | null;
+};
+export type AdminVehicleListItemData = {
+id: string;
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+notes: string | null;
+is_active: boolean;
+is_on_pause: boolean;
+active_pause_id: string | null;
+owner: App.Domains.Fleet.Application.Data.AdminVehiclePersonData | null;
+driver: App.Domains.Fleet.Application.Data.AdminVehiclePersonData | null;
+contract: App.Domains.Fleet.Application.Data.AdminVehicleContractProgressData | null;
+created_at: string;
+};
+export type AdminVehicleOwnerData = {
+id: string;
+name: string;
+phone: string | null;
+email: string | null;
+};
+export type AdminVehiclePageData = {
+vehicles: Array<App.Domains.Fleet.Application.Data.AdminVehicleListItemData>;
+stats: App.Domains.Fleet.Application.Data.AdminVehicleStatsData;
+owners: Array<App.Domains.Fleet.Application.Data.AdminVehiclePersonData>;
+};
+export type AdminVehiclePastContractData = {
+id: string;
+total_amount: number;
+total_paid: number;
+start_date: string | null;
+end_date: string | null;
+status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
+};
+export type AdminVehiclePaymentData = {
+id: string;
+amount: number;
+payment_date: string | null;
+payment_method: string | null;
+reference_number: string | null;
+};
+export type AdminVehiclePersonData = {
+id: string;
+name: string | null;
+phone: string | null;
+};
+export type AdminVehicleStatsData = {
+total: number;
+active: number;
+paused: number;
+without_contract: number;
+};
 export type ContractDurationData = {
 months: number;
 total_amount: number;
@@ -422,6 +523,15 @@ adresse: string | null;
 is_active: boolean;
 vehicle: App.Domains.Fleet.Application.Data.OwnerVehicleAttachmentData | null;
 confirm_transfer: boolean;
+};
+export type CreateVehiclePauseData = {
+start_date: string;
+end_date: string | null;
+reason_type: App.Domains.Fleet.Domain.Enums.VehiclePauseReason;
+reason_notes: string | null;
+};
+export type EndVehiclePauseData = {
+end_date: string;
 };
 export type OwnerContractDetailData = {
 contract_months: number;
@@ -490,7 +600,15 @@ vehicle_type: string | null;
 is_on_pause: boolean;
 contract: App.Domains.Fleet.Application.Data.OwnerContractSummaryData | null;
 };
+export type SaveVehicleData = {
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+notes: string | null;
+};
 export type SetOwnerStatusData = {
+is_active: boolean;
+};
+export type SetVehicleStatusData = {
 is_active: boolean;
 };
 export type UpdateOwnerData = {

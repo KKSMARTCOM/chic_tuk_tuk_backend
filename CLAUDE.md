@@ -140,7 +140,7 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (67 permissions), utilisateur — ex-`lecteur` — (45), driver (8),
+- Rôles Spatie : admin (67 permissions), utilisateur — ex-`lecteur` — (49), driver (8),
   client (7), proprietaire (5) — 71 permissions au total (seeder rejoué le 2026-09-25,
   après l'ajout des quatre `*-owners`).
   ⚠️ `driver` est passé de 7 à 8 le 2026-09-18 : `view-dashboard` lui manquait, alors que
@@ -156,7 +156,8 @@ avec le mainteneur.
   permissions, **27 sont des écritures** : `create-drivers`, `edit-drivers`,
   `manage-payments`, `manage-settings`, `manage-commissions`, `manage-pricing`,
   `approve-leave-requests`, `delete-leaves`, `moderate-testimonials`… Il ne lui manque,
-  par rapport à `admin`, que la gestion des rôles, des permissions et des véhicules.
+  par rapport à `admin`, que la gestion des rôles et des permissions, et quelques
+  suppressions (propriétaires, véhicules) — véhicules ouverts le 2026-09-25.
   Vérifié en base le 2026-09-17 ; l'état est conservé sur décision explicite, mais le
   libellé décrit mal ce niveau d'accès.
 - **La source de vérité des rôles et permissions est
@@ -416,6 +417,21 @@ partagés avec le Blade. Trois règles décidées le même jour :
   historique.
 - Un véhicule conduit par un agent (contrat agent actif) est en lecture seule sur la
   fiche : `OwnerService::update()` ignore ce qu'on lui envoie pour lui.
+
+**Les véhicules et leurs pauses** (`/admin/vehicles*`, `/admin/vehicle-pauses/*`, domaine
+`Fleet`) — liste, fiche, création, modification, statut, suppression, mise en pause, fin
+et annulation de pause, par `VehicleService`, partagé avec le Blade. Décidé le 2026-09-25 :
+
+- ⚠️ **Un véhicule qui a un contrat, véhicule ou agent, même terminé, ne se supprime pas**
+  (`VEHICLE_NOT_DELETABLE`, `VehicleService::delete()`) : la cascade effaçait tout son
+  historique. Seul un agent actif l'empêchait.
+- ⚠️ **Seule une pause MANUELLE s'annule** (`cancelManualPause()`,
+  `VEHICLE_PAUSE_AUTOMATIC` sinon) ; une pause automatique suit la pause de l'agent.
+- Une pause ne désactive le véhicule que si elle couvre aujourd'hui, comme les pauses
+  automatiques. Avant, une pause posée avec une date de fin passée le laissait inactif
+  pour de bon — `activePause` ne voit que les pauses sans date de fin.
+- Les routes Blade de la ressource `vehicles` ont chacune leur permission ; elles
+  n'exigeaient que `view-vehicles`, écritures comprises.
 
 `GET /admin/vehicle-contracts/defaults` sert les durées proposées, leur montant total et
 les trois charges par défaut, tirés de `VehicleContractConsts` — la seule source, que le
