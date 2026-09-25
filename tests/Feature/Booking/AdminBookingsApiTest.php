@@ -347,6 +347,29 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('can_reopen', true);
     }
 
+    /**
+     * « Non traitée » (`missed`) : une course enfant d'abonnement que personne n'a prise,
+     * rattrapée en fin d'abonnement. Close comme une course expirée — et ni supprimable
+     * ni réouvrable : c'est la trace du trajet dû au client.
+     */
+    public function test_une_course_non_traitee_est_close_et_se_lit_sans_erreur(): void
+    {
+        $booking = Booking::factory()->create(['status' => 'missed', 'driver_id' => null]);
+
+        [, $token] = $this->login(Profil::Admin, ['view-bookings', 'delete-bookings']);
+
+        $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('allowed_statuses', [])
+            ->assertJsonPath('can_assign_driver', false)
+            ->assertJsonPath('can_delete', false)
+            ->assertJsonPath('can_reopen', false);
+
+        $this->header($token)->getJson('/api/v1/admin/bookings?status=missed')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $booking->id);
+    }
+
     public function test_une_course_annulee_ne_se_rouvre_pas(): void
     {
         // Rouvrir ne défait qu'une CLÔTURE. Une course annulée a suivi un autre chemin,

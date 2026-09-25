@@ -36,7 +36,7 @@ final class BookingLifecycle
      * l'écran. C'est délibéré — la seule issue honnête serait une action « annuler la
      * clôture » qui défasse la commission, pas un menu de statuts.
      */
-    public const TERMINAL = ['completed', 'cancelled', 'expired'];
+    public const TERMINAL = ['completed', 'cancelled', 'expired', 'missed'];
 
     /**
      * Les transitions permises, depuis chaque statut.
@@ -53,6 +53,7 @@ final class BookingLifecycle
         'completed' => [],
         'cancelled' => [],
         'expired' => [],
+        'missed' => [],
     ];
 
     /** @return array<int, string> */

@@ -21,6 +21,8 @@ enum BookingStatus: string
     case Completed  = 'completed';
     case Cancelled  = 'cancelled';
     case Expired    = 'expired';
+    // Course enfant d'abonnement que personne n'a prise : rattrapée en fin d'abonnement.
+    case Missed     = 'missed';
 
     /** Libellés repris à l'identique des vues Blade (accord au féminin : « une course »). */
     public function label(): string
@@ -32,6 +34,7 @@ enum BookingStatus: string
             self::Completed  => 'Terminée',
             self::Cancelled  => 'Annulée',
             self::Expired    => 'Expirée',
+            self::Missed     => 'Non traitée',
         };
     }
 
@@ -48,12 +51,13 @@ enum BookingStatus: string
             self::Completed  => 'bg-green-100 text-green-800',
             self::Cancelled  => 'bg-red-100 text-red-800',
             self::Expired    => 'bg-gray-100 text-gray-800',
+            self::Missed     => 'bg-amber-100 text-amber-800',
         };
     }
 
     /** Une course dans un état terminal ne peut plus changer de statut. */
     public function isFinal(): bool
     {
-        return in_array($this, [self::Completed, self::Cancelled, self::Expired], true);
+        return in_array($this, [self::Completed, self::Cancelled, self::Expired, self::Missed], true);
     }
 }
