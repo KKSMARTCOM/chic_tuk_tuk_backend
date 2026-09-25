@@ -49,6 +49,9 @@ final class UpdateDriver
                     'vehicle_id' => ['required', 'exists:vehicles,id'],
                     'existing_contract_months' => ['required', 'integer', 'in:24,30,36'],
                     'existing_start_date' => ['required', 'date'],
+                    // Absente du Blade, qui ne la vérifiait qu'en renewal : sans elle, deux
+                    // agents pouvaient partager un ID, la colonne n'ayant pas d'index unique.
+                    'agent_id' => ['nullable', 'string', 'max:255', Rule::unique('drivers', 'agent_id')->ignore($driver->id)],
                 ]);
         }
 
@@ -64,6 +67,7 @@ final class UpdateDriver
             'renewal_vehicle_id.required' => 'Le véhicule est requis.',
             'renewal_contract_months.required' => 'La durée du contrat est requise.',
             'renewal_start_date.required' => 'La date de début est requise.',
+            'agent_id.unique' => 'Cet ID agent est déjà utilisé.',
             'renewal_agent_id.unique' => 'Cet ID agent est déjà utilisé.',
         ])->validate();
 

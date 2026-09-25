@@ -198,6 +198,52 @@ class AdminDriverUpdateApiTest extends TestCase
             ->assertOk();
     }
 
+    /**
+     * ⚠️ Le Blade ne vérifiait pas cette unicité en mode existing (seulement en renewal),
+     * et `drivers.agent_id` n'a pas d'index unique : deux agents pouvaient partager un ID.
+     */
+    public function test_en_mode_existing_un_id_agent_dun_autre_agent_est_refuse(): void
+    {
+        $driver = Driver::factory()->create();
+        Driver::factory()->create(['agent_id' => 'AG-PRIS']);
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->forVehicle($vehicle)->create();
+
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload([
+                'agent_id' => 'AG-PRIS',
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'existing_contract_months' => 24,
+                'existing_start_date' => now()->toDateString(),
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('agent_id');
+    }
+
+    public function test_en_mode_existing_lagent_garde_son_propre_id_agent(): void
+    {
+        $driver = Driver::factory()->create(['agent_id' => 'AG-MIEN']);
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->forVehicle($vehicle)->create();
+
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload([
+                'agent_id' => 'AG-MIEN',
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'existing_contract_months' => 24,
+                'existing_start_date' => now()->toDateString(),
+            ]))
+            ->assertOk();
+    }
+
     public function test_un_telephone_dun_autre_agent_est_refuse(): void
     {
         $driver = Driver::factory()->create();
