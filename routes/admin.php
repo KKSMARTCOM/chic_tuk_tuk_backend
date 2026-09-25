@@ -44,6 +44,7 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::delete('bookings/{booking}',                 [BookingController::class, 'destroy'])->name('bookings.destroy')->middleware('permission:delete-bookings');
 
     Route::post('bookings/{booking}/assign-driver',     [BookingController::class, 'assignDriver'])->name('bookings.assign-driver')->middleware('permission:edit-bookings');
+    Route::post('bookings/{booking}/transfer-subscription', [BookingController::class, 'transferSubscription'])->name('bookings.transfer-subscription')->middleware('permission:edit-bookings');
     Route::post('bookings/{booking}/remove-driver',     [BookingController::class, 'removeDriver'])->name('bookings.remove-driver')->middleware('permission:edit-bookings');
     Route::post('bookings/{booking}/update-status',     [BookingController::class, 'updateStatus'])->name('bookings.update-status')->middleware('permission:edit-bookings');
 
