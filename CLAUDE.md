@@ -64,8 +64,8 @@ préexistant, produit un diff massif sans rapport avec la livraison en cours.
 
 Les types des fronts ne s'écrivent plus à la main : `php artisan typescript:transform`
 lit toutes les classes laravel-data et les énumérateurs, et écrit
-`resources/types/generated.d.ts`, **commité**. Le dépôt `client` le copie par
-`npm run types:sync`.
+`resources/types/generated.d.ts`, **commité**. Les dépôts `client` et `landing` le copient
+par `npm run types:sync`, chacun de son côté.
 
 ⚠️ **Après toute modification d'une classe `Data` ou d'un énumérateur, régénérer.**
 `tests/Feature/GeneratedTypeScriptTypesTest.php` compare le fichier commité à une
