@@ -15,7 +15,6 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-use function Symfony\Component\Clock\now;
 
 class BookingService
 {
@@ -713,7 +712,10 @@ class BookingService
             $booking->update([
                 'remaining_days'      => $newRemaining,
                 'next_recurring_date' => $newRemaining > 0 ? $nextRecurring : null,
-                'is_recurring'        => $newRemaining > 0, // désactive si dernier jour
+                // ⚠️ Ne PAS repasser `is_recurring` à false au dernier jour : le parent
+                // cesserait d'être un abonnement, et ses enfants avec lui — ils sortaient du
+                // récap des revenus, et les courses du dernier jour devenaient visibles de
+                // tous. `remaining_days` à 0 suffit à arrêter la génération.
             ]);
         }
 
