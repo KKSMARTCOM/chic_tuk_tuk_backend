@@ -3,6 +3,8 @@
 namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Workforce\Application\Data\AdminDriverListItemData;
+use App\Domains\Workforce\Application\Data\AdminDriverPageData;
+use App\Domains\Workforce\Application\Data\AdminDriverStatsData;
 use App\Models\Driver;
 use App\Models\User;
 
@@ -22,9 +24,8 @@ final class ListDrivers
 {
     /**
      * @param  array{search?: ?string, is_active?: ?string, is_available?: ?string}  $filters
-     * @return array{drivers: array<int, AdminDriverListItemData>, stats: array{total: int, active: int, inactive: int, available: int}}
      */
-    public function __invoke(array $filters = []): array
+    public function __invoke(array $filters = []): AdminDriverPageData
     {
         $query = User::query()
             ->where('profil', 'driver')
@@ -59,24 +60,24 @@ final class ListDrivers
 
         $users = $query->latest()->get();
 
-        return [
-            'drivers' => $users->map(fn (User $u) => AdminDriverListItemData::fromModel($u))->all(),
-            'stats' => $this->stats(),
-        ];
+        return new AdminDriverPageData(
+            drivers: $users->map(fn (User $u) => AdminDriverListItemData::fromModel($u))->all(),
+            stats: $this->stats(),
+        );
     }
 
-    private function stats(): array
+    private function stats(): AdminDriverStatsData
     {
         $total = User::where('profil', 'driver')->count();
         $active = User::where('profil', 'driver')->where('is_active', true)->count();
 
-        return [
-            'total' => $total,
-            'active' => $active,
-            'inactive' => $total - $active,
+        return new AdminDriverStatsData(
+            total: $total,
+            active: $active,
+            inactive: $total - $active,
             // Même requête que `DriverService::getDriverStats()` : TOUTES les lignes
             // `drivers` disponibles, sans repasser par `profil=driver` sur `users`.
-            'available' => Driver::where('is_available', true)->count(),
-        ];
+            available: Driver::where('is_available', true)->count(),
+        );
     }
 }

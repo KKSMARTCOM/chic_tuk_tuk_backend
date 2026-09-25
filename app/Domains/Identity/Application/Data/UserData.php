@@ -37,7 +37,11 @@ final class UserData extends BaseData
         #[TypeScriptType(Profil::class)]
         public string $profil,
         public string $dashboardPath,
+        // `string[]` et non `array<int, string>` : le second sort en objet indexé dans les
+        // types du front, sans `.length` ni méthodes de tableau.
+        /** @var string[] */
         public array $roles,
+        /** @var string[] */
         public array $permissions,
     ) {}
 

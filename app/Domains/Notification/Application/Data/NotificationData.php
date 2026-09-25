@@ -30,6 +30,8 @@ final class NotificationData extends BaseData
          *
          * @var array<string, mixed>|null
          */
+        // `unknown` et non `any` : le front doit vérifier ce qu'il lit dans une charge libre.
+        #[LiteralTypeScriptType('Record<string, unknown> | null')]
         public ?array $data,
         public string $createdAt,
     ) {}

@@ -36,4 +36,21 @@ class GeneratedTypeScriptTypesTest extends TestCase
 
         @unlink($fresh);
     }
+
+    /**
+     * Deux traductions imprécises que le transformateur produit sans prévenir :
+     *
+     * - `any`, qui désarme le typecheck du front : un tableau sans `@var` sur sa
+     *   PROPRIÉTÉ — un `@param` de constructeur ne suffit pas —, ou un `mixed` ;
+     * - `{ [key: number]: … }`, un objet indexé et non un tableau, sans `.length` : ce que
+     *   donne `array<int, string>`. Écrire `string[]`.
+     */
+    public function test_aucun_champ_ne_sort_imprecis(): void
+    {
+        $content = file_get_contents(resource_path('types/generated.d.ts'));
+
+        preg_match_all('/^(\w+): .*(\bany\b|\[key: number\]).*$/m', $content, $matches);
+
+        $this->assertSame([], $matches[0], 'Champs sans type précis : voir le docblock de ce test.');
+    }
 }

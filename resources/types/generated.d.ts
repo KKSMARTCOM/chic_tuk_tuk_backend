@@ -444,8 +444,8 @@ phone: string | null;
 adresse: string | null;
 profil: App.Domains.Identity.Domain.Enums.Profil;
 dashboard_path: string;
-roles: Array<any>;
-permissions: Array<any>;
+roles: Array<string>;
+permissions: Array<string>;
 };
 }
 declare namespace App.Domains.Identity.Domain.Enums {
@@ -461,7 +461,7 @@ title: string;
 message: string;
 type: 'info' | 'success' | 'warning' | 'error';
 is_read: boolean;
-data: { [key: string]: any } | null;
+data: Record<string, unknown> | null;
 created_at: string;
 };
 export type NotificationPageData = {
@@ -574,6 +574,10 @@ vehicle_type: string | null;
 total_trips: number;
 created_at: string;
 };
+export type AdminDriverPageData = {
+drivers: Array<App.Domains.Workforce.Application.Data.AdminDriverListItemData>;
+stats: App.Domains.Workforce.Application.Data.AdminDriverStatsData;
+};
 export type AdminDriverRecentBookingData = {
 id: string;
 status: App.Domains.Booking.Domain.Enums.BookingStatus;
@@ -582,6 +586,12 @@ to_location: string;
 pickup_at: string;
 driver_earning: number;
 commission: number;
+};
+export type AdminDriverStatsData = {
+total: number;
+active: number;
+inactive: number;
+available: number;
 };
 export type AdminDriverSubscriptionRevenueData = {
 total_due: number;
