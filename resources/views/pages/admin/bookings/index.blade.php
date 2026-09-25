@@ -36,6 +36,7 @@
                         <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Annulé
                         </option>
                         <option value="expired" {{ request('status') == 'expired' ? 'selected' : '' }}>Expirée</option>
+                        <option value="missed" {{ request('status') == 'missed' ? 'selected' : '' }}>Non traitée</option>
                     </select>
                 </div>
                 <div class="flex items-end space-x-2">
@@ -173,13 +174,13 @@
                                                 class="text-sm truncate text-gray-900">{{ $booking->driver->user->name ?? 'N/A' }}
                                             </span>
                                         </div>
-                                        @if (!in_array($booking->status, ['completed', 'cancelled', 'expired']))
+                                        @if (!in_array($booking->status, ['completed', 'cancelled', 'expired', 'missed']))
                                             <button onclick="confirmRemoveDriver('{{ $booking->id }}')"
                                                 class="text-red-600 hover:text-red-800 text-sm font-semibold">
                                                 <i class="fas fa-user-times"></i> Retirer
                                             </button>
                                         @endif
-                                    @elseif (!in_array($booking->status, ['expired']))
+                                    @elseif (!in_array($booking->status, ['expired', 'missed']))
                                         <button onclick="assignDriver('{{ $booking->id }}')"
                                             class="text-purple-600 hover:text-purple-800 text-sm font-semibold">
                                             <i class="fas fa-plus-circle"></i> Assigner

@@ -3,13 +3,12 @@
 namespace Tests\Feature\Booking;
 
 use App\Models\Booking;
-use App\Models\Driver;
-use App\Models\User;
 use App\Services\BookingService;
 use App\Services\CommissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Tests\Feature\Booking\Concerns\BuildsSubscriptions;
 use Tests\TestCase;
 
 /**
@@ -17,50 +16,13 @@ use Tests\TestCase;
  */
 class SubscriptionLifecycleTest extends TestCase
 {
+    use BuildsSubscriptions;
     use RefreshDatabase;
 
     protected function tearDown(): void
     {
         Carbon::setTestNow();
         parent::tearDown();
-    }
-
-    private function makeDriver(): Driver
-    {
-        $user = User::create([
-            'name' => 'Agent '.Str::random(6),
-            'email' => Str::uuid().'@example.test',
-            'phone' => '90'.random_int(100000, 999999),
-            'profil' => 'driver',
-            'password' => bcrypt('secret'),
-        ]);
-
-        return Driver::create(['id' => (string) Str::uuid(), 'user_id' => $user->id]);
-    }
-
-    private function makeParent(array $overrides = []): Booking
-    {
-        return Booking::create(array_merge([
-            'id' => (string) Str::uuid(),
-            'booking_number' => 'CTT-'.strtoupper(Str::random(8)),
-            'status' => 'confirmed',
-            'base_price' => 1000,
-            'total_price' => 3000,
-            'pickup_date' => '2026-09-28', // un lundi
-            'pickup_time' => '08:00:00',
-            'from_location' => 'Cotonou',
-            'to_location' => 'Calavi',
-            'from_lat' => 6.36, 'from_lng' => 2.42, 'to_lat' => 6.45, 'to_lng' => 2.35,
-            'distance' => 10,
-            'phone' => '97000000',
-            'days' => 3,
-            'remaining_days' => 3,
-            'week_days' => 'lun_dim',
-            'round_trip' => false,
-            'trip_type' => 'go',
-            'is_recurring' => true,
-            'next_recurring_date' => '2026-09-28 01:00:00',
-        ], $overrides));
     }
 
     /**

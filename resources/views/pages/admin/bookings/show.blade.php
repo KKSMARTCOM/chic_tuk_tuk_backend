@@ -4,9 +4,12 @@
     $isParent = $booking->is_subscription_parent;
     $isChild = $booking->is_subscription_child;
     $isUnique = !$isParent && !$isChild;
-    // Abonnement parent encore actif (des jours restants même si J1 complété)
+    // Abonnement parent encore actif (des jours restants — ou des trajets à rattraper —
+    // même si J1 complété)
     $isActiveSubscription =
-        $isParent && $booking->remaining_days > 0 && !in_array($booking->status, ['cancelled', 'expired']);
+        $isParent &&
+        ($booking->remaining_days > 0 || $booking->makeup_go_count > 0 || $booking->makeup_return_count > 0) &&
+        !in_array($booking->status, ['cancelled', 'expired']);
     // Peut-on annuler ?
     $canCancel =
         // Course unique ou enfant non terminée
@@ -16,7 +19,7 @@
     // Peut-on assigner ?
     $canAssign = !$booking->driver_id && in_array($booking->status, ['pending']) && !$isChild;
     // Peut-on retirer l'agent ?
-$canRemoveDriver = $booking->driver_id && !in_array($booking->status, ['completed', 'cancelled', 'expired']);
+$canRemoveDriver = $booking->driver_id && !in_array($booking->status, ['completed', 'cancelled', 'expired', 'missed']);
 // Peut-on supprimer ?
 $canDelete = in_array($booking->status, ['cancelled', 'expired']);
 @endphp

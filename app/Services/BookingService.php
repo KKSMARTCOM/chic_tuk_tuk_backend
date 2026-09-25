@@ -593,6 +593,11 @@ class BookingService
             ->get();
 
         foreach ($expiredBookings as $booking) {
+            if ($booking->is_subscription_child) {
+                $this->recordMissedChild($booking->id);
+                continue;
+            }
+
             $booking->update([
                 'status' => 'expired',
                 'expired_at' => Carbon::now(),
@@ -602,11 +607,88 @@ class BookingService
         return $expiredBookings->count();
     }
 
+    /**
+     * Une course enfant d'abonnement que personne n'a prise : elle passe « non traitée »
+     * (`missed`), et le trajet est dû au client, rattrapé à la fin de l'abonnement.
+     *
+     * ⚠️ Le compteur est tenu PAR SENS : un aller-retour dont seul le retour a été manqué
+     * ne rattrape que le retour — un jour entier donnerait au client un aller de trop.
+     *
+     * `expired_at` garde son rôle de date du constat, et empêche un second passage.
+     */
+    public function recordMissedChild(string $childId): void
+    {
+        DB::transaction(function () use ($childId) {
+            $child = Booking::lockForUpdate()->find($childId);
+            if (!$child || !in_array($child->status, ['pending', 'expired'])) return;
+
+            $parent = Booking::lockForUpdate()->find($child->parent_booking_id);
+            if (!$parent) return;
+
+            $child->update(['status' => 'missed', 'expired_at' => $child->expired_at ?? now()]);
+            $parent->increment($child->trip_type === 'return' ? 'makeup_return_count' : 'makeup_go_count');
+
+            // Abonnement déjà au bout de ses jours normaux : la génération s'était arrêtée.
+            // Elle reprend sur le prochain jour autorisé qui n'a pas encore sa course —
+            // jamais aujourd'hui, pour que le rattrapage soit lui aussi généré la veille.
+            if (!$parent->next_recurring_date && $parent->remaining_days <= 0) {
+                $lastChildDate = Booking::where('parent_booking_id', $parent->id)->max('pickup_date');
+                $base = Carbon::parse(max($lastChildDate ?? $parent->pickup_date, now()->toDateString()));
+                $makeupDay = getNextAllowedDay($base, $parent->week_days ?? 'lun_dim');
+
+                if ($makeupDay) {
+                    $parent->update(['next_recurring_date' => $makeupDay->copy()->subDay()->setTime(1, 0)]);
+                }
+            }
+        });
+
+        $child = Booking::find($childId);
+        if ($child?->parent_booking_id) {
+            $this->catchUpRecurringBookings($child->parent_booking_id);
+        }
+    }
+
+    /**
+     * Reprise du passé : les courses enfants déjà marquées « expirée » des abonnements
+     * ENCORE EN COURS passent « non traitée », et sont rattrapées. Les abonnements terminés
+     * restent en l'état — décision de l'utilisateur.
+     *
+     * Un abonnement est en cours s'il lui reste des jours à générer, ou si sa dernière
+     * course n'est pas encore passée.
+     *
+     * @return \Illuminate\Support\Collection<int, Booking> les courses concernées
+     */
+    public function expiredChildrenOfOngoingSubscriptions(): \Illuminate\Support\Collection
+    {
+        $today = now()->toDateString();
+
+        return Booking::with('parentBooking')
+            ->where('status', 'expired')
+            ->whereNotNull('parent_booking_id')
+            ->whereHas('parentBooking', function ($parent) use ($today) {
+                $parent->where('is_recurring', true)
+                    ->whereNull('parent_booking_id')
+                    ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
+                    ->where(function ($ongoing) use ($today) {
+                        $ongoing->where('remaining_days', '>', 0)
+                            ->orWhereHas('childBookings', fn ($c) => $c->whereDate('pickup_date', '>=', $today));
+                    });
+            })
+            ->orderBy('pickup_date')
+            ->get()
+            ->filter(fn ($booking) => $booking->is_subscription_child)
+            ->values();
+    }
+
     public function createRecurringBookings()
     {
         $recurringBookings = Booking::where('is_recurring', true)
             ->whereIn('status', ['confirmed', 'in_progress', 'completed'])
-            ->where('remaining_days', '>', 0)
+            ->where(function ($query) {
+                $query->where('remaining_days', '>', 0)
+                    ->orWhere('makeup_go_count', '>', 0)
+                    ->orWhere('makeup_return_count', '>', 0);
+            })
             ->where('trip_type', 'go')
             ->whereNull('parent_booking_id')
             ->where(function ($query) {
@@ -655,7 +737,7 @@ class BookingService
                 !$booking
                 || !$booking->is_subscription_parent
                 || $booking->trip_type !== 'go'
-                || $booking->remaining_days <= 0
+                || ($booking->remaining_days <= 0 && $booking->makeup_go_count <= 0 && $booking->makeup_return_count <= 0)
                 || !in_array($booking->status, ['confirmed', 'in_progress', 'completed'])
                 || ($booking->next_recurring_date && $booking->next_recurring_date->isFuture())
             ) {
@@ -667,21 +749,29 @@ class BookingService
             if (!$nextAllowedDay) return false;
 
             $newPickupDate  = $nextAllowedDay->copy()->setTimeFromTimeString($booking->pickup_time);
-            $newRemaining   = $booking->remaining_days - 1;
+
+            // Jours normaux d'abord ; une fois épuisés, les trajets dus au client après une
+            // course non traitée — et seulement ceux-là, sens par sens.
+            $hasReturnLeg = $booking->round_trip && $booking->return_time;
+            $isMakeup     = $booking->remaining_days <= 0;
+            $withGo       = !$isMakeup || $booking->makeup_go_count > 0;
+            $withReturn   = $hasReturnLeg && (!$isMakeup || $booking->makeup_return_count > 0);
+
+            $newRemaining = $isMakeup ? 0 : $booking->remaining_days - 1;
+            $goLeft       = $booking->makeup_go_count - ($isMakeup && $withGo ? 1 : 0);
+            // Sans heure de retour, un retour dû ne peut pas être généré : il ne doit pas
+            // non plus faire tourner la commande indéfiniment.
+            $returnLeft   = $hasReturnLeg ? $booking->makeup_return_count - ($isMakeup && $withReturn ? 1 : 0) : 0;
+            $moreToDo     = $newRemaining > 0 || $goLeft > 0 || $returnLeft > 0;
 
             // Prochain passage du cron = jour suivant autorisé à 1h
             $nextAllowedForCron = getNextAllowedDay($nextAllowedDay, $booking->week_days ?? 'lun_dim');
-            $nextRecurring = $newRemaining > 0 && $nextAllowedForCron ? $nextAllowedForCron->copy()->subDay()->setTime(1, 0) : null;
-
-            // Si plus de jours restants, pas de next_recurring_date
-            if ($newRemaining <= 0) {
-                $nextRecurring = null;
-            }
+            $nextRecurring = $moreToDo && $nextAllowedForCron ? $nextAllowedForCron->copy()->subDay()->setTime(1, 0) : null;
 
             $subDriverId = $booking->subscription_driver_id;
 
             // --- Course ALLER ---
-            Booking::create([
+            if ($withGo) Booking::create([
                 'from_location'          => $booking->from_location,
                 'to_location'            => $booking->to_location,
                 'from_lng'               => $booking->from_lng,
@@ -713,7 +803,7 @@ class BookingService
             ]);
 
             // --- Course RETOUR (si aller-retour) ---
-            if ($booking->round_trip && $booking->return_time) {
+            if ($withReturn) {
                 $returnDate = $newPickupDate->copy()->setTimeFromTimeString($booking->return_time);
 
                 Booking::create([
@@ -748,9 +838,14 @@ class BookingService
             }
 
             // Mettre à jour la course actuelle avec le nombre de jours restants
+            $endDate = $booking->subscription_end_date;
             $booking->update([
-                'remaining_days'      => $newRemaining,
-                'next_recurring_date' => $newRemaining > 0 ? $nextRecurring : null,
+                'remaining_days'        => $newRemaining,
+                'makeup_go_count'       => max(0, $goLeft),
+                'makeup_return_count'   => max(0, $returnLeft),
+                'next_recurring_date'   => $nextRecurring,
+                // Un rattrapage repousse la fin de l'abonnement.
+                'subscription_end_date' => $endDate && $endDate->greaterThan($newPickupDate) ? $endDate : $newPickupDate->toDateString(),
                 // ⚠️ Ne PAS repasser `is_recurring` à false au dernier jour : le parent
                 // cesserait d'être un abonnement, et ses enfants avec lui — ils sortaient du
                 // récap des revenus, et les courses du dernier jour devenaient visibles de
