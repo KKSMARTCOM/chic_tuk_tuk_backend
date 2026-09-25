@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
+use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -137,14 +138,20 @@ class UserService
             throw new \Exception('Vous ne pouvez pas supprimer votre propre compte.');
         }
 
-        // Vérifier si l'utilisateur est un propriétaire et empêcher la suppression si il a un contrat actif sur un véhicule
-        if ($user->hasRole('proprietaire')) {
-            $activeContracts = VehicleContract::where('owner_id', $user->id)
-                ->where('status', 'active')
-                ->count();
+        // Un propriétaire qui a un véhicule ou un contrat véhicule, même terminé, ne se
+        // supprime pas (décidé le 2026-09-25). Les clés étrangères sont en cascade : la
+        // suppression emportait ses véhicules, leurs contrats terminés, les contrats
+        // agents et les pauses véhicule. Seul un contrat ACTIF l'empêchait jusque-là.
+        if ($user->profil === 'owner' || $user->hasRole('proprietaire')) {
+            $hasFleet = $user->vehicles()->exists()
+                || VehicleContract::where('owner_id', $user->id)->exists();
 
-            if ($activeContracts > 0) {
-                throw new \Exception('Impossible de supprimer ce propriétaire car il a des contrats actifs sur des véhicules.');
+            if ($hasFleet) {
+                throw new ApiException(
+                    409,
+                    'OWNER_NOT_DELETABLE',
+                    'Impossible de supprimer ce propriétaire : il a des véhicules ou des contrats véhicule. Désactivez son compte à la place.'
+                );
             }
         }
 

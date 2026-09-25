@@ -2,6 +2,8 @@
 
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
+use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
+use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\LeaveController;
 use Illuminate\Support\Facades\Route;
@@ -85,6 +87,47 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::delete('/drivers/{driver}', [DriverController::class, 'destroy'])
             ->middleware('permission:delete-drivers')
             ->name('drivers.destroy');
+
+        /*
+         * Les propriétaires — ex-Admin\OwnerController.
+         *
+         * ⚠️ Le Blade n'exigeait AUCUNE permission sur `/admin/owners` : les quatre
+         * `*-owners` ont été ajoutées au catalogue le 2026-09-25 pour ces routes. Rejouer
+         * le seeder de référence après déploiement.
+         *
+         * ⚠️ `available-vehicles` est déclarée AVANT `/owners/{owner}` — même piège que
+         * `bookings/assignable-drivers`. Elle sert à la création ET à l'édition.
+         */
+        Route::get('/owners/available-vehicles', [OwnerController::class, 'availableVehicles'])
+            ->middleware('permission:create-owners,edit-owners')
+            ->name('owners.available-vehicles');
+
+        Route::middleware('permission:view-owners')->group(function () {
+            Route::get('/owners', [OwnerController::class, 'index'])->name('owners.index');
+            Route::get('/owners/{owner}', [OwnerController::class, 'show'])->name('owners.show');
+        });
+
+        Route::post('/owners', [OwnerController::class, 'store'])
+            ->middleware('permission:create-owners')
+            ->name('owners.store');
+
+        Route::middleware('permission:edit-owners')->group(function () {
+            Route::put('/owners/{owner}', [OwnerController::class, 'update'])->name('owners.update');
+            Route::post('/owners/{owner}/toggle-status', [OwnerController::class, 'setStatus'])
+                ->name('owners.toggle-status');
+            Route::post('/owners/{owner}/password', [OwnerController::class, 'updatePassword'])
+                ->name('owners.update-password');
+        });
+
+        Route::delete('/owners/{owner}', [OwnerController::class, 'destroy'])
+            ->middleware('permission:delete-owners')
+            ->name('owners.destroy');
+
+        // Ce qui préremplit un contrat propriétaire-véhicule. Toute permission qui en fait
+        // saisir un l'ouvre : les écrans propriétaires, puis ceux des contrats (F3).
+        Route::get('/vehicle-contracts/defaults', [VehicleContractController::class, 'defaults'])
+            ->middleware('permission:create-owners,edit-owners,manage-contracts')
+            ->name('vehicle-contracts.defaults');
 
         /*
          * Les réservations.

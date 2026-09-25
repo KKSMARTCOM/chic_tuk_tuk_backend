@@ -171,7 +171,7 @@
                                         <div class="col-span-2">
                                             <label class="block text-xs font-medium text-gray-700 mb-1">Notes</label>
                                             <input type="text" name="vehicles[{{ $vehicle->id }}][vehicle_notes]"
-                                                value="{{ old('vehicles.' . $vehicle->id . '.vehicle_notes', $vehicle->vehicle_notes) }}"
+                                                value="{{ old('vehicles.' . $vehicle->id . '.vehicle_notes', $vehicle->notes) }}"
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#286b41]"
                                                 placeholder="Informations complémentaires (optionnel)">
                                         </div>

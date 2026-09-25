@@ -6,6 +6,7 @@ use App\Consts\VehicleContractConsts;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
+use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -106,8 +107,8 @@ class OwnerService
             }
             // 3b. Véhicule existant sélectionné → changer le propriétaire
             elseif (!empty($data['vehicle_id'])) {
-                $vehicle = Vehicle::find($data['vehicle_id']);
-                $vehicle?->update(['owner_id' => $user->id]);
+                $vehicle = Vehicle::findOrFail($data['vehicle_id']);
+                $this->claimVehicle($vehicle, $user, (bool) ($data['confirm_transfer'] ?? false));
             }
 
             // 4. Créer le contrat proprio-véhicule si montant renseigné
@@ -164,7 +165,10 @@ class OwnerService
                     $vehicle->update([
                         'vehicle_number' => $vData['vehicle_number'] ?? $vehicle->vehicle_number,
                         'vehicle_type'   => $vData['vehicle_type']   ?? $vehicle->vehicle_type,
-                        'vehicle_notes'  => $vData['vehicle_notes']    ?? $vehicle->notes,
+                        // La colonne est `notes`. Le service écrivait `vehicle_notes`, que
+                        // `$fillable` ignorait : les notes étaient perdues (corrigé le
+                        // 2026-09-25). Une note vidée efface la note.
+                        'notes'          => array_key_exists('vehicle_notes', $vData) ? $vData['vehicle_notes'] : $vehicle->notes,
                         'is_active'      => $vData['is_active'] ?? $vehicle->is_active,
                     ]);
 
@@ -182,7 +186,7 @@ class OwnerService
                     'owner_id'       => $owner->id,
                     'vehicle_number' => $data['new_vehicle_number'],
                     'vehicle_type'   => $data['new_vehicle_type']  ?? 'tricycle',
-                    'vehicle_notes'  => $data['new_vehicle_notes'] ?? null,
+                    'notes'          => $data['new_vehicle_notes'] ?? null,
                     'is_active'      => true,
                 ]);
 
@@ -190,20 +194,61 @@ class OwnerService
             } elseif ($addMode === 'existing' && !empty($data['vehicle_id'])) {
                 // Véhicule existant
                 $vehicle = Vehicle::findOrFail($data['vehicle_id']);
-
-                if ($vehicle->owner_id && $vehicle->owner_id !== $owner->id) {
-                    throw new \Exception(
-                        "Le véhicule {$vehicle->vehicle_number} appartient déjà à un autre propriétaire."
-                    );
-                }
-
-                $vehicle->update(['owner_id' => $owner->id]);
+                $this->claimVehicle($vehicle, $owner, (bool) ($data['confirm_transfer'] ?? false));
 
                 $this->syncVehicleContract($vehicle, $owner->id, $data['existing_vehicle'] ?? []);
             }
 
             return $owner->refresh();
         });
+    }
+
+    /**
+     * Rattache un véhicule existant au propriétaire.
+     *
+     * Règle décidée le 2026-09-25, la même à la création et à l'édition : un véhicule
+     * qui appartient déjà à un autre propriétaire ne change de mains que si
+     * l'administrateur a CONFIRMÉ le transfert. Auparavant, la création le transférait
+     * en silence et l'édition le refusait.
+     *
+     * Un véhicule sous contrat propriétaire-véhicule en cours ne se transfère jamais :
+     * le contrat lie son propriétaire actuel.
+     *
+     * Des `ApiException` : elles héritent d'`Exception`, le Blade les affiche donc en
+     * message flash comme avant. Il n'envoie jamais `confirm_transfer`, et refuse
+     * désormais le transfert dans les deux écrans.
+     */
+    private function claimVehicle(Vehicle $vehicle, User $owner, bool $transferConfirmed): void
+    {
+        if ($vehicle->owner_id === $owner->id) {
+            return;
+        }
+
+        $runningContract = $vehicle->activeVehicleContract;
+        if ($runningContract !== null) {
+            throw new ApiException(
+                409,
+                'VEHICLE_UNDER_CONTRACT',
+                "Le véhicule {$vehicle->vehicle_number} est sous contrat avec son propriétaire actuel : il ne peut pas être transféré.",
+                ['vehicle_number' => $vehicle->vehicle_number],
+            );
+        }
+
+        if ($vehicle->owner_id !== null && ! $transferConfirmed) {
+            $currentOwnerName = $vehicle->owner?->name;
+
+            throw new ApiException(
+                409,
+                'VEHICLE_TRANSFER_UNCONFIRMED',
+                "Le véhicule {$vehicle->vehicle_number} appartient déjà à {$currentOwnerName}. Confirmez le transfert pour le lui retirer.",
+                [
+                    'vehicle_number' => $vehicle->vehicle_number,
+                    'current_owner_name' => $currentOwnerName,
+                ],
+            );
+        }
+
+        $vehicle->update(['owner_id' => $owner->id]);
     }
 
     // ── Méthode privée : créer ou mettre à jour le contrat ────────
@@ -229,6 +274,12 @@ class OwnerService
             'spotify_premium'      => $data['spotify_premium']           ?? VehicleContractConsts::DEFAULT_SPOTIFY_PREMIUM,
             'manager_remuneration' => $data['manager_remuneration']      ?? VehicleContractConsts::DEFAULT_MANAGER_REMUNERATION,
         ];
+
+        // Le formulaire d'édition Blade n'a pas de champ de notes : ne les toucher que
+        // si elles sont envoyées, pour ne pas effacer celles saisies à la création.
+        if (array_key_exists('contract_notes', $data)) {
+            $contractData['notes'] = $data['contract_notes'];
+        }
 
         $activeContract = $vehicle->activeVehicleContract;
 

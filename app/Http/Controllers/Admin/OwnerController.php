@@ -38,8 +38,10 @@ class OwnerController extends Controller
     {
         $rules = [
             'name'     => 'required|string|max:255',
-            'email'    => 'nullable|email|unique:users,email,NULL,id,profil,client',
-            'phone'    => 'required|string|unique:users,phone,NULL,id,profil,client',
+            // Unicité sur TOUS les comptes, comme la contrainte en base : elle n'était
+            // vérifiée que parmi les `profil=client` (corrigé le 2026-09-25).
+            'email'    => 'nullable|email|unique:users,email',
+            'phone'    => 'required|string|unique:users,phone',
             'password' => [
                 'required',
                 'string',
@@ -130,8 +132,8 @@ class OwnerController extends Controller
         // ── Règles communes ──────────────────────────────────
         $rules = [
             'name'      => 'required|string|max:255',
-            'email'     => 'nullable|email|unique:users,email,' . $owner->id . ',id,profil,client',
-            'phone'     => 'required|string|unique:users,phone,' . $owner->id . ',id,profil,client',
+            'email'     => 'nullable|email|unique:users,email,' . $owner->id,
+            'phone'     => 'required|string|unique:users,phone,' . $owner->id,
             'adresse'   => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
             'role'      => 'nullable|exists:roles,name',

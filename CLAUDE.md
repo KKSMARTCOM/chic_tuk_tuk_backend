@@ -140,8 +140,9 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (62 permissions), lecteur (41), driver (8), client (6),
-  proprietaire (5) — 66 permissions au total.
+- Rôles Spatie : admin (67 permissions), utilisateur — ex-`lecteur` — (45), driver (8),
+  client (7), proprietaire (5) — 71 permissions au total (seeder rejoué le 2026-09-25,
+  après l'ajout des quatre `*-owners`).
   ⚠️ `driver` est passé de 7 à 8 le 2026-09-18 : `view-dashboard` lui manquait, alors que
   l'espace agent a un tableau de bord. La navigation du front se construisant sur les
   permissions EFFECTIVES, l'agent n'avait aucune entrée de menu vers son écran d'accueil.
@@ -394,6 +395,31 @@ Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
 `GET /admin/dashboard` (`view-dashboard`), `GET /admin/leaves` et
 `GET /admin/leaves/{driver}` (`view-leaves`), `GET /admin/leave-requests`
 (`view-leave-requests`).
+
+**Les propriétaires** (`/admin/owners*`, domaine `Fleet`) — liste, fiche, véhicules
+disponibles, création, édition, statut, mot de passe, suppression. ⚠️ Le Blade
+`/admin/owners` n'exigeait AUCUNE permission : **`view-owners`, `create-owners`,
+`edit-owners` et `delete-owners` ont été ajoutées au catalogue le 2026-09-25** —
+`admin` les reçoit par calcul, `utilisateur` reçoit toutes sauf `delete-owners`. **Rejouer le
+seeder après déploiement.** Les écritures passent par `OwnerService` et `UserService`,
+partagés avec le Blade. Trois règles décidées le même jour :
+
+- ⚠️ **Rattacher un véhicule qui a déjà un propriétaire est un TRANSFERT à confirmer**
+  (`confirm_transfer`), à la création comme à l'édition. Sans confirmation :
+  `409 VEHICLE_TRANSFER_UNCONFIRMED`, avec `current_owner_name`. Un véhicule sous contrat
+  propriétaire-véhicule en cours ne se transfère jamais (`VEHICLE_UNDER_CONTRACT`). Le
+  Blade transférait en silence à la création ; n'envoyant jamais la confirmation, il
+  refuse désormais dans les deux écrans.
+- ⚠️ **Un propriétaire qui a un véhicule ou un contrat véhicule, même terminé, ne se
+  supprime pas** (`OWNER_NOT_DELETABLE`, dans `UserService::delete()`). Les clés
+  étrangères sont en cascade : la suppression effaçait ses véhicules et tout leur
+  historique.
+- Un véhicule conduit par un agent (contrat agent actif) est en lecture seule sur la
+  fiche : `OwnerService::update()` ignore ce qu'on lui envoie pour lui.
+
+`GET /admin/vehicle-contracts/defaults` sert les durées proposées, leur montant total et
+les trois charges par défaut, tirés de `VehicleContractConsts` — la seule source, que le
+Blade lit aussi. Le front ne les recopie plus.
 
 ⚠️ Les routes de pauses prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
 Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se

@@ -94,20 +94,33 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'import-drivers' => ['Importer des agents', 'Importer des agents via fichier'],
         'view-drivers' => ['Voir les chauffeurs', 'Voir les chauffeurs'],
 
-        // Demandes de congé
-        'approve-leave-requests' => ['Approuver une demande', 'Approuver une demande de congé'],
-        'reject-leave-requests' => ['Rejeter une demande', 'Rejeter une demande de congé'],
-        'view-leave-requests' => ['Voir les demandes de congé', 'Voir les demandes de congé'],
+        // Demandes de pause
+        // ⚠️ Libellés passés de « congé » à « pause » le 2026-09-25 : c'est le mot du
+        // projet. Les noms techniques `*-leave*` restent — ils traversent les routes et
+        // les rôles.
+        'approve-leave-requests' => ['Approuver une demande', 'Approuver une demande de pause'],
+        'reject-leave-requests' => ['Rejeter une demande', 'Rejeter une demande de pause'],
+        'view-leave-requests' => ['Voir les demandes de pause', 'Voir les demandes de pause'],
 
-        // Congés
-        'create-leaves' => ['Créer un congé', 'Ajouter un congé à un agent'],
-        'delete-leaves' => ['Révoquer un congé', 'Révoquer un congé d\'un agent'],
+        // Pauses des agents
+        'create-leaves' => ['Créer une pause', 'Ajouter une pause à un agent'],
+        'delete-leaves' => ['Révoquer une pause', 'Révoquer une pause d\'un agent'],
         // Ajoutée le 2026-09-22. Le quatuor view/create/edit/delete existe pour dix
-        // autres domaines ; les congés n'en avaient que trois, si bien que clôturer ou
+        // autres domaines ; les pauses n'en avaient que trois, si bien que clôturer ou
         // corriger une pause n'avait aucune permission à porter. Les routes Blade
         // correspondantes n'en exigent d'ailleurs aucune — seulement `profil:admin`.
-        'edit-leaves' => ['Modifier un congé', 'Clôturer ou corriger un congé'],
-        'view-leaves' => ['Voir les congés', 'Voir les congés des agents'],
+        'edit-leaves' => ['Modifier une pause', 'Clôturer ou corriger une pause'],
+        'view-leaves' => ['Voir les pauses', 'Voir les pauses des agents'],
+
+        // Propriétaires, vus de l'administration
+        // Ajoutées le 2026-09-25. Les routes Blade `/admin/owners` n'exigeaient AUCUNE
+        // permission — seulement `profil:admin` —, faute d'en avoir une à porter.
+        // ⚠️ `view-owners` commence par `view-own`, mais pas par le préfixe
+        // `view-own-` des permissions à portée propriétaire : l'admin la reçoit bien.
+        'create-owners' => ['Créer un propriétaire', 'Créer un compte propriétaire'],
+        'delete-owners' => ['Supprimer un propriétaire', 'Supprimer un compte propriétaire'],
+        'edit-owners' => ['Modifier un propriétaire', 'Modifier un propriétaire, ses véhicules et leurs contrats'],
+        'view-owners' => ['Voir les propriétaires', 'Voir les propriétaires et leurs véhicules'],
 
         // Propriétaire — ses contrats
         'view-own-contracts' => ['Voir ses contrats', 'Voir ses contrats véhicule'],
@@ -202,6 +215,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'create-circuits',
                 'create-drivers',
                 'create-leaves',
+                'create-owners',
                 'create-payments',
                 'create-pricing',
                 'create-promo-codes',
@@ -211,6 +225,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'edit-circuits',
                 'edit-drivers',
                 'edit-leaves',
+                'edit-owners',
                 'edit-pricing',
                 'edit-promo-codes',
                 'edit-zones',
@@ -232,6 +247,10 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'view-drivers',
                 'view-leave-requests',
                 'view-leaves',
+                // Ajoutées le 2026-09-25 : l'utilisateur voit, CRÉE et MODIFIE les
+                // propriétaires (identité, véhicules, contrats) — à la demande. Il ne les
+                // supprime pas.
+                'view-owners',
                 'view-payments',
                 'view-pricing',
                 'view-promo-codes',

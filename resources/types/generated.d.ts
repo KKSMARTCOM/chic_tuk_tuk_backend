@@ -347,6 +347,82 @@ reason_label: string;
 reason_notes: string | null;
 is_auto: boolean;
 };
+export type AdminAvailableVehicleData = {
+id: string;
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+owner_id: string | null;
+owner_name: string | null;
+};
+export type AdminOwnerDetailData = {
+id: string;
+name: string;
+email: string | null;
+phone: string;
+adresse: string | null;
+is_active: boolean;
+vehicles: Array<App.Domains.Fleet.Application.Data.AdminOwnerVehicleData>;
+created_at: string;
+};
+export type AdminOwnerListItemData = {
+id: string;
+name: string;
+email: string | null;
+phone: string;
+adresse: string | null;
+is_active: boolean;
+vehicles: Array<App.Domains.Fleet.Application.Data.AdminOwnerVehicleBadgeData>;
+created_at: string;
+};
+export type AdminOwnerPageData = {
+owners: Array<App.Domains.Fleet.Application.Data.AdminOwnerListItemData>;
+stats: App.Domains.Fleet.Application.Data.AdminOwnerStatsData;
+};
+export type AdminOwnerStatsData = {
+total: number;
+active: number;
+inactive: number;
+};
+export type AdminOwnerVehicleBadgeData = {
+id: string;
+vehicle_number: string;
+};
+export type AdminOwnerVehicleContractData = {
+id: string;
+contract_months: number;
+total_amount: number;
+total_paid: number;
+start_date: string | null;
+end_date: string | null;
+unlimited_internet: number;
+spotify_premium: number;
+manager_remuneration: number;
+notes: string | null;
+};
+export type AdminOwnerVehicleData = {
+id: string;
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+notes: string | null;
+is_active: boolean;
+has_driver: boolean;
+driver_name: string | null;
+contract: App.Domains.Fleet.Application.Data.AdminOwnerVehicleContractData | null;
+};
+export type ContractDurationData = {
+months: number;
+total_amount: number;
+};
+export type CreateOwnerData = {
+name: string;
+email: string | null;
+phone: string;
+password: string;
+adresse: string | null;
+is_active: boolean;
+vehicle: App.Domains.Fleet.Application.Data.OwnerVehicleAttachmentData | null;
+confirm_transfer: boolean;
+};
 export type OwnerContractDetailData = {
 contract_months: number;
 start_date: string;
@@ -381,12 +457,27 @@ months_remaining: number;
 progress_percentage: number;
 remaining_amount: number;
 };
+export type OwnerVehicleAttachmentData = {
+mode: 'existing' | 'new';
+vehicle_id: string | null;
+vehicle_number: string | null;
+vehicle_type: 'moto' | 'tricycle' | 'car' | null;
+notes: string | null;
+contract: App.Domains.Fleet.Application.Data.VehicleContractInputData | null;
+};
 export type OwnerVehicleDetailData = {
 id: string;
 vehicle_number: string;
 vehicle_type: string | null;
 active_pause: App.Domains.Fleet.Application.Data.ActivePauseData | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractDetailData | null;
+};
+export type OwnerVehicleEditData = {
+id: string;
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+notes: string | null;
+contract: App.Domains.Fleet.Application.Data.VehicleContractInputData | null;
 };
 export type OwnerVehiclePausesData = {
 summary: App.Domains.Fleet.Application.Data.OwnerContractPauseSummaryData | null;
@@ -398,6 +489,37 @@ vehicle_number: string;
 vehicle_type: string | null;
 is_on_pause: boolean;
 contract: App.Domains.Fleet.Application.Data.OwnerContractSummaryData | null;
+};
+export type SetOwnerStatusData = {
+is_active: boolean;
+};
+export type UpdateOwnerData = {
+name: string;
+email: string | null;
+phone: string;
+adresse: string | null;
+is_active: boolean;
+vehicles: Array<App.Domains.Fleet.Application.Data.OwnerVehicleEditData>;
+add_vehicle: App.Domains.Fleet.Application.Data.OwnerVehicleAttachmentData | null;
+confirm_transfer: boolean;
+};
+export type UpdateOwnerPasswordData = {
+password: string;
+};
+export type VehicleContractDefaultsData = {
+durations: Array<App.Domains.Fleet.Application.Data.ContractDurationData>;
+unlimited_internet: number;
+spotify_premium: number;
+manager_remuneration: number;
+};
+export type VehicleContractInputData = {
+contract_months: number;
+total_amount: number;
+start_date: string;
+unlimited_internet: number | null;
+spotify_premium: number | null;
+manager_remuneration: number | null;
+notes: string | null;
 };
 export type VehiclePauseData = {
 id: string;

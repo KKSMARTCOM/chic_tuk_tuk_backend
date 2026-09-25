@@ -81,6 +81,48 @@ class ReferenceRolesSeederTest extends TestCase
         );
     }
 
+    public function test_owner_management_permissions_go_to_admin_and_all_but_delete_to_utilisateur(): void
+    {
+        $this->semer();
+
+        $ownerPermissions = ['view-owners', 'create-owners', 'edit-owners', 'delete-owners'];
+        $admin = Role::query()->where('name', 'admin')->firstOrFail();
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        // ⚠️ `view-owners` commence par `view-own` : elle ne doit pas être prise pour une
+        // permission à portée propriétaire, que le rôle admin exclut par préfixe.
+        foreach ($ownerPermissions as $permission) {
+            $this->assertTrue($admin->hasPermissionTo($permission), "admin doit porter {$permission}");
+        }
+
+        // `edit-owners` puis `create-owners` accordées le 2026-09-25 à la demande :
+        // l'utilisateur voit, crée et modifie les propriétaires, sans les supprimer.
+        foreach (['view-owners', 'create-owners', 'edit-owners'] as $permission) {
+            $this->assertTrue($user->hasPermissionTo($permission), "utilisateur doit porter {$permission}");
+        }
+        foreach (['delete-owners'] as $permission) {
+            $this->assertFalse($user->hasPermissionTo($permission), "utilisateur ne doit pas porter {$permission}");
+        }
+
+        $this->assertFalse(
+            Role::query()->where('name', 'proprietaire')->firstOrFail()->hasPermissionTo('view-owners'),
+            'un propriétaire ne voit pas les autres propriétaires',
+        );
+    }
+
+    public function test_no_label_says_conge(): void
+    {
+        $this->semer();
+
+        // Le mot du projet est « pause » (décidé le 2026-09-22) : ces libellés s'affichent
+        // dans l'écran d'administration des rôles.
+        $offending = Permission::query()->get()
+            ->filter(fn (Permission $p) => preg_match('/cong[ée]/iu', $p->label.' '.$p->description))
+            ->pluck('name');
+
+        $this->assertSame([], $offending->values()->all(), 'libellés encore en « congé »');
+    }
+
     public function test_le_seeder_corrige_un_libelle_divergent(): void
     {
         $this->semer();
