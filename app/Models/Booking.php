@@ -23,6 +23,8 @@ class Booking extends Model
         'phone',
         'days',
         'remaining_days',
+        'makeup_go_count',
+        'makeup_return_count',
         'pickup_date',
         'pickup_time',
         'passengers',
@@ -83,6 +85,9 @@ class Booking extends Model
         'is_revoked'  => 'boolean',
         'revoked_at'  => 'datetime',
         'subscription_end_date' => 'date',
+        'remaining_days' => 'integer',
+        'makeup_go_count' => 'integer',
+        'makeup_return_count' => 'integer',
     ];
 
     // Génération du booking_number unique à la création d'une réservation
@@ -269,7 +274,8 @@ class Booking extends Model
     {
         return $this->status !== 'completed' &&
             $this->status !== 'cancelled' &&
-            $this->status !== 'expired';
+            $this->status !== 'expired' &&
+            $this->status !== 'missed';
     }
 
     // Vérifie si la réservation peut être démarrée (acceptée par un agent et pas encore commencée)
