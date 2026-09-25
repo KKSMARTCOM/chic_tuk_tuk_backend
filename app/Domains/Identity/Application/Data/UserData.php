@@ -5,6 +5,7 @@ namespace App\Domains\Identity\Application\Data;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\User;
 use App\Shared\Data\BaseData;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
  * Représentation de l'utilisateur connecté, renvoyée par /auth/login et /auth/me.
@@ -33,6 +34,7 @@ final class UserData extends BaseData
          */
         public ?string $phone,
         public ?string $adresse,
+        #[TypeScriptType(Profil::class)]
         public string $profil,
         public string $dashboardPath,
         public array $roles,

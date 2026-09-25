@@ -60,6 +60,30 @@ sur plus de 130 fichiers existants. Toujours lui passer explicitement les fichie
 nouvellement créés — un `vendor/bin/pint` sans argument, ou appliqué à un fichier
 préexistant, produit un diff massif sans rapport avec la livraison en cours.
 
+## Types TypeScript générés depuis les classes `Data`
+
+Les types des fronts ne s'écrivent plus à la main : `php artisan typescript:transform`
+lit toutes les classes laravel-data et les énumérateurs, et écrit
+`resources/types/generated.d.ts`, **commité**. Le dépôt `client` le copie par
+`npm run types:sync`.
+
+⚠️ **Après toute modification d'une classe `Data` ou d'un énumérateur, régénérer.**
+`tests/Feature/GeneratedTypeScriptTypesTest.php` compare le fichier commité à une
+génération fraîche : l'oubli fait échouer la suite, c'est voulu.
+
+- Un champ `string` qui ne prend qu'une liste de valeurs s'annote, sinon le front ne voit
+  qu'un `string` : `#[TypeScriptType(BookingStatus::class)]` quand un énumérateur existe,
+  `#[LiteralTypeScriptType("'a' | 'b'")]` sinon.
+- ⚠️ **L'annotation remplace le type entier, nullabilité comprise** : sur un `?string`,
+  écrire `#[TypeScriptType('?'.WeekDays::class)]`, sinon le champ sort non nul.
+- ⚠️ **Pas de forme de tableau** (`array{id: string, …}`) dans un `@var` : la version de
+  `type-resolver` requise par le transformateur ne sait pas la lire, et la génération
+  échoue sur « Unexpected token ». Écrire une petite classe `Data` à la place.
+- `spatie/laravel-typescript-transformer` est en **v2**, parce que laravel-data n'embarque
+  de transformateur que pour elle — d'où `phpdocumentor/reflection-docblock` ^5.3 et
+  `type-resolver` ^1.7 épinglés en `require-dev`. Ne pas les remonter en 6.x / 2.x tant
+  que laravel-data ne gère pas la v3 du transformateur.
+
 ## Vocabulaire : « pause », jamais « congé »
 
 Une absence d'agent s'appelle une **pause**, dans tout ce qui se lit — libellés,

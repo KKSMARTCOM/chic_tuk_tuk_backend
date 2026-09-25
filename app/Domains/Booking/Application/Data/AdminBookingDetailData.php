@@ -6,7 +6,11 @@ use App\Domains\Booking\Application\Data\Concerns\DescribesBookingKind;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
+use App\Domains\Booking\Domain\Enums\BookingStatus;
 use App\Shared\Data\BaseData;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
+use App\Domains\Booking\Domain\Enums\BookingKind;
+use App\Domains\Booking\Domain\Enums\WeekDays;
 
 /**
  * Le dossier complet d'une réservation — ex-Admin\BookingController::show().
@@ -35,8 +39,10 @@ final class AdminBookingDetailData extends BaseData
     public function __construct(
         public string $id,
         public string $bookingNumber,
+        #[TypeScriptType(BookingStatus::class)]
         public string $status,
         /** `single` | `subscription_parent` | `subscription_child` | `simple_return`. */
+        #[TypeScriptType(BookingKind::class)]
         public string $kind,
         public string $kindLabel,
 
@@ -71,6 +77,7 @@ final class AdminBookingDetailData extends BaseData
         public bool $isReturn,
         public int $days,
         public int $passengers,
+        #[TypeScriptType('?'.WeekDays::class)]
         public ?string $weekDays,
         public ?string $specialRequests,
         public ?string $touristCircuitName,
@@ -137,6 +144,7 @@ final class AdminBookingDetailData extends BaseData
          *
          * @var array<int, string>
          */
+        #[TypeScriptType('array<'.BookingStatus::class.'>')]
         public array $allowedStatuses,
         public bool $canAssignDriver,
         public bool $canRemoveDriver,

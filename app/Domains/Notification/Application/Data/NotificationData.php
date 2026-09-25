@@ -4,6 +4,7 @@ namespace App\Domains\Notification\Application\Data;
 
 use App\Models\Notification;
 use App\Shared\Data\BaseData;
+use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 
 /**
  * Une notification telle que la cloche l'affiche.
@@ -20,6 +21,7 @@ final class NotificationData extends BaseData
         public string $title,
         public string $message,
         /** `info` | `success` | `warning` | `error` — pilote l'icône et la couleur. */
+        #[LiteralTypeScriptType("'info' | 'success' | 'warning' | 'error'")]
         public string $type,
         public bool $isRead,
         /**

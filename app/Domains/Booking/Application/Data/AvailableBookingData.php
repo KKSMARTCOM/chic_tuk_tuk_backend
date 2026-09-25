@@ -5,6 +5,9 @@ namespace App\Domains\Booking\Application\Data;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
+use App\Domains\Booking\Domain\Enums\TripType;
+use App\Domains\Booking\Domain\Enums\WeekDays;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
  * Une course que l'agent peut prendre — GET /driver/bookings/available.
@@ -24,6 +27,7 @@ final class AvailableBookingData extends BaseData
 
     public function __construct(
         public string $id,
+        #[TypeScriptType(TripType::class)]
         public string $tripType,
         public bool $roundTrip,
         public string $fromLocation,
@@ -38,6 +42,7 @@ final class AvailableBookingData extends BaseData
         public string $subscriptionLabel,
         public ?string $subscriptionEndDate,
         /** `lun_ven` | `lun_sam` | `lun_dim` — une chaîne, pas une liste. */
+        #[TypeScriptType('?'.WeekDays::class)]
         public ?string $weekDays,
         public ?int $days,
         public ?int $remainingDays,

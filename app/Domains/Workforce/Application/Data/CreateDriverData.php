@@ -5,6 +5,7 @@ namespace App\Domains\Workforce\Application\Data;
 use App\Shared\Data\BaseData;
 use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Support\Validation\ValidationContext;
+use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 
 /**
  * Création d'un agent — ex-Admin\DriverController::store().
@@ -30,6 +31,7 @@ final class CreateDriverData extends BaseData
         public string $licenseNumber,
         public ?string $agentCode,
         public ?string $agentId,
+        #[LiteralTypeScriptType("'new' | 'renewal'")]
         public string $contractMode,
         // Mode `new`.
         public ?string $ownerId,

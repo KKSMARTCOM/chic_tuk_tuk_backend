@@ -5,6 +5,10 @@ namespace App\Domains\Booking\Application\Data;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
+use App\Domains\Booking\Domain\Enums\TripType;
+use App\Domains\Booking\Domain\Enums\WeekDays;
+use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
  * Une course acceptée — GET /driver/bookings/assigned, et retour des cinq actions.
@@ -27,7 +31,9 @@ final class AssignedBookingData extends BaseData
          * `revoke` une course redevenue `pending`. Restreindre l'union à deux valeurs
          * rendrait le contrat faux pour deux endpoints sur neuf.
          */
+        #[LiteralTypeScriptType("'confirmed' | 'in_progress'")] // le filtre de ListAssignedBookings
         public string $status,
+        #[TypeScriptType(TripType::class)]
         public string $tripType,
         public bool $roundTrip,
         public string $fromLocation,
@@ -40,6 +46,7 @@ final class AssignedBookingData extends BaseData
         public bool $isRevoked,
         public string $subscriptionLabel,
         public ?string $subscriptionEndDate,
+        #[TypeScriptType('?'.WeekDays::class)]
         public ?string $weekDays,
         public ?int $days,
         public ?int $remainingDays,

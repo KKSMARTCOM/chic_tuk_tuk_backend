@@ -4,6 +4,8 @@ namespace App\Domains\Booking\Application\Data;
 
 use App\Domains\Booking\Application\Actions\ChangeBookingStatus;
 use App\Shared\Data\BaseData;
+use App\Domains\Booking\Domain\Enums\BookingStatus;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
  * Le corps de POST /admin/bookings/{booking}/status.
@@ -15,6 +17,7 @@ use App\Shared\Data\BaseData;
 final class ChangeBookingStatusData extends BaseData
 {
     public function __construct(
+        #[TypeScriptType(BookingStatus::class)]
         public string $status,
         public ?string $cancellationReason = null,
     ) {}

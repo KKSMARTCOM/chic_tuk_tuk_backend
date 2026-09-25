@@ -14,7 +14,7 @@ final class AdminDriverSubscriptionRevenueData extends BaseData
         public float $totalDue,
         public float $totalPaid,
         public float $balanceDue,
-        /** @var array<int, array{subscription_id: string, booking_number: string, bookings_count: int, amount: float}> */
+        /** @var array<int, AdminDriverSubscriptionRevenueItemData> */
         public array $subscriptions,
     ) {}
 
@@ -24,7 +24,12 @@ final class AdminDriverSubscriptionRevenueData extends BaseData
             totalDue: $revenue['total_due'],
             totalPaid: $revenue['total_paid'],
             balanceDue: $revenue['balance_due'],
-            subscriptions: $revenue['subscriptions']->values()->all(),
+            subscriptions: $revenue['subscriptions']->map(fn (array $s) => new AdminDriverSubscriptionRevenueItemData(
+                subscriptionId: $s['subscription_id'],
+                bookingNumber: $s['booking_number'],
+                bookingsCount: $s['bookings_count'],
+                amount: (float) $s['amount'],
+            ))->values()->all(),
         );
     }
 }

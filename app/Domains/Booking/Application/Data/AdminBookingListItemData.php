@@ -7,6 +7,9 @@ use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
+use App\Domains\Booking\Domain\Enums\BookingKind;
+use App\Domains\Booking\Domain\Enums\BookingStatus;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
  * Une ligne du tableau « Réservations » de l'administration — ex-Admin\BookingController::index().
@@ -27,6 +30,7 @@ final class AdminBookingListItemData extends BaseData
         public string $id,
         public string $bookingNumber,
         /** `single` | `subscription_parent` | `subscription_child` | `simple_return`. */
+        #[TypeScriptType(BookingKind::class)]
         public string $kind,
         /** Le libellé que le Blade affiche dans le badge — « Course 3 — Abonn. CTT-… ». */
         public string $kindLabel,
@@ -37,6 +41,7 @@ final class AdminBookingListItemData extends BaseData
         /** Heure MURALE, sans décalage — voir la règle du projet sur `pickup_at`. */
         public string $pickupAt,
         public float $basePrice,
+        #[TypeScriptType(BookingStatus::class)]
         public string $status,
         public ?string $driverId,
         public ?string $driverName,

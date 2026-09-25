@@ -4,6 +4,8 @@ namespace App\Domains\Fleet\Application\Data;
 
 use App\Models\VehiclePause;
 use App\Shared\Data\BaseData;
+use App\Domains\Fleet\Domain\Enums\VehiclePauseReason;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 final class VehiclePauseData extends BaseData
 {
@@ -11,6 +13,7 @@ final class VehiclePauseData extends BaseData
         public string $id,
         public string $startDate,
         public ?string $endDate,
+        #[TypeScriptType(VehiclePauseReason::class)]
         public string $reasonType,
         public string $reasonLabel,
         public ?string $reasonNotes,

@@ -4,6 +4,7 @@ namespace App\Domains\Workforce\Application\Data;
 
 use App\Shared\Data\BaseData;
 use Spatie\LaravelData\Support\Validation\ValidationContext;
+use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 
 /**
  * Édition d'un agent — ex-Admin\DriverController::update().
@@ -29,6 +30,7 @@ final class UpdateDriverData extends BaseData
         public ?bool $isAvailable,
         public ?string $agentCode,
         public ?string $agentId,
+        #[LiteralTypeScriptType("'existing' | 'renewal'")]
         public string $ownerMode,
         // Mode `existing`.
         public ?string $ownerId,

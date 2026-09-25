@@ -5,6 +5,7 @@ namespace App\Domains\Booking\Application\Data;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
+use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 
 /**
  * Une ligne d'historique — GET /driver/bookings/history.
@@ -23,6 +24,7 @@ final class BookingHistoryData extends BaseData
         public string $id,
         public string $bookingNumber,
         /** `completed` | `cancelled`. */
+        #[LiteralTypeScriptType("'completed' | 'cancelled'")] // le filtre de ListBookingHistory
         public string $status,
         public string $fromLocation,
         public string $toLocation,

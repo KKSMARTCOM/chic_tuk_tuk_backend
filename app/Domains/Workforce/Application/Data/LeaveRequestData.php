@@ -4,6 +4,8 @@ namespace App\Domains\Workforce\Application\Data;
 
 use App\Models\LeaveRequest;
 use App\Shared\Data\BaseData;
+use App\Domains\Workforce\Domain\Enums\LeaveStatus;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
  * Une demande de pause, telle que les quatre listes de l'écran l'affichent.
@@ -17,6 +19,7 @@ final class LeaveRequestData extends BaseData
     public function __construct(
         public string $id,
         /** `pending` | `ongoing` | `completed` | `rejected`. */
+        #[TypeScriptType(LeaveStatus::class)]
         public string $status,
         /** `YYYY-MM-DD` : une date de calendrier, jamais un instant. */
         public string $startDate,

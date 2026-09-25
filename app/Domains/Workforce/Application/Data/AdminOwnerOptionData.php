@@ -18,7 +18,7 @@ final class AdminOwnerOptionData extends BaseData
         public string $id,
         public ?string $name,
         public ?string $phone,
-        /** @var array<int, array{id: string, vehicle_number: string, vehicle_type: ?string, color: ?string, contract_months: ?int, contract_start_date: ?string}> */
+        /** @var array<int, AdminOwnerVehicleOptionData> */
         public array $vehicles,
     ) {}
 
@@ -28,14 +28,14 @@ final class AdminOwnerOptionData extends BaseData
             id: $owner->id,
             name: $owner->name,
             phone: $owner->phone,
-            vehicles: $owner->vehicles->map(fn ($v) => [
-                'id' => $v->id,
-                'vehicle_number' => $v->vehicle_number,
-                'vehicle_type' => $v->vehicle_type,
-                'color' => $v->color,
-                'contract_months' => $v->activeVehicleContract?->contract_months,
-                'contract_start_date' => $v->activeVehicleContract?->start_date?->format('Y-m-d'),
-            ])->values()->all(),
+            vehicles: $owner->vehicles->map(fn ($v) => new AdminOwnerVehicleOptionData(
+                id: $v->id,
+                vehicleNumber: $v->vehicle_number,
+                vehicleType: $v->vehicle_type,
+                color: $v->color,
+                contractMonths: $v->activeVehicleContract?->contract_months,
+                contractStartDate: $v->activeVehicleContract?->start_date?->format('Y-m-d'),
+            ))->values()->all(),
         );
     }
 }

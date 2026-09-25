@@ -5,6 +5,8 @@ namespace App\Domains\Workforce\Application\Data;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Models\Booking;
 use App\Shared\Data\BaseData;
+use App\Domains\Booking\Domain\Enums\BookingStatus;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /** Une ligne du cadre « Dernières courses » du dossier agent. */
 final class AdminDriverRecentBookingData extends BaseData
@@ -13,6 +15,7 @@ final class AdminDriverRecentBookingData extends BaseData
 
     public function __construct(
         public string $id,
+        #[TypeScriptType(BookingStatus::class)]
         public string $status,
         public string $fromLocation,
         public string $toLocation,

@@ -20,7 +20,7 @@ final class AdminOwnerRenewalOptionData extends BaseData
         public string $id,
         public ?string $name,
         public ?string $phone,
-        /** @var array<int, array{id: string, vehicle_number: string, vehicle_type: ?string, color: ?string, total_months: int, months_used: int, remaining_months: int, suggested_start_date: string, vehicle_contract_id: string}> */
+        /** @var array<int, AdminOwnerRenewalVehicleOptionData> */
         public array $vehicles,
     ) {}
 
@@ -53,17 +53,17 @@ final class AdminOwnerRenewalOptionData extends BaseData
                         ? $lastDriverContract->end_date->addDay()->format('Y-m-d')
                         : now()->toDateString();
 
-                    return [
-                        'id' => $v->id,
-                        'vehicle_number' => $v->vehicle_number,
-                        'vehicle_type' => $v->vehicle_type,
-                        'color' => $v->color,
-                        'total_months' => $totalMonths,
-                        'months_used' => $monthsUsed,
-                        'remaining_months' => $remainingMonths,
-                        'suggested_start_date' => $suggestedStartDate,
-                        'vehicle_contract_id' => $vehicleContract->id,
-                    ];
+                    return new AdminOwnerRenewalVehicleOptionData(
+                        id: $v->id,
+                        vehicleNumber: $v->vehicle_number,
+                        vehicleType: $v->vehicle_type,
+                        color: $v->color,
+                        totalMonths: $totalMonths,
+                        monthsUsed: $monthsUsed,
+                        remainingMonths: $remainingMonths,
+                        suggestedStartDate: $suggestedStartDate,
+                        vehicleContractId: $vehicleContract->id,
+                    );
                 })
                 ->filter()
                 ->values()

@@ -4,6 +4,8 @@ namespace App\Domains\Fleet\Application\Data;
 
 use App\Models\VehiclePause;
 use App\Shared\Data\BaseData;
+use App\Domains\Fleet\Domain\Enums\VehiclePauseReason;
+use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
  * La pause en cours d'un véhicule, telle que le bandeau de la fiche l'affiche.
@@ -17,6 +19,7 @@ final class ActivePauseData extends BaseData
 {
     public function __construct(
         public string $startDate,
+        #[TypeScriptType(VehiclePauseReason::class)]
         public string $reasonType,
         public string $reasonLabel,
         public ?string $reasonNotes,
