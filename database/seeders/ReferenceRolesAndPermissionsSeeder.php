@@ -77,7 +77,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'view-circuits' => ['Voir les circuits', 'Voir la liste des circuits touristiques'],
 
         // Commissions
-        'manage-commissions' => ['Gérer les commissions', 'Gérer les commissions'],
+        // `manage-commissions` retirée le 2026-09-26 (P1) : une commission s'annule par
+        // `delete-commissions`, réservée à l'administrateur.
+        'delete-commissions' => ['Annuler une commission', 'Annuler une commission due par un agent'],
         'view-commissions' => ['Voir les commissions', 'Voir les commissions'],
 
         // Contrats
@@ -244,7 +246,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'export-reports',
                 'import-drivers',
                 'manage-bookings',
-                'manage-commissions',
                 'manage-payments',
                 'manage-pricing',
                 'manage-settings',

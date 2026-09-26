@@ -322,6 +322,29 @@ export type TripType = 'go' | 'return';
 export type WeekDays = 'lun_ven' | 'lun_sam' | 'lun_dim';
 }
 declare namespace App.Domains.Finance.Application.Data {
+export type AdminCommissionBookingData = {
+id: string;
+booking_number: string | null;
+driver_earning: number;
+};
+export type AdminCommissionData = {
+id: string;
+status: App.Domains.Finance.Domain.Enums.CommissionStatus;
+amount: number;
+date: string | null;
+driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
+booking: App.Domains.Finance.Application.Data.AdminCommissionBookingData | null;
+created_at: string;
+updated_at: string;
+};
+export type AdminCommissionPageData = {
+commissions: Array<App.Domains.Finance.Application.Data.AdminCommissionData>;
+stats: App.Domains.Finance.Application.Data.AdminCommissionStatsData;
+};
+export type AdminCommissionStatsData = {
+total_revenue: number;
+total_count: number;
+};
 export type MonthlyPayoutData = {
 month: string;
 is_current: boolean;
@@ -336,6 +359,7 @@ immobilization_days: number;
 };
 }
 declare namespace App.Domains.Finance.Domain.Enums {
+export type CommissionStatus = 'active' | 'cancelled';
 export type PaymentStatus = 'pending' | 'completed' | 'cancelled' | 'failed';
 export type PaymentType = 'commission' | 'contract' | 'bonus' | 'other' | 'subscription_revenue';
 }

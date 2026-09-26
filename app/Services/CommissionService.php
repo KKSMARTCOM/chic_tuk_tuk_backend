@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\Driver;
 use App\Models\Payment;
+use App\Shared\Http\ApiException;
 
 class CommissionService
 {
@@ -32,12 +33,13 @@ class CommissionService
             $query->where('driver_id', $filters['driver_id']);
         }
 
+        // Groupé (2026-09-26) : sans parenthèses, le `orWhereHas` échappait au filtre
+        // d'agent, et un numéro de course d'un autre agent remontait quand même.
         if (isset($filters['search']) && !empty($filters['search'])) {
             $search = $filters['search'];
-            $query->whereHas('driver.user', function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%');
-            })->orWhereHas('booking', function ($q) use ($search) {
-                $q->where('booking_number', 'like', '%' . $search . '%');
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('driver.user', fn ($u) => $u->where('name', 'ilike', '%' . $search . '%'))
+                    ->orWhereHas('booking', fn ($b) => $b->where('booking_number', 'ilike', '%' . $search . '%'));
             });
         }
 
@@ -67,17 +69,28 @@ class CommissionService
             'driver' => $driver,
             'driver_earning' => $driverEarning,
             'commissions_count' => $driver->commissions()->count(),
-            'paid_revenue' => $driver->payments()->where('payment_type', 'commission')->sum('amount'),
-            'unpaid_revenue' => $driver->commissions()->sum('amount') - $driver->payments()->where('payment_type', 'commission')->sum('amount'),
+            // Commissions DUES et paiements VALIDÉS seulement (2026-09-26) : les annulés
+            // comptaient des deux côtés.
+            'paid_revenue' => $paid = (float) $driver->payments()->where('payment_type', 'commission')->where('status', 'completed')->sum('amount'),
+            'unpaid_revenue' => (float) $driver->commissions()->where('status', 'active')->sum('amount') - $paid,
         ];
     }
 
-    // Annulation d'une commission
-    public function cancelCommission(string $commissionId)
+    /**
+     * Annule une commission : elle ne compte plus dans ce que l'agent doit, et reste
+     * visible. Décidé le 2026-09-26 — le Blade la supprimait définitivement.
+     */
+    public function cancelCommission(string $commissionId): Commission
     {
         $commission = Commission::findOrFail($commissionId);
+
+        if ($commission->status === 'cancelled') {
+            throw new ApiException(409, 'COMMISSION_ALREADY_CANCELLED', 'Cette commission est déjà annulée.');
+        }
+
         $commission->update(['status' => 'cancelled']);
-        $commission->refresh();
+
+        return $commission->refresh();
     }
 
     /**

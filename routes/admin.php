@@ -89,7 +89,9 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     // Commissions
     Route::get('commissions', [CommissionController::class, 'index'])->name('commissions.index')->middleware('permission:view-commissions');
     Route::get('commissions/{commission}', [CommissionController::class, 'show'])->name('commissions.show')->middleware('permission:view-commissions');
-    Route::patch('commissions/{commission}', [CommissionController::class, 'destroy'])->name('commissions.destroy');
+    // ⚠️ N'exigeait AUCUNE permission, et supprimait la commission. Depuis le 2026-09-26 elle
+    // l'ANNULE (`destroy` garde son nom de route), sous `delete-commissions`.
+    Route::patch('commissions/{commission}', [CommissionController::class, 'destroy'])->name('commissions.destroy')->middleware('permission:delete-commissions');
 
     // Payments
     Route::resource('payments', PaymentController::class);

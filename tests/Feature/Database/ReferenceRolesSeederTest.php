@@ -146,6 +146,21 @@ class ReferenceRolesSeederTest extends TestCase
         $this->assertFalse($admin->permissions->contains('name', 'manage-contracts'));
     }
 
+    public function test_only_admin_cancels_a_commission(): void
+    {
+        $this->semer();
+
+        // Décidé le 2026-09-26 (P1) : `manage-commissions` quitte le catalogue, et
+        // l'annulation d'une commission porte `delete-commissions`, réservée à l'admin.
+        $admin = Role::query()->where('name', 'admin')->firstOrFail();
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        $this->assertTrue($admin->hasPermissionTo('delete-commissions'));
+        $this->assertTrue($user->hasPermissionTo('view-commissions'));
+        $this->assertFalse($user->hasPermissionTo('delete-commissions'));
+        $this->assertFalse($admin->permissions->contains('name', 'manage-commissions'));
+    }
+
     public function test_no_label_says_conge(): void
     {
         $this->semer();

@@ -2,6 +2,7 @@
 
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
+use App\Domains\Finance\Presentation\Api\V1\Admin\CommissionController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
@@ -209,6 +210,18 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/driver-contracts/{contract}', [DriverContractController::class, 'destroy'])
             ->middleware('permission:delete-contracts')->name('driver-contracts.destroy');
+
+        /*
+         * Les commissions (P1). Une commission s'ANNULE et ne s'efface plus (2026-09-26) ;
+         * l'annulation porte `delete-commissions`, réservée à l'administrateur.
+         */
+        Route::middleware('permission:view-commissions')->group(function () {
+            Route::get('/commissions', [CommissionController::class, 'index'])->name('commissions.index');
+            Route::get('/commissions/{commission}', [CommissionController::class, 'show'])->name('commissions.show');
+        });
+
+        Route::post('/commissions/{commission}/cancel', [CommissionController::class, 'cancel'])
+            ->middleware('permission:delete-commissions')->name('commissions.cancel');
 
         /*
          * Les réservations.

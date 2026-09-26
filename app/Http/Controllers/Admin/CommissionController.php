@@ -45,8 +45,10 @@ class CommissionController extends Controller
     public function destroy(Commission $commission)
     {
         try {
-            $commission->delete();
-            return back()->with('success', 'Commission supprimer avec succès.');
+            // Annulée et non plus supprimée (2026-09-26) : elle reste visible, et ne compte
+            // plus dans ce que l'agent doit.
+            $this->commissionService->cancelCommission($commission->id);
+            return back()->with('success', 'Commission annulée avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de l’annulation de la commission : ' . $e->getMessage(), ['exception' => $e]);
             return redirect()->back()->with('error', $e->getMessage());
