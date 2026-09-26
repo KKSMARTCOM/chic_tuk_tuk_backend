@@ -142,8 +142,10 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'view-own-vehicles' => ['Voir ses véhicules', 'Voir les véhicules du propriétaire'],
 
         // Paiements
+        // `manage-payments` retirée le 2026-09-26 (P2), découpée en edit/delete-payments.
         'create-payments' => ['Créer un paiement', 'Créer un paiement'],
-        'manage-payments' => ['Gérer les paiements', 'Gérer les paiements'],
+        'delete-payments' => ['Supprimer un paiement', 'Supprimer un paiement en attente'],
+        'edit-payments' => ['Modifier un paiement', 'Modifier, valider ou annuler un paiement'],
         'view-payments' => ['Voir les paiements', 'Voir les paiements'],
 
         // Permissions
@@ -246,7 +248,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'export-reports',
                 'import-drivers',
                 'manage-bookings',
-                'manage-payments',
+                // Paiements ouverts le 2026-09-26 comme les contrats : voir, créer, modifier,
+                // valider et annuler — la suppression reste à l'administrateur.
+                'edit-payments',
                 'manage-pricing',
                 'manage-settings',
                 // Ajoutée le 2026-09-25 : l'utilisateur gère déjà les pauses des agents.

@@ -345,6 +345,79 @@ export type AdminCommissionStatsData = {
 total_revenue: number;
 total_count: number;
 };
+export type AdminDriverPaymentSummaryData = {
+driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData;
+total_due: number;
+total_paid: number;
+balance_due: number;
+payments_count: number;
+commissions_count: number;
+};
+export type AdminDriverPaymentsData = {
+summary: App.Domains.Finance.Application.Data.AdminDriverPaymentSummaryData;
+payments: Array<App.Domains.Finance.Application.Data.AdminPaymentData>;
+commissions: Array<App.Domains.Finance.Application.Data.AdminCommissionData>;
+};
+export type AdminPaymentData = {
+id: string;
+driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
+driver_agent_id: string | null;
+amount: number;
+net_amount: number | null;
+payment_type: App.Domains.Finance.Domain.Enums.PaymentType;
+payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
+status: App.Domains.Finance.Domain.Enums.PaymentStatus;
+payment_date: string | null;
+reference_number: string | null;
+notes: string | null;
+contract_months: number | null;
+driver_contract_id: string | null;
+driver_contract_vehicle_number: string | null;
+vehicle_contract_id: string | null;
+vehicle_contract_vehicle_number: string | null;
+is_editable: boolean;
+can_validate: boolean;
+can_cancel: boolean;
+is_deletable: boolean;
+created_at: string;
+};
+export type AdminPaymentDetailData = {
+payment: App.Domains.Finance.Application.Data.AdminPaymentData;
+driver_summary: App.Domains.Finance.Application.Data.AdminDriverPaymentSummaryData;
+};
+export type AdminPaymentDriverOptionData = {
+id: string;
+name: string | null;
+agent_id: string | null;
+contract_months: number | null;
+vehicle_number: string | null;
+};
+export type AdminPaymentPageData = {
+payments: Array<App.Domains.Finance.Application.Data.AdminPaymentData>;
+stats: App.Domains.Finance.Application.Data.AdminPaymentStatsData;
+drivers: Array<App.Domains.Finance.Application.Data.AdminPaymentDriverOptionData>;
+};
+export type AdminPaymentStatsData = {
+total_paid: number;
+total_due: number;
+balance_due: number;
+paid_this_month: number;
+validated_payments_amount: number;
+validated_payments_count: number;
+pending_payments_amount: number;
+pending_payments_count: number;
+cancelled_payments_amount: number;
+cancelled_payments_count: number;
+};
+export type CreatePaymentData = {
+driver_id: string;
+payment_type: 'commission' | 'contract' | 'subscription_revenue';
+amount: number;
+payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
+payment_date: string;
+notes: string | null;
+reference_number: string | null;
+};
 export type MonthlyPayoutData = {
 month: string;
 is_current: boolean;
@@ -356,6 +429,13 @@ fixed_amount: number;
 worked_days: number;
 agent_leave_days: number;
 immobilization_days: number;
+};
+export type UpdatePaymentData = {
+amount: number;
+payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
+payment_date: string;
+notes: string | null;
+reference_number: string | null;
 };
 }
 declare namespace App.Domains.Finance.Domain.Enums {

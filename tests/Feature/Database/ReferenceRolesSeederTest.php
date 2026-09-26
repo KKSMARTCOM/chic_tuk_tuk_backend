@@ -161,6 +161,22 @@ class ReferenceRolesSeederTest extends TestCase
         $this->assertFalse($admin->permissions->contains('name', 'manage-commissions'));
     }
 
+    public function test_payment_permissions_all_but_delete_go_to_utilisateur(): void
+    {
+        $this->semer();
+
+        // Décidé le 2026-09-26 (P2) : `manage-payments` se découpe en edit/delete-payments.
+        $admin = Role::query()->where('name', 'admin')->firstOrFail();
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        foreach (['view-payments', 'create-payments', 'edit-payments'] as $permission) {
+            $this->assertTrue($user->hasPermissionTo($permission), "utilisateur doit porter {$permission}");
+        }
+        $this->assertFalse($user->hasPermissionTo('delete-payments'));
+        $this->assertTrue($admin->hasPermissionTo('delete-payments'));
+        $this->assertFalse($admin->permissions->contains('name', 'manage-payments'));
+    }
+
     public function test_no_label_says_conge(): void
     {
         $this->semer();

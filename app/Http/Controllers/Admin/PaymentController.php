@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Domains\Notification\Application\Notifier;
 use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\DriverContract;
@@ -139,17 +138,15 @@ class PaymentController extends Controller
     public function update(Request $request, Payment $payment)
     {
         try {
+            // L'agent et le type ne se modifient plus (2026-09-26) : le formulaire les
+            // envoie encore, ils sont ignorés.
             $validated = $request->validate([
-                'driver_id' => 'required|exists:drivers,id',
                 'amount' => 'required|numeric|min:0.01',
                 'payment_method' => 'required|in:cash,bank_transfer,check,mobile_money,other',
                 'payment_date' => 'required|date',
                 'notes' => 'nullable|string|max:500',
                 'reference_number' => 'nullable|string|max:100|unique:payments,reference_number,' . $payment->id,
-                'status' => 'nullable|in:pending,completed,cancelled',
             ], [
-                'driver_id.required' => 'L\'agent est obligatoire.',
-                'driver_id.exists' => 'L\'agent sélectionné est invalide.',
                 'amount.required' => 'Le montant est obligatoire.',
                 'amount.numeric' => 'Le montant doit être un nombre.',
                 'amount.min' => 'Le montant doit être supérieur à 0.',
@@ -157,16 +154,16 @@ class PaymentController extends Controller
                 'payment_method.in' => 'La méthode de paiement sélectionnée est invalide.',
                 'payment_date.required' => 'La date de paiement est obligatoire.',
                 'payment_date.date' => 'La date de paiement n\'est pas valide.',
-                'notes.string' => 'Les notes doivent être une chaîne de caractères.',
                 'notes.max' => 'Les notes ne doivent pas dépasser 500 caractères.',
-                'reference_number.string' => 'Le numéro de référence doit être une chaîne de caractères.',
                 'reference_number.max' => 'Le numéro de référence ne doit pas dépasser 100 caractères.',
                 'reference_number.unique' => 'Le numéro de référence existe déjà pour un autre paiement.',
             ]);
 
-            $this->paymentService->update($payment->id, $validated);
+            $this->paymentService->update($payment, $validated);
 
             return redirect()->route('admin.payments.show', $payment)->with('success', 'Paiement mis à jour avec succès');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Erreur lors de la mise à jour du paiement : ' . $e->getMessage(), ['exception' => $e]);
             return redirect()->back()->with('error', $e->getMessage());
@@ -179,7 +176,7 @@ class PaymentController extends Controller
     public function destroy(Payment $payment)
     {
         try {
-            $this->paymentService->delete($payment->id);
+            $this->paymentService->delete($payment);
 
             return redirect()->route('admin.payments.index')->with('success', 'Paiement supprimé avec succès');
         } catch (\Exception $e) {
@@ -207,15 +204,11 @@ class PaymentController extends Controller
         }
     }
 
+    // Les règles et la notification vivent dans le service, partagées avec l'API.
     public function validate(Payment $payment)
     {
         try {
-            $payment->update(['status' => 'completed']);
-
-            // C'est l'ACTION qui est notifiée, pas la création du paiement : celle-ci est
-            // majoritairement automatique et quotidienne, la validation est un geste qui
-            // change quelque chose pour l'agent.
-            app(Notifier::class)->paymentValidated($payment->fresh()->load('driver.user'));
+            $this->paymentService->validatePayment($payment);
 
             return back()->with('success', 'Paiement validé avec succès.');
         } catch (\Exception $e) {
@@ -227,27 +220,11 @@ class PaymentController extends Controller
     public function cancel(Payment $payment)
     {
         try {
-            $payment->update(['status' => 'cancelled']);
-
-            // Un agent qui comptait sur cette somme a le droit de l'apprendre autrement
-            // qu'en s'en apercevant.
-            app(Notifier::class)->paymentCancelled($payment->fresh()->load('driver.user'));
+            $this->paymentService->cancelPayment($payment);
 
             return back()->with('success', 'Paiement annulé avec succès.');
         } catch (\Exception $e) {
             Log::error('Erreur lors de l’annulation du paiement : ' . $e->getMessage(), ['exception' => $e]);
-            return redirect()->back()->with('error', $e->getMessage());
-        }
-    }
-
-    public function generatePayment(Payment $payment)
-    {
-        try {
-            $contract = $payment->driverContract;
-            $this->paymentService->generateDailyPaymentForContract($contract);
-            return back()->with('success', 'Paiement généré avec succès.');
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la génération du paiement : ' . $e->getMessage(), ['exception' => $e]);
             return redirect()->back()->with('error', $e->getMessage());
         }
     }

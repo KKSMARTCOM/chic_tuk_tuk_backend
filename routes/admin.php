@@ -94,11 +94,20 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::patch('commissions/{commission}', [CommissionController::class, 'destroy'])->name('commissions.destroy')->middleware('permission:delete-commissions');
 
     // Payments
-    Route::resource('payments', PaymentController::class);
+    // ⚠️ La ressource, la validation et l'annulation n'exigeaient AUCUNE permission.
+    // Découpées le 2026-09-26 : view / create / edit (validation et annulation comprises)
+    // / delete-payments. `generated` retirée : plus aucun écran ne l'appelait.
+    Route::get('payments', [PaymentController::class, 'index'])->name('payments.index')->middleware('permission:view-payments');
+    Route::get('payments/create', [PaymentController::class, 'create'])->name('payments.create')->middleware('permission:create-payments');
+    Route::post('payments', [PaymentController::class, 'store'])->name('payments.store')->middleware('permission:create-payments');
+    Route::get('payments/{payment}', [PaymentController::class, 'show'])->name('payments.show')->middleware('permission:view-payments');
+    Route::get('payments/{payment}/edit', [PaymentController::class, 'edit'])->name('payments.edit')->middleware('permission:edit-payments');
+    Route::put('payments/{payment}', [PaymentController::class, 'update'])->name('payments.update')->middleware('permission:edit-payments');
+    Route::patch('payments/{payment}', [PaymentController::class, 'update'])->middleware('permission:edit-payments');
+    Route::delete('payments/{payment}', [PaymentController::class, 'destroy'])->name('payments.destroy')->middleware('permission:delete-payments');
     Route::get('payments/driver/{driverId}/details', [PaymentController::class, 'driverPaymentDetails'])->name('payments.driver-details')->middleware('permission:view-payments');
-    Route::patch('payments/{payment}/validated', [PaymentController::class, 'validate'])->name('payments.validate');
-    Route::patch('payments/{payment}/cancelled', [PaymentController::class, 'cancel'])->name('payments.cancel');
-    Route::post('payments/{payment}/generated', [PaymentController::class, 'generatePayment'])->name('payments.generate');
+    Route::patch('payments/{payment}/validated', [PaymentController::class, 'validate'])->name('payments.validate')->middleware('permission:edit-payments');
+    Route::patch('payments/{payment}/cancelled', [PaymentController::class, 'cancel'])->name('payments.cancel')->middleware('permission:edit-payments');
 
     // Roles & Permissions Management - API routes first (more specific)
     Route::get('roles/{role}/data', [RoleController::class, 'getData'])->name('roles.data')->middleware('permission:view-roles');

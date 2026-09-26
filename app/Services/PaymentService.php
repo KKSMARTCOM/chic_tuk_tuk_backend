@@ -8,6 +8,8 @@ use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\Payment;
 use App\Models\VehicleContract;
+use App\Shared\Http\ApiException;
+use App\Domains\Notification\Application\Notifier;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -69,11 +71,14 @@ class PaymentService
             $query->where('payment_type', $filters['payment_type']);
         }
 
+        // Groupé (2026-09-26) : sans parenthèses, le `orWhere` sur la référence échappait
+        // à tous les autres filtres — agent, statut, type, dates.
         if (isset($filters['search']) && !empty($filters['search'])) {
             $search = $filters['search'];
-            $query->whereHas('driver.user', function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%');
-            })->orWhere('reference_number', 'like', '%' . $search . '%');
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('driver.user', fn ($u) => $u->where('name', 'ilike', '%' . $search . '%'))
+                    ->orWhere('reference_number', 'ilike', '%' . $search . '%');
+            });
         }
 
         if (isset($filters['date_from']) && !empty($filters['date_from'])) {
@@ -165,37 +170,85 @@ class PaymentService
     }
 
     /**
-     * Mettre à jour un paiement
+     * Modifier un paiement EN ATTENTE : montant, moyen, date, notes et référence.
+     *
+     * Corrigé le 2026-09-26. Le formulaire ne portant pas le type, un paiement de contrat
+     * redevenait une commission ; le statut retombait à « en attente » faute d'être
+     * envoyé ; et le paiement était rattaché au contrat ACTUEL de l'agent au lieu du sien.
+     * Le type, l'agent, les contrats et le statut ne bougent plus ; seul un paiement en
+     * attente se modifie — un paiement validé s'annule.
      */
-    public function update(string $paymentId, array $data)
+    public function update(Payment $payment, array $data): Payment
     {
-        $payment = Payment::findOrFail($paymentId);
-
-        $driver = Driver::with('activeDriverContract')->findOrFail($data['driver_id']);
-
-        if ($driver->activeDriverContract) {
-            $data['driver_contract_id'] = $driver->activeDriverContract->id;
-            $data['vehicle_contract_id'] = $driver->activeDriverContract->vehicle_contract_id;
+        if ($payment->status !== 'pending') {
+            throw new ApiException(
+                409,
+                'PAYMENT_NOT_EDITABLE',
+                'Seul un paiement en attente se modifie. Un paiement validé s\'annule.'
+            );
         }
 
-        $this->validatePaymentData($data, $paymentId);
+        $check = [
+            'driver_id'           => $payment->driver_id,
+            'payment_type'        => $payment->payment_type,
+            'amount'              => $data['amount'],
+            'driver_contract_id'  => $payment->driver_contract_id,
+            'vehicle_contract_id' => $payment->vehicle_contract_id,
+        ];
+        $this->validatePaymentData($check, $payment->id);
 
         $payment->update([
-            'driver_id' => $data['driver_id'],
-            'payment_type' => $data['payment_type'] ?? 'commission',
-            'amount' => $data['amount'],
-            'vehicle_contract_id' => $data['vehicle_contract_id'] ?? null,
-            'driver_contract_id' => $data['driver_contract_id'] ?? null,
-            'payment_month' => $data['payment_month'] ?? null,
-            'payment_method' => $data['payment_method'],
-            'payment_date' => $data['payment_date'],
-            'notes' => $data['notes'] ?? null,
+            'amount'           => $data['amount'],
+            'net_amount'       => $check['net_amount'] ?? $payment->net_amount,
+            'payment_method'   => $data['payment_method'],
+            'payment_date'     => $data['payment_date'],
+            'notes'            => $data['notes'] ?? null,
             'reference_number' => $data['reference_number'] ?? null,
-            'status' => $data['status'] ?? 'pending',
-            'net_amount' => $data['net_amount'] ?? null,
         ]);
 
-        return $payment;
+        return $payment->refresh();
+    }
+
+    /**
+     * Valider un paiement EN ATTENTE, et le dire à l'agent.
+     *
+     * Corrigé le 2026-09-26 : rien n'empêchait de valider un paiement annulé — l'écran ne
+     * le proposait pas, le serveur l'acceptait, et l'agent était notifié.
+     */
+    public function validatePayment(Payment $payment): Payment
+    {
+        if ($payment->status !== 'pending') {
+            throw new ApiException(409, 'PAYMENT_NOT_PENDING', 'Seul un paiement en attente se valide.');
+        }
+
+        $payment->update(['status' => 'completed']);
+
+        // C'est l'ACTION qui est notifiée, pas la création du paiement : celle-ci est
+        // majoritairement automatique et quotidienne.
+        app(Notifier::class)->paymentValidated($payment->fresh()->load('driver.user'));
+
+        return $payment->refresh();
+    }
+
+    /**
+     * Annuler un paiement, en attente ou validé, et le dire à l'agent.
+     *
+     * Décidé le 2026-09-26 : un paiement validé ne se supprime pas, il s'annule — il sort
+     * des sommes payées et garde sa trace. On n'annule pas deux fois.
+     */
+    public function cancelPayment(Payment $payment): Payment
+    {
+        if ($payment->status === 'cancelled') {
+            throw new ApiException(409, 'PAYMENT_ALREADY_CANCELLED', 'Ce paiement est déjà annulé.');
+        }
+
+        $payment->update(['status' => 'cancelled']);
+
+        // Un agent qui comptait sur cette somme a le droit de l'apprendre autrement
+        // qu'en s'en apercevant.
+        app(Notifier::class)->paymentCancelled($payment->fresh()->load('driver.user'));
+
+        return $payment->refresh();
     }
 
     /**
@@ -208,7 +261,9 @@ class PaymentService
         if ($data['payment_type'] === 'commission') {
             //$driver = Driver::findOrFail($data['driver_id']);
             $totalDue = Commission::where('driver_id', $data['driver_id'])->where('status', 'active')->sum('amount');
-            $totalPaid = Payment::where('driver_id', $data['driver_id'])->where('payment_type', 'commission');
+            // Les paiements ANNULÉS ne comptent plus comme payés (2026-09-26).
+            $totalPaid = Payment::where('driver_id', $data['driver_id'])->where('payment_type', 'commission')
+                ->where('status', '!=', 'cancelled');
 
             if ($existingPaymentId) {
                 $totalPaid->where('id', '!=', $existingPaymentId);
@@ -218,7 +273,9 @@ class PaymentService
             $remaining = $totalDue - $totalPaid;
 
             if ($data['amount'] > $remaining) {
-                throw new \Exception(
+                throw new ApiException(
+                    409,
+                    'PAYMENT_EXCEEDS_BALANCE',
                     "Le montant saisi ({$data['amount']}) dépasse la commission restante due ({$remaining})."
                 );
             }
@@ -235,7 +292,9 @@ class PaymentService
             }
 
             if ($data['amount'] > $remaining) {
-                throw new \Exception(
+                throw new ApiException(
+                    409,
+                    'PAYMENT_EXCEEDS_BALANCE',
                     "Le montant saisi ({$data['amount']}) dépasse le revenu abonnement restant dû ({$remaining})."
                 );
             }
@@ -245,7 +304,7 @@ class PaymentService
 
         if ($data['payment_type'] === 'contract') {
             if (empty($data['vehicle_contract_id']) && empty($data['driver_contract_id'])) {
-                throw new \Exception('Un paiement contractuel doit être lié à un contrat agent ou véhicule.');
+                throw new ApiException(409, 'PAYMENT_WITHOUT_CONTRACT', 'Un paiement contractuel doit être lié à un contrat agent ou véhicule.');
             }
 
             if (!empty($data['driver_contract_id'])) {
@@ -258,7 +317,9 @@ class PaymentService
 
             if (!empty($data['vehicle_contract_id'])) {
                 $vehicleContract = VehicleContract::findOrFail($data['vehicle_contract_id']);
-                $contractPaid = Payment::where('vehicle_contract_id', $vehicleContract->id)->where('payment_type', 'contract');
+                // Les paiements ANNULÉS ne comptent plus comme payés (2026-09-26).
+                $contractPaid = Payment::where('vehicle_contract_id', $vehicleContract->id)->where('payment_type', 'contract')
+                    ->where('status', '!=', 'cancelled');
 
                 if ($existingPaymentId) {
                     $contractPaid->where('id', '!=', $existingPaymentId);
@@ -269,7 +330,9 @@ class PaymentService
                 $remaining = max(0, (float) $vehicleContract->total_amount - $contractPaid);
 
                 if ($data['amount'] > $remaining) {
-                    throw new \Exception(
+                    throw new ApiException(
+                        409,
+                        'PAYMENT_EXCEEDS_BALANCE',
                         "Le montant saisi ({$data['amount']}) dépasse le solde restant du contrat véhicule ({$remaining})."
                     );
                 }
@@ -284,13 +347,22 @@ class PaymentService
     }
 
     /**
-     * Supprimer un paiement
+     * Supprimer un paiement EN ATTENTE.
+     *
+     * Décidé le 2026-09-26 : supprimer un paiement validé modifiait en silence les soldes
+     * du contrat véhicule et de l'agent. Il s'annule.
      */
-    public function delete(string $paymentId)
+    public function delete(Payment $payment): void
     {
-        $payment = Payment::findOrFail($paymentId);
+        if ($payment->status !== 'pending') {
+            throw new ApiException(
+                409,
+                'PAYMENT_NOT_DELETABLE',
+                'Seul un paiement en attente se supprime. Un paiement validé s\'annule.'
+            );
+        }
+
         $payment->delete();
-        return true;
     }
 
     /**

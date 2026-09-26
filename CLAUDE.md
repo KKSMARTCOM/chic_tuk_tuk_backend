@@ -140,10 +140,11 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (70 permissions), utilisateur — ex-`lecteur` — (52), driver (8),
-  client (7), proprietaire (5) — 74 permissions au catalogue (seeder rejoué le 2026-09-26,
-  après l'ajout des quatre `*-contracts` et le retrait de `manage-contracts`, dont la ligne
-  reste en base sans aucun rôle : le seeder ne supprime rien).
+- Rôles Spatie : admin (71 permissions), utilisateur — ex-`lecteur` — (51), driver (8),
+  client (7), proprietaire (5) — 75 permissions au catalogue (seeder rejoué le 2026-09-26,
+  après l'ajout des `*-contracts`, de `delete-commissions`, `edit-payments` et
+  `delete-payments`, et le retrait des trois `manage-contracts|commissions|payments`, dont
+  les lignes restent en base sans aucun rôle : le seeder ne supprime rien).
   ⚠️ `driver` est passé de 7 à 8 le 2026-09-18 : `view-dashboard` lui manquait, alors que
   l'espace agent a un tableau de bord. La navigation du front se construisant sur les
   permissions EFFECTIVES, l'agent n'avait aucune entrée de menu vers son écran d'accueil.
@@ -301,7 +302,9 @@ Tous dans `app/Services`, injectés dans les contrôleurs (pas de logique métie
   hérite d'`Exception`, les `catch (\Exception)` du chemin Blade continuent de fonctionner
   et affichent les mêmes messages flash.
 - PricingService : getDistance (OpenRouteService, clé dans config('services.openrouteservice.key')), getPrice
-- PaymentService : create, generateDailyContractPayments, generateDailyPaymentForContract
+- PaymentService : create, update, validatePayment, cancelPayment, delete, getAllPayments,
+  getPaymentStats, generateDailyContractPayments, generateDailyPaymentForContract — partagé
+  par le Blade et l'API ; la validation et l'annulation y notifient l'agent
 - VehicleService : create, update, toggleStatus, pauseVehicle, endPause, createAutoAgentPause
 - VehicleContractService : create, update, delete, getStats — partagé par le Blade et l'API
 - DriverContractService : create, end, getStats
@@ -495,6 +498,34 @@ Terminer demande `edit-contracts`. Décidé le 2026-09-26 :
   la bascule.
 - Le total payé et les paiements par mois ne comptent que les paiements `completed`, au
   montant `amount` payé par l'agent.
+
+**Les commissions** (`/admin/commissions*`, domaine `Finance`, P1) — liste, fiche,
+annulation. ⚠️ **Une commission s'ANNULE, elle ne se supprime plus** (décidé le
+2026-09-26) : elle reste visible et ne compte plus dans ce que l'agent doit. L'annulation
+porte `delete-commissions`, réservée à l'administrateur ; la route Blade « destroy »
+n'exigeait aucune permission et effaçait la ligne.
+
+**Les paiements** (`/admin/payments*`, `/admin/drivers/{driver}/payments`, domaine
+`Finance`, P2) — liste avec ses sept compteurs, fiche, création, modification, validation,
+annulation, suppression, détail par agent. ⚠️ Le Blade n'exigeait **aucune** permission
+sur la ressource, la validation ni l'annulation : `view-`, `create-`, `edit-` (qui couvre
+validation et annulation) et `delete-payments`, la dernière réservée à l'administrateur.
+Décidé le 2026-09-26 :
+
+- ⚠️ **On ne modifie, ne valide et ne supprime qu'un paiement EN ATTENTE**
+  (`PAYMENT_NOT_EDITABLE`, `PAYMENT_NOT_PENDING`, `PAYMENT_NOT_DELETABLE`). **Un paiement
+  validé s'annule** ; on n'annule pas deux fois (`PAYMENT_ALREADY_CANCELLED`). Valider et
+  annuler notifient l'agent — rien n'empêchait jusque-là de valider un paiement annulé.
+- ⚠️ **La modification ne change ni le type, ni l'agent, ni le contrat, ni le statut.** Le
+  formulaire Blade ne portant pas le type, un paiement de contrat redevenait une
+  commission ; son statut retombait à « en attente » ; et il passait sur le contrat
+  ACTUEL de l'agent.
+- **Les plafonds ne comptent plus les paiements annulés comme payés**
+  (`PAYMENT_EXCEEDS_BALANCE`) : commission restante et solde du contrat véhicule
+  excluent désormais les annulés, qui bloquaient des paiements légitimes.
+- La recherche des deux listes était un `orWhere` non groupé, qui échappait à tous les
+  autres filtres ; elle est groupée et insensible à la casse.
+- Le dossier agent comptait commissions et paiements de commission annulés.
 
 ⚠️ Les routes de pauses prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
 Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se

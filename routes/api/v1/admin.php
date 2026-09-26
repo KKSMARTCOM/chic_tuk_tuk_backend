@@ -3,6 +3,7 @@
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\CommissionController;
+use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
@@ -222,6 +223,36 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::post('/commissions/{commission}/cancel', [CommissionController::class, 'cancel'])
             ->middleware('permission:delete-commissions')->name('commissions.cancel');
+
+        /*
+         * Les paiements (P2). ⚠️ Le Blade n'exigeait AUCUNE permission sur la ressource, la
+         * validation ni l'annulation. Depuis le 2026-09-26 : view / create / edit — qui
+         * couvre la validation et l'annulation — / delete-payments, cette dernière réservée
+         * à l'administrateur. On ne modifie, ne valide et ne supprime qu'un paiement en
+         * attente ; un paiement validé s'annule.
+         *
+         * ⚠️ `payable-drivers` est déclarée AVANT `/payments/{payment}`.
+         */
+        Route::get('/payments/payable-drivers', [PaymentController::class, 'payableDrivers'])
+            ->middleware('permission:create-payments')->name('payments.payable-drivers');
+
+        Route::middleware('permission:view-payments')->group(function () {
+            Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+            Route::get('/payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
+            Route::get('/drivers/{driver}/payments', [PaymentController::class, 'driverPayments'])->name('drivers.payments');
+        });
+
+        Route::post('/payments', [PaymentController::class, 'store'])
+            ->middleware('permission:create-payments')->name('payments.store');
+
+        Route::middleware('permission:edit-payments')->group(function () {
+            Route::put('/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
+            Route::post('/payments/{payment}/validate', [PaymentController::class, 'validatePayment'])->name('payments.validate');
+            Route::post('/payments/{payment}/cancel', [PaymentController::class, 'cancel'])->name('payments.cancel');
+        });
+
+        Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
+            ->middleware('permission:delete-payments')->name('payments.destroy');
 
         /*
          * Les réservations.
