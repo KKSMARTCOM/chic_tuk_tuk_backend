@@ -240,17 +240,25 @@ class AdminOwnerCreateApiTest extends TestCase
         $this->assertDatabaseMissing('users', ['phone' => '96123456']);
     }
 
-    public function test_a_phone_already_used_by_an_agent_is_refused_by_validation(): void
+    public function test_email_and_phone_are_unique_among_owners_only(): void
     {
-        // Défaut corrigé : l'unicité n'était vérifiée que parmi les comptes
-        // `profil=client`, alors que la contrainte en base porte sur TOUS les comptes.
-        // Le numéro d'un agent passait la validation, puis la base refusait l'insertion.
+        // Comme l'index en base, `(email, profil)` et `(phone, profil)` : une même personne
+        // peut être agent et propriétaire, la connexion lui demande alors lequel
+        // (`PROFIL_AMBIGUOUS`). Le Blade vérifiait parmi les `profil=client` — un reliquat —,
+        // et F1 avait d'abord conclu à tort à une contrainte globale (réaligné le 2026-09-26).
         $token = $this->login(['create-owners']);
         $agent = Driver::factory()->create()->user;
+        $other = $this->owner();
 
-        $this->asBearer($token)->postJson('/api/v1/admin/owners', $this->payload(['phone' => $agent->phone]))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['phone']);
+        $this->asBearer($token)->postJson('/api/v1/admin/owners', $this->payload([
+            'email' => $other->email,
+            'phone' => $other->phone,
+        ]))->assertUnprocessable()->assertJsonValidationErrors(['email', 'phone']);
+
+        $this->asBearer($token)->postJson('/api/v1/admin/owners', $this->payload([
+            'email' => $agent->email,
+            'phone' => $agent->phone,
+        ]))->assertCreated();
     }
 
     public function test_the_password_follows_the_blade_rules(): void

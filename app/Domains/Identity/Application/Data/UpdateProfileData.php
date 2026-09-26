@@ -29,13 +29,15 @@ final class UpdateProfileData extends BaseData
     /** @return array<string, array<int, mixed>> */
     public static function rules(ValidationContext $context): array
     {
-        // `users.phone` est UNIQUE en base : sans la règle, le conflit ressortirait en
-        // 500 depuis PostgreSQL au lieu d'un 422 qui désigne le champ.
+        // `(phone, profil)` est UNIQUE en base : sans la règle, le conflit ressortirait en
+        // 500 depuis PostgreSQL au lieu d'un 422 qui désigne le champ. L'unicité porte sur
+        // le profil du compte : un agent peut aussi être propriétaire sous le même numéro.
         $id = auth()->id();
+        $profil = auth()->user()?->profil;
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($id)],
+            'phone' => ['required', 'string', 'max:20', Rule::unique('users', 'phone')->where('profil', $profil)->ignore($id)],
             'adresse' => ['nullable', 'string', 'max:500'],
         ];
     }

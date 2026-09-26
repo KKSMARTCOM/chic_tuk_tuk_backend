@@ -28,8 +28,9 @@ class SettingsController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'phone' => 'required|string|max:20|unique:users,phone,' . $user->id,
+            // Unicité parmi les comptes du même profil, comme l'index `(email|phone, profil)`.
+            'email' => 'required|email|max:255|unique:users,email,' . $user->id . ',id,profil,' . $user->profil,
+            'phone' => 'required|string|max:20|unique:users,phone,' . $user->id . ',id,profil,' . $user->profil,
             'adresse' => 'nullable|string|max:500',
             'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);

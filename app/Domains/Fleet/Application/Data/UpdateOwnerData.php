@@ -12,7 +12,7 @@ use Spatie\LaravelData\Attributes\DataCollectionOf;
  * `addVehicle` remplace le couple `_add_vehicle_mode` + champs préfixés du Blade. À
  * l'édition, son contrat est FACULTATIF, comme au Blade — il l'est à la création.
  *
- * ⚠️ Unicité de l'e-mail et du téléphone sur TOUS les comptes, voir `CreateOwnerData`.
+ * Unicité de l'e-mail et du téléphone parmi les propriétaires, voir `CreateOwnerData`.
  */
 final class UpdateOwnerData extends BaseData
 {
@@ -37,8 +37,8 @@ final class UpdateOwnerData extends BaseData
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', Rule::unique('users', 'email')->ignore($ownerId)],
-            'phone' => ['required', 'string', Rule::unique('users', 'phone')->ignore($ownerId)],
+            'email' => ['nullable', 'email', Rule::unique('users', 'email')->where('profil', 'owner')->ignore($ownerId)],
+            'phone' => ['required', 'string', Rule::unique('users', 'phone')->where('profil', 'owner')->ignore($ownerId)],
             'adresse' => ['nullable', 'string', 'max:255'],
             'is_active' => ['required', 'boolean'],
             'vehicles' => ['present', 'array'],

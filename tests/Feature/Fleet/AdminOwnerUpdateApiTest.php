@@ -113,15 +113,20 @@ class AdminOwnerUpdateApiTest extends TestCase
         $this->assertSame('97111111', $owner->fresh()->phone);
     }
 
-    public function test_a_phone_of_another_account_is_refused(): void
+    public function test_a_phone_of_another_owner_is_refused_but_an_agents_is_not(): void
     {
+        // L'unicité porte sur (phone, profil), comme l'index en base (réaligné le 2026-09-26).
         $token = $this->login(['edit-owners']);
         $owner = $this->owner();
+        $other = $this->owner();
         $agent = Driver::factory()->create()->user;
 
-        $this->update($token, $owner, $this->identity($owner, ['phone' => $agent->phone]))
+        $this->update($token, $owner, $this->identity($owner, ['phone' => $other->phone]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['phone']);
+
+        $this->update($token, $owner, $this->identity($owner, ['phone' => $agent->phone]))
+            ->assertOk();
     }
 
     public function test_a_free_vehicle_and_its_contract_are_updated_notes_included(): void

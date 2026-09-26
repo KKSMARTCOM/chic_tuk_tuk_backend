@@ -30,9 +30,21 @@ class AdminOwnersBladeTest extends TestCase
         return User::factory()->profil(Profil::Admin)->create();
     }
 
-    public function test_a_phone_already_used_by_an_agent_is_a_validation_error(): void
+    public function test_uniqueness_is_checked_among_owners_only(): void
     {
+        // Comme l'index `(phone, profil)` en base (réaligné le 2026-09-26).
         $agent = Driver::factory()->create()->user;
+        $other = User::factory()->profil(Profil::Owner)->create();
+
+        $this->actingAs($this->admin())
+            ->from(route('admin.owners.create'))
+            ->post(route('admin.owners.store'), [
+                'name' => 'Nouveau Propriétaire',
+                'phone' => $other->phone,
+                'password' => 'MotDePasse2026!',
+            ])
+            ->assertRedirect(route('admin.owners.create'))
+            ->assertSessionHasErrors(['phone']);
 
         $this->actingAs($this->admin())
             ->from(route('admin.owners.create'))
@@ -41,8 +53,9 @@ class AdminOwnersBladeTest extends TestCase
                 'phone' => $agent->phone,
                 'password' => 'MotDePasse2026!',
             ])
-            ->assertRedirect(route('admin.owners.create'))
-            ->assertSessionHasErrors(['phone']);
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('users', ['phone' => $agent->phone, 'profil' => 'owner']);
     }
 
     public function test_the_edit_screen_shows_the_vehicle_notes(): void

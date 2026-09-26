@@ -94,7 +94,7 @@ class UpdateProfileTest extends TestCase
     {
         // `users.phone` est UNIQUE : sans la règle de validation, PostgreSQL lèverait
         // et le conflit ressortirait en 500 au lieu de désigner le champ.
-        User::factory()->create(['phone' => '+22997000042']);
+        User::factory()->profil(Profil::Driver)->create(['phone' => '+22997000042']);
         [, $token] = $this->connecte();
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -102,6 +102,20 @@ class UpdateProfileTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('code', 'VALIDATION_FAILED')
             ->assertJsonStructure(['errors' => ['phone']]);
+    }
+
+    public function test_le_telephone_d_un_compte_d_un_autre_profil_n_est_pas_un_conflit(): void
+    {
+        // L'index en base porte sur (phone, profil) : une même personne peut être agent et
+        // propriétaire, la connexion lui demande alors lequel (réaligné le 2026-09-26).
+        User::factory()->profil(Profil::Owner)->create(['phone' => '+22997000043']);
+        [$user, $token] = $this->connecte();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson('/api/v1/auth/profile', ['name' => 'Awa', 'phone' => '+22997000043'])
+            ->assertOk();
+
+        $this->assertSame('+22997000043', $user->fresh()->phone);
     }
 
     public function test_garder_son_propre_telephone_n_est_pas_un_conflit(): void

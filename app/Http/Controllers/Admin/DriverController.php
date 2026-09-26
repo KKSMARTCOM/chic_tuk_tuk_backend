@@ -359,8 +359,9 @@ class DriverController extends Controller
             } else {
                 // ── mode 'new' : inchangé ──
                 $rules['new_owner_name']           = 'required|string|max:255';
-                $rules['new_owner_phone']          = 'required|string|unique:users,phone';
-                $rules['new_owner_email']          = 'nullable|email|unique:users,email';
+                // Unicité parmi les propriétaires, comme l'index `(email|phone, profil)`.
+                $rules['new_owner_phone']          = 'required|string|unique:users,phone,NULL,id,profil,owner';
+                $rules['new_owner_email']          = 'nullable|email|unique:users,email,NULL,id,profil,owner';
                 $rules['new_owner_password']       = ['required', 'string', 'min:8', 'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[@$!%*#?&]/'];
                 $rules['new_vehicle_number']       = 'required|string|unique:vehicles,vehicle_number';
                 $rules['new_vehicle_type']         = 'required|in:moto,tricycle,car';
