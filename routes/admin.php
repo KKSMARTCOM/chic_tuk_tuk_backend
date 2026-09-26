@@ -120,11 +120,19 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::get('permissions/by-role/{role}', [PermissionController::class, 'getByRole'])->name('permissions.by-role')->middleware('permission:view-permissions');
     Route::resource('permissions', PermissionController::class)->middleware('permission:view-permissions');
 
-    // User Roles Management
-    Route::get('users/generate-password', [UserController::class, 'generatePassword'])->name('users.generate-password');
+    // Comptes administrateurs
+    // ⚠️ `Route::resource('users')->middleware('permission:view-users')` gardait AUSSI
+    // store/update/destroy par cette seule permission, que porte le rôle `utilisateur` :
+    // il pouvait créer un compte `admin`. Découpé le 2026-09-26 (U1), une permission par route.
+    // Le générateur sert aussi les écrans de création d'agent et de propriétaire.
+    Route::get('users/generate-password', [UserController::class, 'generatePassword'])->name('users.generate-password')->middleware('permission:create-users,create-drivers,create-owners');
     Route::post('users/{user}/update-password', [UserController::class, 'updatePassword'])->name('users.update-password')->middleware('permission:edit-users');
     Route::post('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status')->middleware('permission:edit-users');
-    Route::resource('users', UserController::class)->except(['show', 'create', 'edit'])->middleware('permission:view-users');
+    Route::get('users', [UserController::class, 'index'])->name('users.index')->middleware('permission:view-users');
+    Route::post('users', [UserController::class, 'store'])->name('users.store')->middleware('permission:create-users');
+    Route::put('users/{user}', [UserController::class, 'update'])->name('users.update')->middleware('permission:edit-users');
+    Route::patch('users/{user}', [UserController::class, 'update'])->middleware('permission:edit-users');
+    Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy')->middleware('permission:delete-users');
 
     // Véhicules
     // ⚠️ Route::resource(...)->middleware('permission:view-vehicles') gardait AUSSI

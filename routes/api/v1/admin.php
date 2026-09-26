@@ -7,6 +7,7 @@ use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
+use App\Domains\Identity\Presentation\Api\V1\Admin\UserController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverContractController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\LeaveController;
@@ -348,4 +349,29 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/leaves/{leave}', [LeaveController::class, 'destroy'])
             ->middleware('permission:delete-leaves')->name('leaves.destroy');
+
+        /*
+         * Les comptes administrateurs — ex-Admin\UserController (U1, 2026-09-26).
+         *
+         * ⚠️ Côté Blade, `Route::resource('users')` n'exigeait que `view-users`, écritures
+         * comprises — et le rôle `utilisateur` porte `view-users` : il pouvait créer un
+         * compte `admin`. Ici, une permission par écriture.
+         *
+         * Le mot de passe initial se génère côté front (`utils/password.ts`), comme pour
+         * les agents et les propriétaires : pas de route dédiée.
+         */
+        Route::get('/users', [UserController::class, 'index'])
+            ->middleware('permission:view-users')->name('users.index');
+        Route::post('/users', [UserController::class, 'store'])
+            ->middleware('permission:create-users')->name('users.store');
+
+        Route::middleware('permission:edit-users')->group(function () {
+            Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+            Route::post('/users/{user}/status', [UserController::class, 'setStatus'])->name('users.status');
+            Route::post('/users/{user}/password', [UserController::class, 'updatePassword'])
+                ->name('users.password');
+        });
+
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])
+            ->middleware('permission:delete-users')->name('users.destroy');
     });

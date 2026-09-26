@@ -842,6 +842,39 @@ export type VehicleContractStatus = 'active' | 'completed' | 'cancelled';
 export type VehiclePauseReason = 'agent_leave' | 'agent_change' | 'technical' | 'accident' | 'legal' | 'other';
 }
 declare namespace App.Domains.Identity.Application.Data {
+export type AdminUserFormData = {
+name: string;
+email: string | null;
+phone: string;
+role: string;
+adresse: string | null;
+is_active: boolean;
+password: string | null;
+};
+export type AdminUserListItemData = {
+id: string;
+name: string;
+email: string | null;
+phone: string;
+adresse: string | null;
+is_active: boolean;
+roles: Array<App.Domains.Identity.Application.Data.AdminUserRoleData>;
+created_at: string;
+};
+export type AdminUserPageData = {
+users: Array<App.Domains.Identity.Application.Data.AdminUserListItemData>;
+stats: App.Domains.Identity.Application.Data.AdminUserStatsData;
+assignable_roles: Array<App.Domains.Identity.Application.Data.AdminUserRoleData>;
+};
+export type AdminUserRoleData = {
+name: string;
+label: string;
+};
+export type AdminUserStatsData = {
+total: number;
+active: number;
+inactive: number;
+};
 export type ChangePasswordData = {
 current_password: string;
 password: string;
@@ -856,6 +889,12 @@ profil: App.Domains.Identity.Domain.Enums.Profil | null;
 };
 export type ResetPasswordData = {
 token: string;
+password: string;
+};
+export type SetAdminUserStatusData = {
+is_active: boolean;
+};
+export type UpdateAdminUserPasswordData = {
 password: string;
 };
 export type UpdateProfileData = {

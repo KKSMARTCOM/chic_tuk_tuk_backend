@@ -527,6 +527,29 @@ Décidé le 2026-09-26 :
   autres filtres ; elle est groupée et insensible à la casse.
 - Le dossier agent comptait commissions et paiements de commission annulés.
 
+**Les comptes administrateurs** (`/admin/users*`, domaine `Identity`, U1) — liste et
+compteurs, création, modification, statut, mot de passe, suppression. Le mot de passe
+initial se génère côté front. Décidé le 2026-09-26 :
+
+- ⚠️ **Les écritures du Blade n'exigeaient que `view-users`**, que porte `utilisateur` :
+  il pouvait créer un compte `admin`. API et routes Blade exigent désormais `create-`,
+  `edit-` et `delete-users` ; le générateur Blade reste ouvert à qui crée un agent ou un
+  propriétaire.
+- ⚠️ **On n'attribue que ce qu'on possède** (`ROLE_BEYOND_ACTOR`, `AdminAccountRules`) :
+  attribuer un rôle, ou agir sur un compte, exige de détenir toutes ses permissions.
+- Le rôle est obligatoire et pris parmi les rôles d'administration (ni `driver`, ni
+  `proprietaire`, ni `client`) ; `/users/{id}` ne voit que les comptes `profil=admin`.
+- Sur son propre compte : ni désactivation, ni changement de rôle, ni suppression
+  (`USER_SELF_DEACTIVATION`, `USER_SELF_ROLE_CHANGE`, `USER_SELF_DELETION`).
+- ⚠️ **Désactiver un compte ou changer son mot de passe met fin à ses sessions** : seule
+  la connexion vérifie `is_active`, un jeton déjà émis restait valide. Le trou demeure pour
+  les agents et les propriétaires.
+- ⚠️ **Un administrateur qui a enregistré des réservations ne se supprime pas**
+  (`USER_NOT_DELETABLE`) : le Blade l'inscrit dans `bookings.user_id`, en cascade.
+- L'unicité e-mail/téléphone porte sur les comptes administrateurs, comme l'index
+  `(email, profil)` en base. ⚠️ `CreateOwnerData` et `UpdateOwnerData` affirment une
+  contrainte globale qui n'existe pas, et vérifient donc l'unicité sur tous les profils.
+
 ⚠️ Les routes de pauses prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
 Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se
 confondent sans rien casser de visible : les réponses portent `id` et `user_id`
