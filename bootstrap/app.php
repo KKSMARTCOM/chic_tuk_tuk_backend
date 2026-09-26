@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->prepend(\App\Http\Middleware\InjectSanctumTokenFromCookie::class);
 
+        // Une session Blade ne survit pas à la désactivation de son compte (2026-09-26).
+        $middleware->appendToGroup('web', \App\Shared\Http\Middleware\EndDisabledAccountSession::class);
+
         $middleware->alias([
             'guest'         => \App\Http\Middleware\RedirectIfAuthenticated::class,
             'role'          => \App\Http\Middleware\CheckRole::class,

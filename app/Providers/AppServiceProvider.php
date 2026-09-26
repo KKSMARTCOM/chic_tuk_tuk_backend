@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -68,6 +70,17 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->registerRateLimiters();
+
+        // ⚠️ Un jeton ne vaut que si son compte est ACTIF, vérifié à CHAQUE requête. Jusqu'au
+        // 2026-09-26, seule la connexion regardait `is_active` : un jeton déjà émis survivait
+        // à la désactivation du compte jusqu'à son expiration (14 jours d'inactivité, 90 au
+        // plus). `$isValid` porte les contrôles de Sanctum lui-même, qu'on conserve. Seul un
+        // `false` explicite désactive : la colonne est NOT NULL DEFAULT true.
+        Sanctum::authenticateAccessTokensUsing(
+            fn (PersonalAccessToken $token, bool $isValid) => $isValid
+                && $token->tokenable !== null
+                && $token->tokenable->is_active !== false
+        );
     }
 
     /**

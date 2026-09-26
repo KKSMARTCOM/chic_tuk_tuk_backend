@@ -39,8 +39,12 @@ final class AdminAccountRules
     }
 
     /**
-     * Met fin aux sessions ouvertes d'un compte. Seule la connexion vérifie `is_active` :
-     * sans cela, un compte désactivé gardait l'accès jusqu'à l'expiration de ses jetons.
+     * Met fin aux sessions ouvertes d'un compte, en effaçant ses jetons.
+     *
+     * Un compte inactif est de toute façon refusé à chaque requête depuis le 2026-09-26
+     * (`AppServiceProvider`). Effacer les jetons garde son sens : après un changement de
+     * mot de passe, le compte reste actif et ses anciennes sessions doivent tomber ; et une
+     * réactivation ultérieure ne doit pas ranimer des sessions qu'on a voulu couper.
      *
      * Quand on agit sur son propre compte, la session en cours est épargnée.
      */

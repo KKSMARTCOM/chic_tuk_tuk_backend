@@ -542,14 +542,11 @@ initial se génère côté front. Décidé le 2026-09-26 :
   `proprietaire`, ni `client`) ; `/users/{id}` ne voit que les comptes `profil=admin`.
 - Sur son propre compte : ni désactivation, ni changement de rôle, ni suppression
   (`USER_SELF_DEACTIVATION`, `USER_SELF_ROLE_CHANGE`, `USER_SELF_DELETION`).
-- ⚠️ **Désactiver un compte ou changer son mot de passe met fin à ses sessions** : seule
-  la connexion vérifie `is_active`, un jeton déjà émis restait valide. Le trou demeure pour
-  les agents et les propriétaires.
+- Désactiver un compte ou changer son mot de passe efface ses jetons.
 - ⚠️ **Un administrateur qui a enregistré des réservations ne se supprime pas**
   (`USER_NOT_DELETABLE`) : le Blade l'inscrit dans `bookings.user_id`, en cascade.
 - L'unicité e-mail/téléphone porte sur les comptes administrateurs, comme l'index
-  `(email, profil)` en base. ⚠️ `CreateOwnerData` et `UpdateOwnerData` affirment une
-  contrainte globale qui n'existe pas, et vérifient donc l'unicité sur tous les profils.
+  `(email, profil)` en base.
 
 **Les rôles et le catalogue des permissions** (`/admin/roles*`, `/admin/permissions`,
 domaine `Identity`, U2) — liste des rôles, fiche, création, modification, suppression, et
@@ -924,6 +921,31 @@ Deux fichiers de tests, et il faut les deux : `NotificationRoutingTest` vérifie
 en isolant le `Notifier` — surtout par des assertions NÉGATIVES, un routage trop large ne
 casse rien de visible mais noie les destinataires — et `NotificationHooksTest` vérifie que
 les actions l'appellent réellement, ce que le premier ne dit pas.
+
+## ⚠️ Un compte désactivé perd l'accès à sa requête suivante
+
+Jusqu'au 2026-09-26, **seule la connexion vérifiait `is_active`** : un jeton déjà émis
+survivait à la désactivation jusqu'à son expiration, et une session Blade jusqu'à sa fin.
+Désactiver un agent parti ou le compte d'un téléphone volé ne coupait rien. Deux contrôles,
+et il faut les deux :
+
+- **API** : `Sanctum::authenticateAccessTokensUsing` (`AppServiceProvider`) refuse tout
+  jeton dont le compte est inactif — 401, et le front renvoie à la connexion, qui répond
+  `ACCOUNT_DISABLED`. Le jeton n'est pas effacé : réactiver le compte le rend valide.
+- **Blade** : `EndDisabledAccountSession`, ajouté au groupe `web`, ferme la session. Le
+  premier contrôle ne suffit pas ici, le garde de Sanctum consultant la session web AVANT
+  tout jeton.
+
+`DisabledAccountSessionTest` couvre les quatre profils.
+
+## ⚠️ L'unicité e-mail/téléphone porte sur `(valeur, profil)`
+
+C'est ce que dit la base (`users_email_profil_unique`, `users_phone_profil_unique`), et la
+connexion en tire parti : une même personne peut être agent et propriétaire, et
+`PROFIL_AMBIGUOUS` lui demande lequel. Toute règle `unique` sur `users` se restreint donc au
+profil concerné. Réaligné le 2026-09-26 : F1 avait conclu à tort à une contrainte globale
+(propriétaires), comme le profil de l'API, les réglages Blade et le propriétaire créé depuis
+la fiche d'un agent ; le Blade, lui, vérifiait les propriétaires parmi les clients.
 
 ## ⚠️ Le garde d'authentification est mémorisé entre deux requêtes de test
 
