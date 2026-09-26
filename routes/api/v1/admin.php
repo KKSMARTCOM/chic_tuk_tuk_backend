@@ -5,6 +5,7 @@ use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
+use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverContractController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\LeaveController;
 use Illuminate\Support\Facades\Route;
@@ -185,6 +186,29 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/vehicle-contracts/{contract}', [VehicleContractController::class, 'destroy'])
             ->middleware('permission:delete-contracts')->name('vehicle-contracts.destroy');
+
+        /*
+         * Les contrats agents (F4) — mêmes quatre permissions que les contrats véhicule.
+         * Terminer un contrat est une modification : `edit-contracts`. Pas de création :
+         * un contrat agent naît avec l'agent.
+         *
+         * ⚠️ `assignable-vehicles` est déclarée AVANT `/driver-contracts/{contract}`.
+         */
+        Route::get('/driver-contracts/assignable-vehicles', [DriverContractController::class, 'assignableVehicles'])
+            ->middleware('permission:edit-contracts')->name('driver-contracts.assignable-vehicles');
+
+        Route::middleware('permission:view-contracts')->group(function () {
+            Route::get('/driver-contracts', [DriverContractController::class, 'index'])->name('driver-contracts.index');
+            Route::get('/driver-contracts/{contract}', [DriverContractController::class, 'show'])->name('driver-contracts.show');
+        });
+
+        Route::middleware('permission:edit-contracts')->group(function () {
+            Route::put('/driver-contracts/{contract}', [DriverContractController::class, 'update'])->name('driver-contracts.update');
+            Route::post('/driver-contracts/{contract}/end', [DriverContractController::class, 'end'])->name('driver-contracts.end');
+        });
+
+        Route::delete('/driver-contracts/{contract}', [DriverContractController::class, 'destroy'])
+            ->middleware('permission:delete-contracts')->name('driver-contracts.destroy');
 
         /*
          * Les réservations.

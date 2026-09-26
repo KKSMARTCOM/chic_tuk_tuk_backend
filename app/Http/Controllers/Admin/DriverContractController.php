@@ -138,7 +138,7 @@ class DriverContractController extends Controller
         $validated = $request->validate([
             'vehicle_id'      => 'required|exists:vehicles,id',
             'start_date'      => 'required|date',
-            'contract_months' => 'required|integer|in:24,30,36',
+            'contract_months' => 'required|integer|min:1',
         ], [
             'vehicle_id.required'      => 'Le véhicule est obligatoire.',
             'start_date.required'      => 'La date de début est obligatoire.',
@@ -147,27 +147,8 @@ class DriverContractController extends Controller
 
         $vehicle = Vehicle::findOrFail($validated['vehicle_id']);
 
-        $driver  = $driverContract->driver;
-
-        // Valider uniquement si le véhicule a changé
-        // Si c'est le même véhicule → pas besoin de vérifier les conflits
-        $vehicleChanged = $driverContract->vehicle_id !== $vehicle->id;
-
-        if ($vehicleChanged) {
-            try {
-                // On exclut le driver courant pour la règle 1 (véhicule déjà pris)
-                // On exclut le contrat courant pour la règle 2 (comptage des agents)
-                $this->contractService->validateVehicleAssignment(
-                    $vehicle,
-                    $driver->id,
-                    $driverContract->id  // ← exclure le contrat en cours de modification
-                );
-            } catch (\Exception $e) {
-                Log::error('Erreur lors de la validation du contrat agent : ' . $e->getMessage(), ['exception' => $e]);
-                return back()->with('error', $e->getMessage());
-            }
-        }
-
+        // Les règles — historique, véhicule libre et sous contrat, contrat véhicule suivi —
+        // vivent dans le service, partagées avec l'API (2026-09-26).
         try {
             $this->contractService->update($driverContract, $validated, $vehicle);
         } catch (\Exception $e) {
@@ -190,7 +171,12 @@ class DriverContractController extends Controller
             'end_reason.required' => 'La raison est obligatoire.',
         ]);
 
-        $this->contractService->end($driverContract, $validated);
+        try {
+            $this->contractService->end($driverContract, $validated);
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de la clôture du contrat agent : ' . $e->getMessage(), ['exception' => $e]);
+            return back()->with('error', $e->getMessage());
+        }
 
         return redirect()->back()->with('success', 'Contrat agent terminé. Une pause véhicule a été créée automatiquement.');
     }

@@ -145,8 +145,17 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::delete('vehicle-contracts/{vehicle_contract}', [VehicleContractController::class, 'destroy'])->name('vehicle-contracts.destroy')->middleware('permission:delete-contracts');
 
     // Contrats agent
-    Route::resource('driver-contracts', DriverContractController::class)->middleware('permission:manage-contracts');
-    Route::post('driver-contracts/{driverContract}/end', [DriverContractController::class, 'end'])->name('driver-contracts.end')->middleware('permission:manage-contracts');
+    // ⚠️ Même découpage que les contrats véhicule (2026-09-26) : `manage-contracts`
+    // gardait toute la ressource. `create` et `store` restent sous `create-contracts`,
+    // mais aucun écran n'y mène — un contrat agent naît avec l'agent (vue `create` absente).
+    Route::get('driver-contracts', [DriverContractController::class, 'index'])->name('driver-contracts.index')->middleware('permission:view-contracts');
+    Route::get('driver-contracts/create', [DriverContractController::class, 'create'])->name('driver-contracts.create')->middleware('permission:create-contracts');
+    Route::post('driver-contracts', [DriverContractController::class, 'store'])->name('driver-contracts.store')->middleware('permission:create-contracts');
+    Route::get('driver-contracts/{driver_contract}', [DriverContractController::class, 'show'])->name('driver-contracts.show')->middleware('permission:view-contracts');
+    Route::put('driver-contracts/{driver_contract}', [DriverContractController::class, 'update'])->name('driver-contracts.update')->middleware('permission:edit-contracts');
+    Route::patch('driver-contracts/{driver_contract}', [DriverContractController::class, 'update'])->middleware('permission:edit-contracts');
+    Route::delete('driver-contracts/{driver_contract}', [DriverContractController::class, 'destroy'])->name('driver-contracts.destroy')->middleware('permission:delete-contracts');
+    Route::post('driver-contracts/{driverContract}/end', [DriverContractController::class, 'end'])->name('driver-contracts.end')->middleware('permission:edit-contracts');
 
     Route::get('users/{user}/vehicles', [UserController::class, 'vehicles'])->name('users.vehicles');
 

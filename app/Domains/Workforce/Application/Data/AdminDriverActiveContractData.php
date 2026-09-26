@@ -10,6 +10,8 @@ use App\Shared\Data\BaseData;
 final class AdminDriverActiveContractData extends BaseData
 {
     public function __construct(
+        // L'identifiant du CONTRAT agent — pour « Modifier » et « Terminer » (F4).
+        public string $id,
         public string $vehicleId,
         public string $vehicleNumber,
         public ?string $vehicleType,
@@ -26,6 +28,7 @@ final class AdminDriverActiveContractData extends BaseData
     public static function fromModel(DriverContract $contract, Vehicle $vehicle): self
     {
         return new self(
+            id: $contract->id,
             vehicleId: $vehicle->id,
             vehicleNumber: $vehicle->vehicle_number,
             vehicleType: $vehicle->vehicle_type,

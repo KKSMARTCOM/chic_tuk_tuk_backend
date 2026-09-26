@@ -140,9 +140,10 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (71 permissions), utilisateur — ex-`lecteur` — (52), driver (8),
-  client (7), proprietaire (5) — 75 permissions au total (seeder rejoué le 2026-09-26,
-  après l'ajout des quatre `*-contracts`).
+- Rôles Spatie : admin (70 permissions), utilisateur — ex-`lecteur` — (52), driver (8),
+  client (7), proprietaire (5) — 74 permissions au catalogue (seeder rejoué le 2026-09-26,
+  après l'ajout des quatre `*-contracts` et le retrait de `manage-contracts`, dont la ligne
+  reste en base sans aucun rôle : le seeder ne supprime rien).
   ⚠️ `driver` est passé de 7 à 8 le 2026-09-18 : `view-dashboard` lui manquait, alors que
   l'espace agent a un tableau de bord. La navigation du front se construisant sur les
   permissions EFFECTIVES, l'agent n'avait aucune entrée de menu vers son écran d'accueil.
@@ -445,9 +446,9 @@ Blade lit aussi. Le front ne les recopie plus.
 - ⚠️ **`manage-contracts` est découpée en `view-contracts`, `create-contracts`,
   `edit-contracts` et `delete-contracts`**, pour l'API comme pour les routes Blade des
   contrats véhicule. `admin` les reçoit par calcul, `utilisateur` toutes sauf
-  `delete-contracts`. `manage-contracts` garde encore les routes Blade des contrats
-  agents : à retirer quand elles passeront aux quatre nouvelles (F4). **Rejouer le
-  seeder après déploiement.**
+  `delete-contracts`. `manage-contracts` a quitté le catalogue avec F4, les contrats
+  agents étant passés aux mêmes quatre permissions. **Rejouer le seeder après
+  déploiement.**
 - ⚠️ **Un contrat actif, ou qui a un contrat agent, un paiement ou une pause véhicule,
   même terminé, ne se supprime pas** (`VEHICLE_CONTRACT_ACTIVE`,
   `VEHICLE_CONTRACT_NOT_DELETABLE`) : la cascade effaçait contrats agents et pauses, et
@@ -466,6 +467,34 @@ Corrigés au passage : la modification effaçait la date de fin (le contrôleur 
 durée, et le contrat naissait sans montant journalier ; les paiements par mois de la fiche
 additionnaient le brut de TOUS les paiements, annulés compris, là où le « Total payé »
 ne compte que les paiements validés, en net.
+
+**Les contrats agents** (`/admin/driver-contracts*`, domaine `Workforce`, F4) — liste,
+fiche, modification, clôture, suppression, et les véhicules vers lesquels déplacer un
+contrat (`assignable-vehicles`), par `DriverContractService`, partagé avec le Blade. Pas
+de création : un contrat agent naît avec l'agent, depuis sa création ou son édition.
+Terminer demande `edit-contracts`. Décidé le 2026-09-26 :
+
+- ⚠️ **Un contrat qui a des pauses agent ou des paiements ne se modifie pas**
+  (`DRIVER_CONTRACT_LOCKED`) — la règle n'était portée que par la vue Blade du dossier —
+  **et ne se supprime pas** (`DRIVER_CONTRACT_NOT_DELETABLE`) : les clés passeraient à
+  null, et ses pauses sortiraient du solde de l'agent, calculé contrat par contrat. Un
+  contrat actif ne se supprime pas (`DRIVER_CONTRACT_ACTIVE`).
+- ⚠️ **Changer de véhicule fait suivre le contrat véhicule** : `vehicle_contract_id`
+  restait celui de l'ancien véhicule, et les paiements suivants partaient sur le mauvais
+  contrat véhicule. Le nouveau véhicule doit en avoir un (`VEHICLE_WITHOUT_CONTRACT`).
+  `validateVehicleAssignment()` lève désormais des `ApiException`
+  (`VEHICLE_ALREADY_ASSIGNED`, `OWNER_HAS_NO_FREE_VEHICLE`) — la création et l'édition
+  d'agent les enveloppent toujours dans leur propre code, sans changement visible.
+- On ne termine qu'un contrat actif (`DRIVER_CONTRACT_NOT_ACTIVE`) : une seconde clôture
+  créait une seconde pause véhicule automatique.
+- ⚠️ **Les jours de pause de ces écrans viennent de `LeaveBalance`**, la formule de
+  l'écran des pauses, qui expose aussi `accruedDays`. Les vues Blade des contrats agents
+  lisent encore les accesseurs du modèle (`used_leave_days`, `accrued_leave_days`), une
+  seconde formule qui compte une pause en cours en jours calendaires et ignore les
+  demandes en attente : les deux chemins peuvent afficher des soldes différents jusqu'à
+  la bascule.
+- Le total payé et les paiements par mois ne comptent que les paiements `completed`, au
+  montant `amount` payé par l'agent.
 
 ⚠️ Les routes de pauses prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
 Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se

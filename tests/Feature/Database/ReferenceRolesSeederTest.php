@@ -141,6 +141,9 @@ class ReferenceRolesSeederTest extends TestCase
             $this->assertTrue($user->hasPermissionTo($permission), "utilisateur doit porter {$permission}");
         }
         $this->assertFalse($user->hasPermissionTo('delete-contracts'));
+
+        // Retirée du catalogue le même jour (F4), une fois les contrats agents découpés.
+        $this->assertFalse($admin->permissions->contains('name', 'manage-contracts'));
     }
 
     public function test_no_label_says_conge(): void

@@ -81,9 +81,8 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'view-commissions' => ['Voir les commissions', 'Voir les commissions'],
 
         // Contrats
-        // ⚠️ `manage-contracts` garde encore les routes Blade des contrats agents : à retirer
-        // quand elles passeront aux quatre permissions ci-dessous (F4).
-        'manage-contracts' => ['Gérer les contrats', 'Gérer les contrats véhicule et agent'],
+        // `manage-contracts` retirée le 2026-09-26 (F4) : découpée en ces quatre. Le seeder
+        // ne supprime rien, la ligne reste en base sans aucun rôle.
         'create-contracts' => ['Créer un contrat', 'Créer un contrat véhicule ou agent'],
         'delete-contracts' => ['Supprimer un contrat', 'Supprimer un contrat véhicule ou agent'],
         'edit-contracts' => ['Modifier un contrat', 'Modifier un contrat véhicule ou agent'],

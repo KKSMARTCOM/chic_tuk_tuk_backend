@@ -36,6 +36,8 @@ final class LeaveBalance
         public readonly int $usedDays,
         public readonly int $availableDays,
         public readonly int $remainingDays,
+        // Les jours acquis à date : deux par mois entamé, bornés par la fin du contrat.
+        public readonly int $accruedDays = 0,
     ) {}
 
     /** Un solde vide — aucun contrat, donc aucun droit et rien de pris. */
@@ -67,6 +69,7 @@ final class LeaveBalance
                 - self::joursParStatut($driver, $contrat, 'ongoing')
                 - self::joursParStatut($driver, $contrat, 'pending'),
             remainingDays: $total - $pris,
+            accruedDays: $acquis,
         );
     }
 

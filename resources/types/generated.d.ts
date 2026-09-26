@@ -806,6 +806,7 @@ email_notifications?: boolean;
 }
 declare namespace App.Domains.Workforce.Application.Data {
 export type AdminDriverActiveContractData = {
+id: string;
 vehicle_id: string;
 vehicle_number: string;
 vehicle_type: string | null;
@@ -830,6 +831,43 @@ export type AdminDriverCommissionStatsData = {
 driver_earning: number;
 unpaid_revenue: number;
 paid_revenue: number;
+};
+export type AdminDriverContractDetailData = {
+contract: App.Domains.Workforce.Application.Data.AdminDriverContractListItemData;
+payments_count: number;
+total_paid: number;
+payments_by_month: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractMonthData>;
+pauses: Array<App.Domains.Fleet.Application.Data.VehiclePauseData>;
+vehicle_color: string | null;
+owner: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
+vehicle_contract_id: string | null;
+vehicle_contract_status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus | null;
+vehicle_contract_months: number | null;
+vehicle_contract_notes: string | null;
+};
+export type AdminDriverContractListItemData = {
+id: string;
+status: App.Domains.Workforce.Domain.Enums.DriverContractStatus;
+driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
+driver_is_active: boolean;
+vehicle: App.Domains.Fleet.Application.Data.AdminVehicleContractVehicleData | null;
+start_date: string | null;
+end_date: string | null;
+contract_months: number;
+months_elapsed: number;
+accrued_leave_days: number;
+used_leave_days: number;
+available_leave_days: number;
+remaining_leave_days: number;
+end_reason: App.Domains.Workforce.Domain.Enums.DriverContractEndReason | null;
+end_reason_label: string | null;
+end_notes: string | null;
+is_editable: boolean;
+is_deletable: boolean;
+created_at: string;
+};
+export type AdminDriverContractPageData = {
+contracts: Array<App.Domains.Workforce.Application.Data.AdminDriverContractListItemData>;
 };
 export type AdminDriverDetailData = {
 id: string;
@@ -1003,6 +1041,11 @@ history: Array<App.Domains.Workforce.Application.Data.LeaveRequestData>;
 rejected: Array<App.Domains.Workforce.Application.Data.LeaveRequestData>;
 can_request: boolean;
 };
+export type EndDriverContractData = {
+end_date: string;
+end_reason: 'demission' | 'abandon' | 'fin_contrat' | 'autre';
+end_notes: string | null;
+};
 export type EndLeaveData = {
 end_date: string;
 };
@@ -1036,6 +1079,11 @@ is_available: boolean;
 export type ToggleDriverStatusData = {
 is_active: boolean;
 };
+export type UpdateDriverContractData = {
+start_date: string;
+contract_months: number;
+vehicle_id: string | null;
+};
 export type UpdateDriverData = {
 name: string;
 email: string | null;
@@ -1063,6 +1111,7 @@ password: string;
 };
 }
 declare namespace App.Domains.Workforce.Domain.Enums {
+export type DriverContractEndReason = 'demission' | 'abandon' | 'fin_contrat' | 'autre' | 'new_contract';
 export type DriverContractStatus = 'active' | 'ended';
 export type LeaveStatus = 'pending' | 'ongoing' | 'completed' | 'rejected';
 }
