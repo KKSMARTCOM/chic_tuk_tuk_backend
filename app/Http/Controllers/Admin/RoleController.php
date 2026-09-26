@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domains\Identity\Application\Actions\DeleteRole;
+use App\Domains\Identity\Domain\ReferenceCatalog;
 use App\Models\Role;
+use App\Shared\Http\ApiException;
 use App\Models\Permission;
 use App\Models\User;
 use App\Http\Controllers\Controller;
@@ -72,8 +75,10 @@ class RoleController extends Controller
 
     public function update(Request $request, Role $role)
     {
-        if ($role->name === 'admin' && !auth()->user()->hasRole('admin')) {
-            return redirect()->route('login')->with('error', "Vous n'avez pas la permission de modifier le rôle administrateur.");
+        // Les rôles de référence sont en lecture seule depuis le 2026-09-26 (U2) : le
+        // seeder, rejoué au déploiement, effacerait ce qu'on y changerait.
+        if (ReferenceCatalog::isReferenceRole($role->name)) {
+            return redirect()->route('admin.roles.index')->with('error', "Le rôle « {$role->label} » est géré par l'application : il ne se modifie pas depuis cet écran.");
         }
 
         $validated = $request->validate([
@@ -84,8 +89,9 @@ class RoleController extends Controller
             'permissions.*' => 'exists:permissions,id',
         ]);
 
+        // ⚠️ Le nom technique ne bouge plus : le recalculer depuis le libellé cassait
+        // tout `hasRole()` qui le désignait (corrigé le 2026-09-26).
         $role->update([
-            'name'        => Str::slug($validated['label']),
             'label'       => $validated['label'] ?? null,
             'description' => $validated['description'] ?? null,
         ]);
@@ -97,14 +103,15 @@ class RoleController extends Controller
         return redirect()->route('admin.roles.index')->with('success', "Rôle modifié avec succès !");
     }
 
-    public function destroy(Role $role)
+    public function destroy(Role $role, DeleteRole $delete)
     {
-        if (in_array($role->name, ['admin', 'driver', 'client'])) {
-            return redirect()->route('admin.roles.index')->with('error', "Impossible de supprimer le rôle système '{$role->name}'.");
+        // Même règle que l'API : rôles de référence protégés — le Blade oubliait
+        // `proprietaire` et `utilisateur` —, et pas de suppression d'un rôle porté.
+        try {
+            $delete(auth()->user(), $role->load('permissions'));
+        } catch (ApiException $e) {
+            return redirect()->route('admin.roles.index')->with('error', $e->getMessage());
         }
-
-        $name = $role->name;
-        $role->delete();
 
         return redirect()->route('admin.roles.index')->with('success', "Rôle supprimé avec succès !");
     }

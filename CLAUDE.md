@@ -140,11 +140,12 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (71 permissions), utilisateur — ex-`lecteur` — (51), driver (8),
-  client (7), proprietaire (5) — 75 permissions au catalogue (seeder rejoué le 2026-09-26,
-  après l'ajout des `*-contracts`, de `delete-commissions`, `edit-payments` et
-  `delete-payments`, et le retrait des trois `manage-contracts|commissions|payments`, dont
-  les lignes restent en base sans aucun rôle : le seeder ne supprime rien).
+- Rôles Spatie : admin (68 permissions), utilisateur — ex-`lecteur` — (51), driver (8),
+  client (7), proprietaire (5) — 72 permissions au catalogue depuis U2 (2026-09-26), qui a
+  retiré `create-`, `edit-` et `delete-permissions`, après l'ajout des `*-contracts`, de
+  `delete-commissions`, `edit-payments` et `delete-payments`, et le retrait des trois
+  `manage-contracts|commissions|payments`. Les lignes retirées restent en base sans aucun
+  rôle : le seeder ne supprime rien.
   ⚠️ `driver` est passé de 7 à 8 le 2026-09-18 : `view-dashboard` lui manquait, alors que
   l'espace agent a un tableau de bord. La navigation du front se construisant sur les
   permissions EFFECTIVES, l'agent n'avait aucune entrée de menu vers son écran d'accueil.
@@ -549,6 +550,27 @@ initial se génère côté front. Décidé le 2026-09-26 :
 - L'unicité e-mail/téléphone porte sur les comptes administrateurs, comme l'index
   `(email, profil)` en base. ⚠️ `CreateOwnerData` et `UpdateOwnerData` affirment une
   contrainte globale qui n'existe pas, et vérifient donc l'unicité sur tous les profils.
+
+**Les rôles et le catalogue des permissions** (`/admin/roles*`, `/admin/permissions`,
+domaine `Identity`, U2) — liste des rôles, fiche, création, modification, suppression, et
+le catalogue en lecture. Décidé le 2026-09-26 :
+
+- ⚠️ **Les cinq rôles de référence sont en LECTURE SEULE à l'écran**
+  (`ROLE_REFERENCE_LOCKED`, `ReferenceCatalog::roleNames()`, lu dans le seeder) : le seeder,
+  rejoué au déploiement, effacerait toute modification. Les rôles créés à l'écran restent
+  modifiables et supprimables.
+- ⚠️ **Le catalogue des permissions ne s'écrit plus.** `create-`, `edit-` et
+  `delete-permissions` ont quitté le catalogue, et la route Blade orpheline
+  `permissions/{permission}/assign-roles` avec elles. Seules les permissions de référence
+  s'affichent et s'attribuent : les reliquats en base n'y paraissent pas.
+- Le nom technique d'un rôle naît du slug de son libellé et **ne bouge plus** : le Blade le
+  recalculait à chaque modification, et renommer « Administrateur » cassait
+  `hasRole('admin')`. Un slug déjà pris ou vide est un 422, plus un 500.
+- Un rôle porté par des comptes ne se supprime pas (`ROLE_IN_USE`) ; on n'accorde que les
+  permissions qu'on possède (`ROLE_BEYOND_ACTOR`).
+- Les routes Blade des rôles ont chacune leur permission (elles n'exigeaient que
+  `view-roles`) et suivent les mêmes règles ; `PermissionFamily` range les permissions
+  par famille, dans l'ordre du menu.
 
 ⚠️ Les routes de pauses prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
 Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se

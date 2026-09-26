@@ -7,6 +7,7 @@ use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
+use App\Domains\Identity\Presentation\Api\V1\Admin\RoleController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\UserController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverContractController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverController;
@@ -374,4 +375,26 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/users/{user}', [UserController::class, 'destroy'])
             ->middleware('permission:delete-users')->name('users.destroy');
+
+        /*
+         * Les rôles et le catalogue des permissions — ex-Admin\RoleController et
+         * Admin\PermissionController (U2, 2026-09-26).
+         *
+         * ⚠️ Les cinq rôles de référence sont en lecture seule (`ROLE_REFERENCE_LOCKED`) :
+         * le seeder, rejoué au déploiement, effacerait ce qu'on y changerait. Le catalogue
+         * des permissions se lit et ne s'écrit plus ; il sert aussi la modale d'un rôle,
+         * d'où la permission alternative.
+         */
+        Route::get('/permissions', [RoleController::class, 'permissions'])
+            ->middleware('permission:view-permissions,create-roles,edit-roles')->name('permissions.index');
+        Route::middleware('permission:view-roles')->group(function () {
+            Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+            Route::get('/roles/{role}', [RoleController::class, 'show'])->name('roles.show');
+        });
+        Route::post('/roles', [RoleController::class, 'store'])
+            ->middleware('permission:create-roles')->name('roles.store');
+        Route::put('/roles/{role}', [RoleController::class, 'update'])
+            ->middleware('permission:edit-roles')->name('roles.update');
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy'])
+            ->middleware('permission:delete-roles')->name('roles.destroy');
     });

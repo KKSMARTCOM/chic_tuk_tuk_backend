@@ -57,19 +57,6 @@ class PermissionController extends Controller
             ->with('success', "Permission '{$name}' supprimée avec succès !");
     }
 
-    public function assignRoles(Request $request, Permission $permission)
-    {
-        $validated = $request->validate([
-            'role_ids'   => 'required|array',
-            'role_ids.*' => 'exists:roles,id',
-        ]);
-
-        $permission->syncRoles($validated['role_ids']);
-
-        return redirect()->route('admin.permissions.show', $permission)
-            ->with('success', "Rôles assignés à la permission '{$permission->name}' avec succès !");
-    }
-
     public function getByRole(Role $role)
     {
         return response()->json([

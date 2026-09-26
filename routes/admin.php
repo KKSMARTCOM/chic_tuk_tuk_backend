@@ -113,10 +113,19 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::get('roles/{role}/data', [RoleController::class, 'getData'])->name('roles.data')->middleware('permission:view-roles');
     Route::post('roles/{role}/assign-users', [RoleController::class, 'assignUsers'])->name('roles.assign-users')->middleware('permission:edit-roles');
     Route::post('roles/{role}/remove-users', [RoleController::class, 'removeUsers'])->name('roles.remove-users')->middleware('permission:edit-roles');
-    Route::resource('roles', RoleController::class)->middleware('permission:view-roles');
+    // ⚠️ `Route::resource('roles')->middleware('permission:view-roles')` gardait AUSSI
+    // store/update/destroy par cette seule permission. Découpé le 2026-09-26 (U2).
+    Route::get('roles', [RoleController::class, 'index'])->name('roles.index')->middleware('permission:view-roles');
+    Route::post('roles', [RoleController::class, 'store'])->name('roles.store')->middleware('permission:create-roles');
+    Route::get('roles/{role}', [RoleController::class, 'show'])->name('roles.show')->middleware('permission:view-roles');
+    Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update')->middleware('permission:edit-roles');
+    Route::patch('roles/{role}', [RoleController::class, 'update'])->middleware('permission:edit-roles');
+    Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy')->middleware('permission:delete-roles');
 
     Route::get('permissions/{permission}/data', [PermissionController::class, 'getData'])->name('permissions.data')->middleware('permission:view-permissions');
-    Route::post('permissions/{permission}/assign-roles', [PermissionController::class, 'assignRoles'])->name('permissions.assign-roles')->middleware('permission:edit-permissions');
+    // `permissions/{permission}/assign-roles` retirée le 2026-09-26 (U2) : aucune vue n'y
+    // menait, elle redirigeait vers `permissions.show` qui n'existe pas, et elle exigeait
+    // `edit-permissions`, sortie du catalogue avec les deux autres écritures.
     Route::get('permissions/by-role/{role}', [PermissionController::class, 'getByRole'])->name('permissions.by-role')->middleware('permission:view-permissions');
     Route::resource('permissions', PermissionController::class)->middleware('permission:view-permissions');
 

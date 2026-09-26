@@ -31,10 +31,11 @@ use Illuminate\Database\Seeder;
  *
  * ## Ce qu'il fait, et ce qu'il défait
  *
- * ⚠️ **Le code fait foi.** `syncPermissions` remet chaque rôle dans l'état décrit
- * ici, donc **toute attribution faite depuis l'écran d'administration des rôles est
- * temporaire** et disparaîtra à la prochaine exécution. C'est le prix de la
- * convergence, et c'est assumé : une permission qui doit durer s'ajoute ici.
+ * ⚠️ **Le code fait foi.** `syncPermissions` remet chaque rôle de référence dans
+ * l'état décrit ici. C'est pourquoi l'écran d'administration les montre en LECTURE
+ * SEULE depuis le 2026-09-26 (U2) : une modification y serait effacée à la prochaine
+ * exécution. Les rôles créés à l'écran, eux, ne sont pas touchés. Une permission qui
+ * doit durer sur un rôle de référence s'ajoute ici.
  *
  * Il est en revanche non destructif sur les données : il ne supprime ni rôle ni
  * permission, et ne touche pas aux attributions faites directement à un
@@ -149,9 +150,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'view-payments' => ['Voir les paiements', 'Voir les paiements'],
 
         // Permissions
-        'create-permissions' => ['Créer une permission', 'Créer une nouvelle permission'],
-        'delete-permissions' => ['Supprimer une permission', 'Supprimer une permission'],
-        'edit-permissions' => ['Modifier une permission', 'Modifier une permission existante'],
+        // `create-`, `edit-` et `delete-permissions` retirées le 2026-09-26 (U2) : le
+        // catalogue se lit à l'écran et ne s'y écrit plus. Une permission n'a de sens que
+        // si le code la vérifie — elle naît ici.
         'view-permissions' => ['Voir les permissions', 'Voir la liste des permissions'],
 
         // Tarifs
@@ -338,6 +339,28 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
             ],
         ],
     ];
+
+    /**
+     * Les noms techniques du catalogue de référence. L'écran des rôles n'offre que
+     * ceux-là : une ligne hors référence est un reliquat qu'aucun code ne vérifie.
+     *
+     * @return list<string>
+     */
+    public static function permissionNames(): array
+    {
+        return array_keys(self::PERMISSIONS);
+    }
+
+    /**
+     * Les rôles de référence, en LECTURE SEULE à l'écran : `syncPermissions` effacerait
+     * au déploiement suivant toute modification qu'on leur apporterait.
+     *
+     * @return list<string>
+     */
+    public static function roleNames(): array
+    {
+        return array_keys(self::ROLES);
+    }
 
     public function run(): void
     {

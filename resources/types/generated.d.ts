@@ -842,6 +842,52 @@ export type VehicleContractStatus = 'active' | 'completed' | 'cancelled';
 export type VehiclePauseReason = 'agent_leave' | 'agent_change' | 'technical' | 'accident' | 'legal' | 'other';
 }
 declare namespace App.Domains.Identity.Application.Data {
+export type AdminPermissionCatalogData = {
+groups: Array<App.Domains.Identity.Application.Data.AdminPermissionGroupData>;
+};
+export type AdminPermissionData = {
+name: string;
+label: string;
+description: string | null;
+family: string;
+roles: Array<App.Domains.Identity.Application.Data.AdminUserRoleData>;
+};
+export type AdminPermissionGroupData = {
+label: string;
+permissions: Array<App.Domains.Identity.Application.Data.AdminPermissionData>;
+};
+export type AdminRoleDetailData = {
+id: number;
+name: string;
+label: string;
+description: string | null;
+is_reference: boolean;
+permissions: Array<App.Domains.Identity.Application.Data.AdminPermissionData>;
+users: Array<App.Domains.Identity.Application.Data.AdminRoleUserData>;
+};
+export type AdminRoleFormData = {
+label: string;
+description: string | null;
+permissions: Array<string>;
+};
+export type AdminRoleListItemData = {
+id: number;
+name: string;
+label: string;
+description: string | null;
+is_reference: boolean;
+permissions_count: number;
+users_count: number;
+};
+export type AdminRolePageData = {
+roles: Array<App.Domains.Identity.Application.Data.AdminRoleListItemData>;
+};
+export type AdminRoleUserData = {
+id: string;
+name: string;
+email: string | null;
+profil: App.Domains.Identity.Domain.Enums.Profil;
+};
 export type AdminUserFormData = {
 name: string;
 email: string | null;
