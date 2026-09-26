@@ -157,11 +157,34 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
                 ->name('vehicle-pauses.cancel');
         });
 
-        // Ce qui préremplit un contrat propriétaire-véhicule. Toute permission qui en fait
-        // saisir un l'ouvre : les écrans propriétaires, puis ceux des contrats (F3).
+        /*
+         * Les contrats propriétaire-véhicule (F3).
+         *
+         * ⚠️ Le Blade gardait les sept routes par la seule `manage-contracts`. Elle se
+         * découpe le 2026-09-26 en quatre permissions `*-contracts`, et seul
+         * l'administrateur supprime.
+         *
+         * ⚠️ `defaults` est déclarée AVANT `/vehicle-contracts/{contract}` — même piège
+         * que `owners/available-vehicles`. Toute permission qui fait saisir un contrat
+         * l'ouvre : les écrans propriétaires comme ceux des contrats.
+         */
         Route::get('/vehicle-contracts/defaults', [VehicleContractController::class, 'defaults'])
-            ->middleware('permission:create-owners,edit-owners,manage-contracts')
+            ->middleware('permission:create-owners,edit-owners,create-contracts,edit-contracts')
             ->name('vehicle-contracts.defaults');
+
+        Route::middleware('permission:view-contracts')->group(function () {
+            Route::get('/vehicle-contracts', [VehicleContractController::class, 'index'])->name('vehicle-contracts.index');
+            Route::get('/vehicle-contracts/{contract}', [VehicleContractController::class, 'show'])->name('vehicle-contracts.show');
+        });
+
+        Route::post('/vehicle-contracts', [VehicleContractController::class, 'store'])
+            ->middleware('permission:create-contracts')->name('vehicle-contracts.store');
+
+        Route::put('/vehicle-contracts/{contract}', [VehicleContractController::class, 'update'])
+            ->middleware('permission:edit-contracts')->name('vehicle-contracts.update');
+
+        Route::delete('/vehicle-contracts/{contract}', [VehicleContractController::class, 'destroy'])
+            ->middleware('permission:delete-contracts')->name('vehicle-contracts.destroy');
 
         /*
          * Les réservations.

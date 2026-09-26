@@ -135,7 +135,14 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::post('vehicles/{vehicle}/detach-owner', [VehicleController::class, 'detachOwner'])->name('vehicles.detach-owner');
 
     // Contrats véhicule
-    Route::resource('vehicle-contracts', VehicleContractController::class)->middleware('permission:manage-contracts');
+    // ⚠️ La ressource entière n'exigeait que `manage-contracts`. Découpée le 2026-09-26 en
+    // une permission par route ; `create` et `edit` n'ont pas de vue (modales).
+    Route::get('vehicle-contracts', [VehicleContractController::class, 'index'])->name('vehicle-contracts.index')->middleware('permission:view-contracts');
+    Route::post('vehicle-contracts', [VehicleContractController::class, 'store'])->name('vehicle-contracts.store')->middleware('permission:create-contracts');
+    Route::get('vehicle-contracts/{vehicle_contract}', [VehicleContractController::class, 'show'])->name('vehicle-contracts.show')->middleware('permission:view-contracts');
+    Route::put('vehicle-contracts/{vehicle_contract}', [VehicleContractController::class, 'update'])->name('vehicle-contracts.update')->middleware('permission:edit-contracts');
+    Route::patch('vehicle-contracts/{vehicle_contract}', [VehicleContractController::class, 'update'])->middleware('permission:edit-contracts');
+    Route::delete('vehicle-contracts/{vehicle_contract}', [VehicleContractController::class, 'destroy'])->name('vehicle-contracts.destroy')->middleware('permission:delete-contracts');
 
     // Contrats agent
     Route::resource('driver-contracts', DriverContractController::class)->middleware('permission:manage-contracts');

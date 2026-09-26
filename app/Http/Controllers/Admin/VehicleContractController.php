@@ -33,39 +33,33 @@ class VehicleContractController extends Controller
         return view('pages.admin.contracts.owner', compact('contracts', 'availableVehicles'));
     }
 
-    public function create()
-    {
-        $vehicles = Vehicle::with('owner')
-            ->where('is_active', true)
-            ->whereDoesntHave('vehicleContracts', fn($q) => $q->where('status', 'active'))
-            ->get();
-
-        return view('pages.admin.contracts.owner-create', compact('vehicles'));
-    }
-
     public function store(Request $request)
     {
+        // Corrigé le 2026-09-26 : la modale demandait une mensualité et une date de fin,
+        // mais pas la durée — le contrat naissait sans `contract_months`, donc avec un
+        // montant journalier nul. Les champs sont ceux de l'écran propriétaire.
         $validated = $request->validate([
             'vehicle_id'      => 'required|exists:vehicles,id',
+            'contract_months' => 'required|integer|min:1',
             'total_amount'    => 'required|numeric|min:1',
-            'monthly_payment' => 'required|numeric|min:1',
             'start_date'      => 'required|date',
-            'end_date'        => 'nullable|date|after:start_date',
             'notes'           => 'nullable|string|max:1000',
         ], [
             'vehicle_id.required'      => 'Le véhicule est obligatoire.',
+            'contract_months.required' => 'La durée du contrat est obligatoire.',
             'total_amount.required'    => 'Le montant total est obligatoire.',
-            'monthly_payment.required' => 'La mensualité est obligatoire.',
             'start_date.required'      => 'La date de début est obligatoire.',
         ]);
 
-        // Récupérer le owner_id depuis le véhicule
-        $vehicle = Vehicle::findOrFail($validated['vehicle_id']);
-        $validated['owner_id'] = $vehicle->owner_id;
+        try {
+            // Le propriétaire est celui du véhicule : le service le reprend.
+            $this->contractService->create($validated);
 
-        $this->contractService->create($validated);
-
-        return redirect()->route('admin.vehicle-contracts.index')->with('success', 'Contrat véhicule créé avec succès.');
+            return back()->with('success', 'Contrat véhicule créé avec succès.');
+        } catch (\Exception $e) {
+            Log::error('Erreur création contrat véhicule : ' . $e->getMessage());
+            return back()->with('error', 'Impossible de créer ce contrat : ' . $e->getMessage())->withInput();
+        }
     }
 
     public function show(VehicleContract $vehicleContract)
@@ -79,20 +73,16 @@ class VehicleContractController extends Controller
 
         $stats = $this->contractService->getStats($vehicleContract);
 
-        // Paiements par mois
+        // Paiements par mois — `completed` et en net, comme le « Total payé » de la même
+        // fiche ; le brut de tous les paiements, annulés compris, y entrait (2026-09-26).
         $paymentsByMonth = $vehicleContract->payments()
-            ->selectRaw("DATE_TRUNC('month', payment_date) as month, SUM(amount) as total")
+            ->where('status', 'completed')
+            ->selectRaw("DATE_TRUNC('month', payment_date) as month, SUM(net_amount) as total")
             ->groupByRaw("DATE_TRUNC('month', payment_date)")
             ->orderByRaw("DATE_TRUNC('month', payment_date) DESC")
             ->get();
 
         return view('pages.admin.contracts.owner-show', compact('vehicleContract', 'stats', 'paymentsByMonth'));
-    }
-
-    public function edit(VehicleContract $vehicleContract)
-    {
-        $vehicles = Vehicle::with('owner')->where('is_active', true)->get();
-        return view('pages.admin.contracts.owner-edit', compact('vehicleContract', 'vehicles'));
     }
 
     public function update(Request $request, VehicleContract $vehicleContract)
@@ -121,10 +111,11 @@ class VehicleContractController extends Controller
             'manager_remuneration.min' => 'La rémunération du gestionnaire doit être supérieure ou égale à 0.',
         ]);
 
+        // Pas de `end_date` : la modale n'en a pas, et le lire ici l'effaçait à chaque
+        // enregistrement (corrigé le 2026-09-26).
         $data = [
             'total_amount'        => $validated['contract_total_amount'],
             'start_date'          => $validated['contract_start_date'],
-            'end_date'            => $validated['end_date'] ?? null,
             'status'              => $validated['status'],
             'notes'               => $validated['notes'] ?? null,
             'contract_months'     => $validated['contract_months'],

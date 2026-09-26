@@ -9,29 +9,30 @@
             @csrf
             <input type="hidden" name="vehicle_id" value="{{ $vehicle->id }}">
             <div class="grid grid-cols-2 gap-4">
+                {{-- Durée plutôt que mensualité et date de fin (2026-09-26) : sans elle, le
+                     contrat naissait sans montant journalier. --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Durée du contrat <span
+                            class="text-red-500">*</span></label>
+                    <select name="contract_months" required
+                        onchange="document.getElementById('contract_modal_total').value = {{ json_encode(\App\Consts\VehicleContractConsts::TOTAL_AMOUNTS) }}[this.value] ?? ''"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="">-- Sélectionnez --</option>
+                        @foreach (\App\Consts\VehicleContractConsts::TOTAL_AMOUNTS as $months => $amount)
+                            <option value="{{ $months }}">{{ $months }} mois</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Montant total (FCFA) <span
                             class="text-red-500">*</span></label>
-                    <input type="number" name="total_amount" min="1" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        placeholder="ex: 2500000">
+                    <input type="number" name="total_amount" id="contract_modal_total" min="1" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Mensualité (FCFA) <span
-                            class="text-red-500">*</span></label>
-                    <input type="number" name="monthly_payment" min="0" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        placeholder="ex: 104167">
-                </div>
-                <div>
+                <div class="col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Date de début <span
                             class="text-red-500">*</span></label>
                     <input type="date" name="start_date" required value="{{ date('Y-m-d') }}"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
-                    <input type="date" name="end_date"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
                 </div>
                 <div class="col-span-2">

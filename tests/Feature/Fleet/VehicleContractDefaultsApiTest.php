@@ -59,13 +59,14 @@ class VehicleContractDefaultsApiTest extends TestCase
 
     public function test_any_contract_writing_permission_opens_it(): void
     {
-        foreach (['create-owners', 'edit-owners', 'manage-contracts'] as $permission) {
+        // `manage-contracts` remplacée le 2026-09-26 par les permissions `*-contracts`.
+        foreach (['create-owners', 'edit-owners', 'create-contracts', 'edit-contracts'] as $permission) {
             $this->fetch($this->login([$permission]))->assertOk();
         }
     }
 
     public function test_a_read_only_account_is_refused(): void
     {
-        $this->fetch($this->login(['view-owners']))->assertForbidden();
+        $this->fetch($this->login(['view-owners', 'view-contracts']))->assertForbidden();
     }
 }

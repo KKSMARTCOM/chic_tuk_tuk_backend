@@ -140,9 +140,9 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (67 permissions), utilisateur — ex-`lecteur` — (49), driver (8),
-  client (7), proprietaire (5) — 71 permissions au total (seeder rejoué le 2026-09-25,
-  après l'ajout des quatre `*-owners`).
+- Rôles Spatie : admin (71 permissions), utilisateur — ex-`lecteur` — (52), driver (8),
+  client (7), proprietaire (5) — 75 permissions au total (seeder rejoué le 2026-09-26,
+  après l'ajout des quatre `*-contracts`).
   ⚠️ `driver` est passé de 7 à 8 le 2026-09-18 : `view-dashboard` lui manquait, alors que
   l'espace agent a un tableau de bord. La navigation du front se construisant sur les
   permissions EFFECTIVES, l'agent n'avait aucune entrée de menu vers son écran d'accueil.
@@ -157,7 +157,8 @@ avec le mainteneur.
   `manage-payments`, `manage-settings`, `manage-commissions`, `manage-pricing`,
   `approve-leave-requests`, `delete-leaves`, `moderate-testimonials`… Il ne lui manque,
   par rapport à `admin`, que la gestion des rôles et des permissions, et quelques
-  suppressions (propriétaires, véhicules) — véhicules ouverts le 2026-09-25.
+  suppressions (propriétaires, véhicules, contrats) — véhicules ouverts le 2026-09-25,
+  contrats le 2026-09-26.
   Vérifié en base le 2026-09-17 ; l'état est conservé sur décision explicite, mais le
   libellé décrit mal ce niveau d'accès.
 - **La source de vérité des rôles et permissions est
@@ -301,7 +302,7 @@ Tous dans `app/Services`, injectés dans les contrôleurs (pas de logique métie
 - PricingService : getDistance (OpenRouteService, clé dans config('services.openrouteservice.key')), getPrice
 - PaymentService : create, generateDailyContractPayments, generateDailyPaymentForContract
 - VehicleService : create, update, toggleStatus, pauseVehicle, endPause, createAutoAgentPause
-- VehicleContractService : create, getStats
+- VehicleContractService : create, update, delete, getStats — partagé par le Blade et l'API
 - DriverContractService : create, end, getStats
 - UserService : create, update, updatePassword, toggleStatus, delete, generatePassword
 - AuthService : login, logout, checkRateLimit, isAccountLocked, getLockRemainingTime,
@@ -436,6 +437,35 @@ et annulation de pause, par `VehicleService`, partagé avec le Blade. Décidé l
 `GET /admin/vehicle-contracts/defaults` sert les durées proposées, leur montant total et
 les trois charges par défaut, tirés de `VehicleContractConsts` — la seule source, que le
 Blade lit aussi. Le front ne les recopie plus.
+
+**Les contrats propriétaire-véhicule** (`/admin/vehicle-contracts*`, domaine `Fleet`, F3)
+— liste, fiche, création (depuis la fiche d'un véhicule), modification, suppression, par
+`VehicleContractService`, partagé avec le Blade. Décidé le 2026-09-26 :
+
+- ⚠️ **`manage-contracts` est découpée en `view-contracts`, `create-contracts`,
+  `edit-contracts` et `delete-contracts`**, pour l'API comme pour les routes Blade des
+  contrats véhicule. `admin` les reçoit par calcul, `utilisateur` toutes sauf
+  `delete-contracts`. `manage-contracts` garde encore les routes Blade des contrats
+  agents : à retirer quand elles passeront aux quatre nouvelles (F4). **Rejouer le
+  seeder après déploiement.**
+- ⚠️ **Un contrat actif, ou qui a un contrat agent, un paiement ou une pause véhicule,
+  même terminé, ne se supprime pas** (`VEHICLE_CONTRACT_ACTIVE`,
+  `VEHICLE_CONTRACT_NOT_DELETABLE`) : la cascade effaçait contrats agents et pauses, et
+  détachait les paiements.
+- ⚠️ **Supprimer un contrat ne touche plus au véhicule** : le Blade remettait
+  `vehicles.owner_id` à null, même quand le véhicule avait changé de propriétaire depuis.
+- **Un véhicule n'a jamais deux contrats actifs** (`VEHICLE_HAS_ACTIVE_CONTRACT`), à la
+  création, à la réactivation comme au changement de véhicule ; et pas de contrat sur un
+  véhicule sans propriétaire (`VEHICLE_HAS_NO_OWNER` — c'était une erreur 500).
+- Un contrat dont le véhicule a un agent actif ne se modifie pas
+  (`VEHICLE_CONTRACT_HAS_ACTIVE_DRIVER`, règle d'origine) ; la liste l'annonce par
+  `is_editable`, et `is_deletable` fait de même pour la suppression.
+
+Corrigés au passage : la modification effaçait la date de fin (le contrôleur lisait un
+`end_date` jamais validé) ; la modale de création de la fiche véhicule ne demandait pas la
+durée, et le contrat naissait sans montant journalier ; les paiements par mois de la fiche
+additionnaient le brut de TOUS les paiements, annulés compris, là où le « Total payé »
+ne compte que les paiements validés, en net.
 
 ⚠️ Les routes de pauses prennent l'identifiant de l'**AGENT** (`drivers.id`), là où le
 Blade emploie celui de son **COMPTE** (`users.id`). Les deux sont des uuid et se

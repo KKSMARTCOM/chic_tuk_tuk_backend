@@ -422,10 +422,72 @@ end_date: string | null;
 recent_payments: Array<App.Domains.Fleet.Application.Data.AdminVehiclePaymentData>;
 payments_count: number;
 };
+export type AdminVehicleContractDetailData = {
+contract: App.Domains.Fleet.Application.Data.AdminVehicleContractListItemData;
+payments_count: number;
+payments_by_month: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractMonthData>;
+driver_contracts: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractDriverData>;
+pauses: Array<App.Domains.Fleet.Application.Data.VehiclePauseData>;
+current_driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
+current_driver_since: string | null;
+};
+export type AdminVehicleContractDriverData = {
+id: string;
+driver_id: string | null;
+driver_name: string | null;
+start_date: string | null;
+end_date: string | null;
+contract_months: number;
+status: App.Domains.Workforce.Domain.Enums.DriverContractStatus;
+payments_count: number;
+end_reason: string | null;
+};
+export type AdminVehicleContractListItemData = {
+id: string;
+status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
+owner: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
+vehicle: App.Domains.Fleet.Application.Data.AdminVehicleContractVehicleData | null;
+contract_months: number | null;
+start_date: string | null;
+end_date: string | null;
+total_amount: number;
+total_paid: number;
+remaining: number;
+surplus: number;
+progress_percent: number;
+unlimited_internet: number | null;
+spotify_premium: number | null;
+manager_remuneration: number | null;
+notes: string | null;
+is_editable: boolean;
+is_deletable: boolean;
+created_at: string;
+};
+export type AdminVehicleContractMonthData = {
+month: string;
+total: number;
+};
+export type AdminVehicleContractPageData = {
+contracts: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractListItemData>;
+available_vehicles: Array<App.Domains.Fleet.Application.Data.AdminAvailableVehicleData>;
+};
+export type AdminVehicleContractPartyData = {
+id: string;
+name: string | null;
+phone: string | null;
+email: string | null;
+};
 export type AdminVehicleContractProgressData = {
 total_paid: number;
 total_amount: number;
 progress_percentage: number;
+};
+export type AdminVehicleContractVehicleData = {
+id: string;
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+is_active: boolean;
+notes: string | null;
 };
 export type AdminVehicleCurrentDriverData = {
 driver_id: string;
@@ -523,6 +585,16 @@ adresse: string | null;
 is_active: boolean;
 vehicle: App.Domains.Fleet.Application.Data.OwnerVehicleAttachmentData | null;
 confirm_transfer: boolean;
+};
+export type CreateVehicleContractData = {
+vehicle_id: string;
+contract_months: number;
+total_amount: number;
+start_date: string;
+unlimited_internet: number | null;
+spotify_premium: number | null;
+manager_remuneration: number | null;
+notes: string | null;
 };
 export type CreateVehiclePauseData = {
 start_date: string;
@@ -623,6 +695,17 @@ confirm_transfer: boolean;
 };
 export type UpdateOwnerPasswordData = {
 password: string;
+};
+export type UpdateVehicleContractData = {
+contract_months: number;
+total_amount: number;
+start_date: string;
+status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
+vehicle_id: string | null;
+unlimited_internet: number | null;
+spotify_premium: number | null;
+manager_remuneration: number | null;
+notes: string | null;
 };
 export type VehicleContractDefaultsData = {
 durations: Array<App.Domains.Fleet.Application.Data.ContractDurationData>;

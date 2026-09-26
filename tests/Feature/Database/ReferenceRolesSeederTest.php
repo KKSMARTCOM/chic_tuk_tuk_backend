@@ -125,6 +125,24 @@ class ReferenceRolesSeederTest extends TestCase
         $this->assertFalse($user->hasPermissionTo('delete-vehicles'));
     }
 
+    public function test_contract_permissions_go_to_admin_and_all_but_delete_to_utilisateur(): void
+    {
+        $this->semer();
+
+        // Décidé le 2026-09-26 : `manage-contracts` se découpe en quatre permissions, et
+        // seul l'administrateur supprime un contrat.
+        $admin = Role::query()->where('name', 'admin')->firstOrFail();
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        foreach (['view-contracts', 'create-contracts', 'edit-contracts', 'delete-contracts'] as $permission) {
+            $this->assertTrue($admin->hasPermissionTo($permission), "admin doit porter {$permission}");
+        }
+        foreach (['view-contracts', 'create-contracts', 'edit-contracts'] as $permission) {
+            $this->assertTrue($user->hasPermissionTo($permission), "utilisateur doit porter {$permission}");
+        }
+        $this->assertFalse($user->hasPermissionTo('delete-contracts'));
+    }
+
     public function test_no_label_says_conge(): void
     {
         $this->semer();

@@ -46,7 +46,7 @@ use Illuminate\Database\Seeder;
  * laissent croire à un accès en lecture. **C'est faux** : sur ses 41 permissions,
  * 27 sont des écritures — `create-drivers`, `manage-payments`, `manage-settings`,
  * `approve-leave-requests`… Il ne lui manque, par rapport à `admin`, que la gestion
- * des rôles et des permissions, et quelques suppressions (propriétaires, véhicules).
+ * des rôles et des permissions, et quelques suppressions (propriétaires, véhicules, contrats).
  *
  * Cet état est repris tel quel, sur décision explicite du 2026-09-17, pour ne rien
  * retirer à des comptes en service. Mais le libellé décrit mal ce niveau d'accès :
@@ -81,7 +81,13 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'view-commissions' => ['Voir les commissions', 'Voir les commissions'],
 
         // Contrats
+        // ⚠️ `manage-contracts` garde encore les routes Blade des contrats agents : à retirer
+        // quand elles passeront aux quatre permissions ci-dessous (F4).
         'manage-contracts' => ['Gérer les contrats', 'Gérer les contrats véhicule et agent'],
+        'create-contracts' => ['Créer un contrat', 'Créer un contrat véhicule ou agent'],
+        'delete-contracts' => ['Supprimer un contrat', 'Supprimer un contrat véhicule ou agent'],
+        'edit-contracts' => ['Modifier un contrat', 'Modifier un contrat véhicule ou agent'],
+        'view-contracts' => ['Voir les contrats', 'Voir les contrats véhicule et agent'],
 
         // Tableau de bord
         'view-dashboard' => ['Voir le tableau de bord', 'Accès au tableau de bord'],
@@ -213,6 +219,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'approve-leave-requests',
                 'create-bookings',
                 'create-circuits',
+                // Contrats ouverts le 2026-09-26 comme les véhicules : voir, créer,
+                // modifier — la suppression reste à l'administrateur.
+                'create-contracts',
                 'create-drivers',
                 'create-leaves',
                 'create-owners',
@@ -224,6 +233,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'delete-leaves',
                 'edit-bookings',
                 'edit-circuits',
+                'edit-contracts',
                 'edit-drivers',
                 'edit-leaves',
                 'edit-owners',
@@ -247,6 +257,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'view-bookings',
                 'view-circuits',
                 'view-commissions',
+                'view-contracts',
                 'view-dashboard',
                 'view-drivers',
                 'view-leave-requests',
