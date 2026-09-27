@@ -17,7 +17,7 @@ use Tests\TestCase;
 /**
  * Créer une réservation depuis l'administration, et obtenir un devis.
  *
- * ⚠️ `PricingService::getDistance()` appelle réellement OpenRouteService : chaque test
+ * ⚠️ `MeasureRouteDistance` appelle réellement OpenRouteService : chaque test
  * qui atteint `BookingService::create()` fausse la réponse avec `Http::fake()`, sinon il
  * partirait sur le réseau et échouerait en CI comme en local sans connexion.
  */

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Domains\Booking\Application\Actions\AcceptBooking;
+use App\Domains\Booking\Application\Actions\MeasureRouteDistance;
+use App\Domains\Booking\Domain\PriceCalculator;
 use App\Domains\Notification\Application\Notifier;
 use App\Domains\Booking\Application\Actions\CancelBooking;
 use App\Domains\Booking\Application\Actions\CompleteBooking;
@@ -19,19 +21,21 @@ use Illuminate\Support\Facades\Log;
 
 class BookingService
 {
-    protected PricingService $pricingService;
+    protected PriceCalculator $pricingService;
+    protected MeasureRouteDistance $measureDistance;
     protected CommissionService $commissionService;
 
-    public function __construct(PricingService $pricingService, CommissionService $commissionService)
+    public function __construct(PriceCalculator $pricingService, MeasureRouteDistance $measureDistance, CommissionService $commissionService)
     {
         $this->pricingService = $pricingService;
+        $this->measureDistance = $measureDistance;
         $this->commissionService = $commissionService;
     }
 
     public function create(array $data)
     {
         // Calcul de la distance
-        $distance = $this->pricingService->getDistance(
+        $distance = ($this->measureDistance)(
             $data['from_lng'],
             $data['from_lat'],
             $data['to_lng'],
@@ -420,7 +424,7 @@ class BookingService
             $toChanged   = isset($data['to_lng'])   && (float) $data['to_lng']   !== (float) $booking->to_lng;
 
             if ($fromChanged || $toChanged) {
-                $distance = $this->pricingService->getDistance($data['from_lng'], $data['from_lat'], $data['to_lng'], $data['to_lat']);
+                $distance = ($this->measureDistance)($data['from_lng'], $data['from_lat'], $data['to_lng'], $data['to_lat']);
 
                 if ($distance === null) {
                     throw new \Exception('Erreur lors du calcul de l\'itinéraire.');

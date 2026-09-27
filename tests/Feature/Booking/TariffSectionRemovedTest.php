@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Booking\Domain\PriceCalculator;
 use App\Domains\Identity\Domain\ReferenceCatalog;
-use App\Services\PricingService;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -12,7 +12,7 @@ use Tests\TestCase;
  * calcul du prix.
  *
  * Elle gérait des tarifs par couple de zones (table `pricing`) que RIEN ne lisait : le
- * prix vient de `PricingService`, qui applique les constantes de `Price` à la distance
+ * prix vient de `PriceCalculator`, qui applique les constantes de `Price` à la distance
  * (prix au kilomètre, minimum, majoration horaire). Aucun lien du menu Blade n'y menait,
  * et ses routes n'exigeaient aucune permission. La table et ses lignes restent en base.
  */
@@ -34,7 +34,7 @@ class TariffSectionRemovedTest extends TestCase
 
     public function test_the_price_still_comes_from_the_distance(): void
     {
-        $pricing = app(PricingService::class);
+        $pricing = app(PriceCalculator::class);
 
         $this->assertGreaterThan(0, $pricing->getPrice(10));
         $this->assertGreaterThan($pricing->getPrice(10), $pricing->getPrice(40));

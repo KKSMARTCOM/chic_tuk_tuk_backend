@@ -5,7 +5,7 @@ namespace App\Domains\Booking\Application\Actions;
 use App\Consts\Price;
 use App\Domains\Booking\Application\Data\CalculatePriceData;
 use App\Domains\Booking\Application\Data\PriceQuoteData;
-use App\Services\PricingService;
+use App\Domains\Booking\Domain\PriceCalculator;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -18,7 +18,10 @@ use Illuminate\Support\Facades\Cache;
  */
 final class QuotePrice
 {
-    public function __construct(private readonly PricingService $pricing) {}
+    public function __construct(
+        private readonly PriceCalculator $pricing,
+        private readonly MeasureRouteDistance $measureDistance,
+    ) {}
 
     public function execute(CalculatePriceData $data): PriceQuoteData
     {
@@ -30,7 +33,7 @@ final class QuotePrice
         $distance = Cache::remember(
             sprintf('pricing:distance:%.5f,%.5f:%.5f,%.5f', $data->fromLng, $data->fromLat, $data->toLng, $data->toLat),
             now()->addDays(7),
-            fn () => $this->pricing->getDistance($data->fromLng, $data->fromLat, $data->toLng, $data->toLat),
+            fn () => ($this->measureDistance)($data->fromLng, $data->fromLat, $data->toLng, $data->toLat),
         );
         $basePrice = $this->pricing->getPrice($distance);
 
@@ -42,7 +45,7 @@ final class QuotePrice
             ? $this->pricing->applyTimeSurcharge($basePrice, $data->returnTime ?: $data->pickupTime)
             : null;
 
-        $tripPrice  = $goPrice + ($returnPrice ?? 0);
+        $tripPrice = $goPrice + ($returnPrice ?? 0);
         $isRecurring = $data->days > 1;
         $totalPrice = $tripPrice * ($isRecurring ? $data->days : 1);
 
@@ -55,7 +58,7 @@ final class QuotePrice
             days: $data->days,
             totalPrice: $totalPrice,
             surchargeAmount: Price::TIME_SURCHARGE,
-            surchargeFreeWindow: Price::NORMAL_WINDOW_START_HOUR . 'h–' . Price::NORMAL_WINDOW_END_HOUR . 'h',
+            surchargeFreeWindow: Price::NORMAL_WINDOW_START_HOUR.'h–'.Price::NORMAL_WINDOW_END_HOUR.'h',
         );
     }
 }
