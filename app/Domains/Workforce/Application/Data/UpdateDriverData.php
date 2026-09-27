@@ -83,7 +83,7 @@ final class UpdateDriverData extends BaseData
         ];
     }
 
-    /** Charge utile attendue par `DriverService::updateDriver()`, sans les clés `_*`. */
+    /** Charge utile attendue par `UpdateDriver::updateDriver()`, sans les clés `_*`. */
     public function toServicePayload(): array
     {
         return [

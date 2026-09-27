@@ -3,12 +3,18 @@
 namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Workforce\Application\Data\UpdateDriverData;
+use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
+use App\Models\DriverContract;
 use App\Models\User;
-use App\Services\DriverService;
+use App\Models\Vehicle;
+use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Spatie\Permission\Models\Role;
 
 /**
  * Modifier un agent — ex-Admin\DriverController::update().
@@ -23,7 +29,7 @@ use Illuminate\Validation\Rule;
  */
 final class UpdateDriver
 {
-    public function __construct(private readonly DriverService $driverService) {}
+    public function __construct(private readonly CreateRenewalContract $createRenewalContract) {}
 
     public function __invoke(Driver $driver, UpdateDriverData $data): User
     {
@@ -72,12 +78,114 @@ final class UpdateDriver
         ])->validate();
 
         try {
-            return $this->driverService->updateDriver($driver->user_id, array_merge($payload, [
+            return $this->updateDriver($driver->user_id, array_merge($payload, [
                 '_owner_mode' => $data->ownerMode,
                 '_has_active_contract' => $hasActiveContract,
             ]));
         } catch (\Exception $e) {
             throw new ApiException(422, 'DRIVER_UPDATE_FAILED', $e->getMessage());
         }
+    }
+
+    private function updateDriver(string $driverId, array $data): User
+    {
+        return DB::transaction(function () use ($driverId, $data) {
+
+            $user = User::findOrFail($driverId);
+
+            // 1. Mettre à jour les infos du User
+            $user->update([
+                'name' => $data['name'],
+                'email' => $data['email'] ?? $user->email,
+                'phone' => $data['phone'],
+                'is_active' => $data['is_active'] ?? $user->is_active,
+                'adresse' => $data['adresse'] ?? $user->adresse,
+            ]);
+
+            // 2. Mettre à jour le profil Driver
+            if ($user->driver) {
+                $user->driver->update([
+                    'license_number' => $data['license_number'] ?? $user->driver->license_number,
+                    'is_available' => $data['is_available'] ?? $user->driver->is_available,
+                    'agent_code' => $data['agent_code'] ?? $data['renewal_agent_code'] ?? $user->driver->agent_code,
+                    'agent_id' => $data['agent_id'] ?? $data['renewal_agent_id'] ?? $user->driver->agent_id,
+                ]);
+            }
+
+            // 3. Si pas de contrat actif → créer un nouveau contrat
+            if (! ($data['_has_active_contract'] ?? true)) {
+
+                $mode = $data['_owner_mode'] ?? 'existing';
+
+                if ($mode === 'renewal') {
+                    // Réutilise exactement la même logique que pour la création
+                    ($this->createRenewalContract)($user->driver, $data);
+                } elseif ($mode === 'existing') {
+                    $vehicle = Vehicle::findOrFail($data['vehicle_id']);
+
+                    if ($vehicle->owner_id !== $data['owner_id']) {
+                        throw new \Exception('Ce véhicule n\'appartient pas au propriétaire sélectionné.');
+                    }
+
+                    VehicleAssignmentRules::assertAssignable($vehicle);
+
+                    DriverContract::create([
+                        'driver_id' => $user->driver->id,
+                        'vehicle_id' => $vehicle->id,
+                        'vehicle_contract_id' => $vehicle->activeVehicleContract?->id,
+                        'start_date' => $data['existing_start_date'],
+                        'contract_months' => $data['existing_contract_months'],
+                        'status' => 'active',
+                    ]);
+                } else {
+                    // ── mode 'new' : code existant inchangé ──
+                    $ownerRole = Role::firstOrCreate(
+                        ['name' => 'proprietaire', 'guard_name' => 'web'],
+                        ['label' => 'Propriétaire']
+                    );
+
+                    $owner = User::create([
+                        'name' => $data['new_owner_name'],
+                        'phone' => $data['new_owner_phone'],
+                        'email' => $data['new_owner_email'] ?? null,
+                        'password' => Hash::make($data['new_owner_password']),
+                        'profil' => 'client',
+                        'is_active' => true,
+                    ]);
+                    $owner->assignRole($ownerRole);
+
+                    $vehicle = Vehicle::create([
+                        'owner_id' => $owner->id,
+                        'vehicle_number' => $data['new_vehicle_number'],
+                        'vehicle_type' => $data['new_vehicle_type'] ?? 'tricycle',
+                        'color' => $data['new_vehicle_color'] ?? null,
+                        'is_active' => true,
+                    ]);
+
+                    if (! empty($data['contract_total_amount'])) {
+                        VehicleContract::create([
+                            'vehicle_id' => $vehicle->id,
+                            'owner_id' => $owner->id,
+                            'total_amount' => $data['contract_total_amount'],
+                            'monthly_payment' => $data['contract_monthly_payment'] ?? 0,
+                            'start_date' => $data['contract_start_date'] ?? now(),
+                            'end_date' => $data['contract_end_date'] ?? null,
+                            'status' => 'active',
+                        ]);
+                    }
+
+                    DriverContract::create([
+                        'driver_id' => $user->driver->id,
+                        'vehicle_id' => $vehicle->id,
+                        'vehicle_contract_id' => $vehicle->activeVehicleContract?->id,
+                        'start_date' => $data['new_start_date'],
+                        'contract_months' => $data['new_contract_months'],
+                        'status' => 'active',
+                    ]);
+                }
+            }
+
+            return $user->load('driver');
+        });
     }
 }

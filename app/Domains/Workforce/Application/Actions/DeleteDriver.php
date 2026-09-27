@@ -3,14 +3,12 @@
 namespace App\Domains\Workforce\Application\Actions;
 
 use App\Models\Driver;
-use App\Services\DriverService;
+use App\Models\User;
 use App\Shared\Http\ApiException;
 
 /** Supprimer un agent — ex-Admin\DriverController::destroy(). */
 final class DeleteDriver
 {
-    public function __construct(private readonly DriverService $driverService) {}
-
     public function __invoke(Driver $driver): void
     {
         if ($driver->bookings()->whereIn('status', ['confirmed', 'in_progress'])->exists()) {
@@ -21,8 +19,20 @@ final class DeleteDriver
             );
         }
 
-        // `DriverService::deleteDriver()` prend l'identifiant du COMPTE (`users.id`), pas
+        // `deleteDriver()` prend l'identifiant du COMPTE (`users.id`), pas
         // celui de l'agent — pont entre les deux conventions, comme `UpdateDriverPassword`.
-        $this->driverService->deleteDriver($driver->user_id);
+        $this->deleteDriver($driver->user_id);
+    }
+
+    private function deleteDriver(string $driverId)
+    {
+        $user = User::findOrFail($driverId);
+
+        // Vérifier s'il a des courses en cours
+        if ($user->driver && $user->driver->bookings()->whereIn('status', ['confirmed', 'in_progress'])->exists()) {
+            throw new \Exception('Impossible de supprimer un Agent avec des courses en cours.');
+        }
+
+        $user->delete();
     }
 }

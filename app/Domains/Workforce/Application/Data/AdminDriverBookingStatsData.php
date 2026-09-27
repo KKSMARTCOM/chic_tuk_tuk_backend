@@ -4,7 +4,7 @@ namespace App\Domains\Workforce\Application\Data;
 
 use App\Shared\Data\BaseData;
 
-/** Le cadre « Statistiques des courses » du dossier agent — DriverService::getDriverBookingStats(). */
+/** Le cadre « Statistiques des courses » du dossier agent — `ComputeDriverBookingStats`. */
 final class AdminDriverBookingStatsData extends BaseData
 {
     public function __construct(

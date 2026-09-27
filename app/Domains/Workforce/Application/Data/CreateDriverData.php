@@ -105,7 +105,7 @@ final class CreateDriverData extends BaseData
         ];
     }
 
-    /** Charge utile attendue par `DriverService::createDriver()`, préfixe `_contract_mode` compris. */
+    /** Charge utile attendue par `CreateDriver::createDriver()`, préfixe `_contract_mode` compris. */
     public function toServicePayload(): array
     {
         return [

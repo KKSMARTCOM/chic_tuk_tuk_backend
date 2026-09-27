@@ -29,7 +29,7 @@ class AdminDriverCreateApiTest extends TestCase
     {
         parent::setUp();
 
-        // `DriverService::createDriver()` fait `$user->assignRole('driver')` : le rôle
+        // `CreateDriver` fait `$user->assignRole('driver')` : le rôle
         // doit exister, ce qu'une base de test fraîche ne fait pas sans le seeder de
         // référence.
         Role::firstOrCreate(['name' => 'driver', 'guard_name' => 'web']);
