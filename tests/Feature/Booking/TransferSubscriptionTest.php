@@ -2,15 +2,13 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Booking\Application\Actions\TransferSubscription;
 use App\Models\Booking;
-use App\Models\User;
 use App\Services\BookingService;
 use App\Services\FcmNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 use Mockery;
-use Spatie\Permission\Models\Permission;
 use Tests\Feature\Booking\Concerns\BuildsSubscriptions;
 use Tests\TestCase;
 
@@ -34,7 +32,7 @@ class TransferSubscriptionTest extends TestCase
 
     private function transfer(Booking $parent, string $driverId): void
     {
-        app(BookingService::class)->transferSubscription($parent->id, $driverId);
+        app(TransferSubscription::class)($parent->id, $driverId);
     }
 
     public function test_le_nouvel_agent_devient_titulaire_et_recupere_les_courses_a_venir(): void
@@ -154,7 +152,7 @@ class TransferSubscriptionTest extends TestCase
         $child = $this->makeChild($parent);
 
         $this->expectExceptionMessage('Seul un abonnement parent');
-        app(BookingService::class)->transferSubscription($child->id, $this->makeDriver()->id);
+        app(TransferSubscription::class)($child->id, $this->makeDriver()->id);
     }
 
     public function test_refuse_un_agent_inactif(): void
@@ -166,75 +164,5 @@ class TransferSubscriptionTest extends TestCase
 
         $this->expectExceptionMessage("n'est pas disponible");
         $this->transfer($parent, $b->id);
-    }
-
-    // ----- Par la route de l'administration ---------------------------------------
-
-    private function admin(array $permissions): User
-    {
-        $admin = User::create([
-            'name' => 'Admin',
-            'email' => Str::uuid().'@example.test',
-            'phone' => '91'.random_int(100000, 999999),
-            'profil' => 'admin',
-            'password' => bcrypt('secret'),
-            'is_active' => true,
-        ]);
-        foreach ($permissions as $permission) {
-            $admin->givePermissionTo(Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']));
-        }
-
-        return $admin;
-    }
-
-    public function test_la_route_transfere_pour_un_admin_autorise(): void
-    {
-        $a = $this->makeDriver();
-        $b = $this->makeDriver();
-        $parent = $this->makeParent(['status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
-
-        $this->actingAs($this->admin(['edit-bookings']))
-            ->postJson("/admin/bookings/{$parent->id}/transfer-subscription", ['driver_id' => $b->id])
-            ->assertOk()
-            ->assertJsonPath('success', true);
-
-        $this->assertSame($b->id, $parent->refresh()->subscription_driver_id);
-    }
-
-    public function test_la_route_explique_un_refus(): void
-    {
-        $a = $this->makeDriver();
-        $parent = $this->makeParent(['status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
-
-        $this->actingAs($this->admin(['edit-bookings']))
-            ->postJson("/admin/bookings/{$parent->id}/transfer-subscription", ['driver_id' => $a->id])
-            ->assertStatus(400)
-            ->assertJsonPath('message', 'Cet agent est déjà titulaire de cet abonnement.');
-    }
-
-    public function test_la_route_exige_edit_bookings(): void
-    {
-        $a = $this->makeDriver();
-        $b = $this->makeDriver();
-        $parent = $this->makeParent(['status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
-
-        $this->actingAs($this->admin(['view-bookings']))
-            ->postJson("/admin/bookings/{$parent->id}/transfer-subscription", ['driver_id' => $b->id]);
-
-        $this->assertSame($a->id, $parent->refresh()->subscription_driver_id);
-    }
-
-    /** Le bouton n'apparaît que sur un abonnement parent déjà pris. */
-    public function test_le_bouton_napparait_que_sur_un_parent_deja_pris(): void
-    {
-        $a = $this->makeDriver();
-        $admin = $this->admin(['view-bookings', 'edit-bookings']);
-        $taken = $this->makeParent(['status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
-        $free = $this->makeParent(['status' => 'pending']);
-        $child = $this->makeChild($taken);
-
-        $this->actingAs($admin)->get("/admin/bookings/{$taken->id}")->assertOk()->assertSee("Transférer l'abonnement", false);
-        $this->actingAs($admin)->get("/admin/bookings/{$free->id}")->assertOk()->assertDontSee("Transférer l'abonnement", false);
-        $this->actingAs($admin)->get("/admin/bookings/{$child->id}")->assertOk()->assertDontSee("Transférer l'abonnement", false);
     }
 }

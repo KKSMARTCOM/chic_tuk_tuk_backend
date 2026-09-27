@@ -9,7 +9,6 @@ use App\Services\CommissionService;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
-use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -167,54 +166,5 @@ class DriverSubscriptionRevenueTest extends TestCase
             'payment_method' => 'cash',
             'payment_date' => now()->toDateString(),
         ]);
-    }
-
-    private function loginAsAdmin(): User
-    {
-        Permission::firstOrCreate(['name' => 'view-drivers', 'guard_name' => 'web']);
-
-        $admin = User::create([
-            'name' => 'Admin Test',
-            'email' => Str::uuid().'@example.test',
-            'phone' => '97'.random_int(100000, 999999),
-            'profil' => 'admin',
-            'password' => bcrypt('secret'),
-        ]);
-        $admin->givePermissionTo('view-drivers');
-
-        $this->actingAs($admin);
-
-        return $admin;
-    }
-
-    public function test_le_dossier_agent_affiche_le_cadre_revenus_abonnements(): void
-    {
-        $this->loginAsAdmin();
-
-        $driver = $this->makeDriver();
-        $parent = Booking::create(array_merge($this->bookingDefaults(), [
-            'driver_id' => $driver->id,
-            'is_recurring' => true,
-            'driver_earning' => 5000,
-        ]));
-
-        $response = $this->get(route('admin.drivers.show', $driver->user_id));
-
-        $response->assertOk();
-        $response->assertSee('Revenus abonnements');
-        $response->assertSee($parent->booking_number);
-        $response->assertSee('5 000', false);
-    }
-
-    public function test_le_dossier_agent_naffiche_pas_le_cadre_sans_revenu_abonnement(): void
-    {
-        $this->loginAsAdmin();
-
-        $driver = $this->makeDriver();
-
-        $response = $this->get(route('admin.drivers.show', $driver->user_id));
-
-        $response->assertOk();
-        $response->assertDontSee('Revenus abonnements');
     }
 }

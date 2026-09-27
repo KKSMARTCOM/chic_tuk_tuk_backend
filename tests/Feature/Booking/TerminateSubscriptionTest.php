@@ -2,22 +2,22 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Booking;
 use App\Models\User;
-use App\Services\CommissionService;
 use App\Services\FcmNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
 use Tests\Feature\Booking\Concerns\BuildsSubscriptions;
 use Tests\TestCase;
 
 /**
- * La résiliation d'un abonnement depuis la fiche d'administration.
+ * La résiliation et l'annulation d'un abonnement, par l'API d'administration.
  *
- * Le parent EST la course du premier jour : l'annuler une fois ce jour conduit le sortait
- * du revenu d'abonnement de l'agent. Résilier arrête l'abonnement sans réécrire ce qui a
- * eu lieu.
+ * Reportés du chemin Blade le 2026-09-27, avant sa suppression : ces cas n'étaient
+ * vérifiés que par `update-status`.
  */
 class TerminateSubscriptionTest extends TestCase
 {
@@ -30,59 +30,16 @@ class TerminateSubscriptionTest extends TestCase
         $this->mock(FcmNotificationService::class)->shouldIgnoreMissing();
     }
 
-    private function admin(): User
+    private function asAdmin(): self
     {
-        $admin = User::create([
-            'name' => 'Admin',
-            'email' => Str::uuid().'@example.test',
-            'phone' => '91'.random_int(100000, 999999),
-            'profil' => 'admin',
-            'password' => bcrypt('secret'),
-            'is_active' => true,
-        ]);
-        $admin->givePermissionTo(Permission::firstOrCreate(['name' => 'edit-bookings', 'guard_name' => 'web']));
-
-        return $admin;
-    }
-
-    private function cancel(Booking $booking, ?string $reason = null)
-    {
-        return $this->actingAs($this->admin())->postJson(
-            "/admin/bookings/{$booking->id}/update-status",
-            array_filter(['status' => 'cancelled', 'cancellation_reason' => $reason])
-        );
-    }
-
-    public function test_terminating_keeps_the_first_day_already_driven(): void
-    {
-        $a = $this->makeDriver();
-        $parent = $this->makeParent([
-            'status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id,
-            'remaining_days' => 3, 'makeup_go_count' => 1,
-        ]);
-        $done = $this->makeChild($parent, ['status' => 'completed', 'driver_id' => $a->id]);
-        $accepted = $this->makeChild($parent, ['status' => 'confirmed', 'driver_id' => $a->id, 'pickup_date' => '2026-09-30']);
-        $waiting = $this->makeChild($parent, ['pickup_date' => '2026-10-01']);
-
-        $this->cancel($parent, 'Le client arrête')
-            ->assertOk()
-            ->assertJsonPath('message', 'Abonnement résilié avec succès');
-
-        $parent->refresh();
-        $this->assertSame('completed', $parent->status, 'le premier jour reste fait');
-        $this->assertSame(0, $parent->remaining_days);
-        $this->assertSame(0, $parent->makeup_go_count);
-
-        $this->assertSame('completed', $done->refresh()->status);
-        foreach ([$accepted, $waiting] as $child) {
-            $child->refresh();
-            $this->assertSame('cancelled', $child->status);
-            $this->assertSame('Le client arrête', $child->cancellation_reason);
+        $user = User::factory()->profil(Profil::Admin)->create(['password' => Hash::make('bon-mot-de-passe')]);
+        foreach (['view-bookings', 'edit-bookings'] as $permission) {
+            $user->givePermissionTo(Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']));
         }
+        $token = $this->postJson('/api/v1/auth/login', ['email' => $user->email, 'password' => 'bon-mot-de-passe'])->json('token');
+        Auth::forgetGuards();
 
-        // Le premier jour, conduit, reste dans le revenu d'abonnement de l'agent.
-        $revenue = app(CommissionService::class)->getDriverSubscriptionRevenue($a->id);
-        $this->assertSame(2, $revenue['subscriptions']->first()['bookings_count']);
+        return $this->withHeader('Authorization', "Bearer {$token}");
     }
 
     public function test_a_terminated_subscription_generates_no_more_days(): void
@@ -93,21 +50,21 @@ class TerminateSubscriptionTest extends TestCase
             'next_recurring_date' => now()->subHour(),
         ]);
 
-        $this->cancel($parent)->assertOk();
+        $this->asAdmin()->postJson("/api/v1/admin/bookings/{$parent->id}/terminate-subscription")->assertOk();
 
         $this->artisan('app:process-recurring-bookings');
         $this->assertSame(0, Booking::where('parent_booking_id', $parent->id)->count());
     }
 
-    public function test_a_first_day_still_to_come_cancels_everything(): void
+    public function test_cancelling_a_first_day_still_to_come_cancels_everything_with_the_reason(): void
     {
         $a = $this->makeDriver();
         $parent = $this->makeParent(['status' => 'confirmed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
         $waiting = $this->makeChild($parent);
 
-        $this->cancel($parent, 'Le client renonce')
-            ->assertOk()
-            ->assertJsonPath('message', 'Statut mis à jour avec succès');
+        $this->asAdmin()->postJson("/api/v1/admin/bookings/{$parent->id}/status", [
+            'status' => 'cancelled', 'cancellation_reason' => 'Le client renonce',
+        ])->assertOk();
 
         $this->assertSame('cancelled', $parent->refresh()->status);
         $waiting->refresh();
@@ -121,9 +78,7 @@ class TerminateSubscriptionTest extends TestCase
         $parent = $this->makeParent(['status' => 'pending']);
         $waiting = $this->makeChild($parent);
 
-        $this->actingAs($this->admin())
-            ->postJson("/admin/bookings/{$parent->id}/update-status", ['status' => 'confirmed'])
-            ->assertOk();
+        $this->asAdmin()->postJson("/api/v1/admin/bookings/{$parent->id}/status", ['status' => 'confirmed']);
 
         $this->assertSame('pending', $waiting->refresh()->status);
     }

@@ -4,7 +4,6 @@ namespace Tests\Feature\Identity;
 
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\User;
-use Database\Seeders\ReferenceRolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -74,21 +73,5 @@ class DisabledAccountSessionTest extends TestCase
         $user->forceFill(['is_active' => true])->save();
 
         $this->asBearer($token)->getJson('/api/v1/auth/me')->assertOk();
-    }
-
-    public function test_a_blade_session_ends_when_the_account_is_disabled(): void
-    {
-        $this->seed(ReferenceRolesAndPermissionsSeeder::class);
-        $admin = User::factory()->profil(Profil::Admin)->create(['is_active' => true]);
-        $admin->assignRole('admin');
-
-        $this->actingAs($admin, 'web')->get(route('admin.dashboard'))->assertOk();
-
-        $admin->forceFill(['is_active' => false])->save();
-
-        $this->actingAs($admin->fresh(), 'web')->get(route('admin.dashboard'))
-            ->assertRedirect(route('login'))
-            ->assertSessionHas('error');
-        $this->assertGuest('web');
     }
 }

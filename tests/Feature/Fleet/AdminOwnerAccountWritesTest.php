@@ -174,22 +174,4 @@ class AdminOwnerAccountWritesTest extends TestCase
 
         $this->assertDatabaseHas('users', ['id' => $agent->id]);
     }
-
-    public function test_the_blade_path_refuses_too(): void
-    {
-        // Le Blade supprime par `/admin/users/{user}` et `UserService::delete()` : la
-        // règle y vit, pour que les deux chemins la partagent. `delete-users` et non plus
-        // `view-users` depuis le découpage des routes Blade du 2026-09-26.
-        $admin = $this->admin(['delete-users']);
-        $owner = $this->owner();
-        Vehicle::factory()->create(['owner_id' => $owner->id]);
-
-        $this->actingAs($admin)
-            ->from(route('admin.owners.index'))
-            ->delete(route('admin.users.destroy', $owner))
-            ->assertRedirect(route('admin.owners.index'))
-            ->assertSessionHas('error');
-
-        $this->assertDatabaseHas('users', ['id' => $owner->id]);
-    }
 }

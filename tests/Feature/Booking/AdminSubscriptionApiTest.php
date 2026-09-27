@@ -74,6 +74,12 @@ class AdminSubscriptionApiTest extends TestCase
             ->assertJsonPath('can_transfer_subscription', false);
         $this->asBearer($token)->getJson("/api/v1/admin/bookings/{$over->id}")
             ->assertJsonPath('can_transfer_subscription', false);
+
+        // Une course enfant ne se transfère pas seule : c'est l'abonnement qui change de titulaire.
+        $child = $this->makeChild($taken);
+        $this->asBearer($token)->getJson("/api/v1/admin/bookings/{$child->id}")
+            ->assertOk()
+            ->assertJsonPath('can_transfer_subscription', false);
     }
 
     public function test_a_subscription_is_transferred_to_another_agent(): void
@@ -181,22 +187,5 @@ class AdminSubscriptionApiTest extends TestCase
             ->assertStatus(409)->assertJsonPath('code', 'SUBSCRIPTION_NOT_RUNNING');
         $this->asBearer($token)->postJson("/api/v1/admin/bookings/{$unique->id}/terminate-subscription")
             ->assertStatus(409)->assertJsonPath('code', 'SUBSCRIPTION_NOT_RUNNING');
-    }
-
-    public function test_the_blade_path_no_longer_rewrites_the_first_day_when_terminating(): void
-    {
-        $admin = User::factory()->profil(Profil::Admin)->create();
-        $admin->givePermissionTo(Permission::firstOrCreate(['name' => 'edit-bookings', 'guard_name' => 'web']));
-        $a = $this->makeDriver();
-        $parent = $this->makeParent(['status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
-        $waiting = $this->makeChild($parent);
-
-        $this->actingAs($admin)
-            ->postJson(route('admin.bookings.update-status', $parent), ['status' => 'cancelled', 'cancellation_reason' => 'Fin'])
-            ->assertOk();
-
-        $this->assertSame('completed', $parent->refresh()->status);
-        $this->assertSame(0, $parent->remaining_days);
-        $this->assertSame('cancelled', $waiting->refresh()->status);
     }
 }
