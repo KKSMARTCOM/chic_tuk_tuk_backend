@@ -261,6 +261,19 @@ class BookingController extends Controller
                 ]
             );
 
+            // Un abonnement dont le premier jour est fait (ou non traité) se résilie sans
+            // réécrire ce jour : le passer à « Annulée » le sortait du revenu d'abonnement
+            // de l'agent (corrigé le 2026-09-27).
+            if ($validated['status'] === 'cancelled' && $this->bookingService->canTerminateSubscription($booking)) {
+                $this->bookingService->terminateSubscription($booking, $validated['cancellation_reason'] ?? null);
+
+                if ($request->wantsJson()) {
+                    return response()->json(['success' => true, 'message' => 'Abonnement résilié avec succès']);
+                }
+
+                return back()->with('success', 'Abonnement résilié avec succès');
+            }
+
             $updateData = ['_partial'  => true, 'status' => $validated['status']];
 
             if ($validated['status'] === 'cancelled') {
