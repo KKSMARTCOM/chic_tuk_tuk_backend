@@ -10,7 +10,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 /**
  * Un contrat propriétaire-véhicule — ex-`pages.admin.contracts.owner`.
  *
- * Les montants suivent `VehicleContractService::getStats()` : payé = paiements
+ * Les montants suivent l'ancien `VehicleContractService::getStats()` du Blade : payé = paiements
  * `completed`, en net. `isEditable` reprend la règle du service — pas de modification
  * tant que le véhicule a un agent actif — pour que l'écran l'annonce avant la saisie.
  * `isDeletable` fait de même pour la suppression.

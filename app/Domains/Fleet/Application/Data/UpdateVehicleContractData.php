@@ -49,7 +49,7 @@ final class UpdateVehicleContractData extends BaseData
         ];
     }
 
-    /** @return array<string, mixed> les clés de `VehicleContractService::update()` */
+    /** @return array<string, mixed> les clés qu'attend `UpdateVehicleContract` */
     public function toServicePayload(): array
     {
         return [

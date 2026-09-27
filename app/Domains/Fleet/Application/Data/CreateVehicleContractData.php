@@ -43,7 +43,7 @@ final class CreateVehicleContractData extends BaseData
         ];
     }
 
-    /** @return array<string, mixed> les clés de `VehicleContractService::create()` */
+    /** @return array<string, mixed> les clés qu'attend `CreateVehicleContract` */
     public function toServicePayload(): array
     {
         return [
