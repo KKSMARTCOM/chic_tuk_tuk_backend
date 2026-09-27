@@ -773,6 +773,63 @@ class BookingService
         return $parent->refresh();
     }
 
+    /**
+     * L'abonnement peut-il être RÉSILIÉ sans toucher au statut de son premier jour ?
+     *
+     * Un parent qui a encore des courses à produire (même règle que `$isActiveSubscription`
+     * dans `show.blade.php`) et dont le premier jour est fait ou non traité. Tant que ce
+     * jour est en attente ou accepté, la résiliation reste l'annulation ordinaire, qui
+     * annule tout : rien n'a encore été conduit.
+     */
+    public function canTerminateSubscription(Booking $booking): bool
+    {
+        return $booking->is_subscription_parent
+            && in_array($booking->status, ['completed', 'missed'])
+            && ($booking->remaining_days > 1
+                || $booking->makeup_go_count > 0
+                || $booking->makeup_return_count > 0);
+    }
+
+    /**
+     * Résilier un abonnement dont la course du premier jour est déjà faite ou non traitée
+     * (2026-09-27).
+     *
+     * ⚠️ Le parent EST la course du premier jour. L'annulation le passait à « Annulée », et
+     * ce jour — conduit, commissionné — sortait du revenu d'abonnement de l'agent, calculé
+     * sur les courses terminées. Ici, on arrête l'abonnement SANS réécrire ce qui a eu lieu :
+     *
+     *  - plus de jours à générer ni de trajets à rattraper — c'est ce que lisent le cron de
+     *    génération et la commande de rattrapage ;
+     *  - les courses à venir (en attente ou acceptées) sont annulées, avec le motif ;
+     *  - ce qui est en cours ou fait ne bouge pas.
+     */
+    public function terminateSubscription(Booking $parent, ?string $reason = null): Booking
+    {
+        if (!$this->canTerminateSubscription($parent)) {
+            throw new \Exception("Cet abonnement n'a plus de course à venir : il n'y a rien à résilier.");
+        }
+
+        return DB::transaction(function () use ($parent, $reason) {
+            $parent->update([
+                'remaining_days'      => 0,
+                'makeup_go_count'     => 0,
+                'makeup_return_count' => 0,
+            ]);
+
+            Booking::where('parent_booking_id', $parent->id)
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->update([
+                    'status'              => 'cancelled',
+                    'cancelled_at'        => now(),
+                    'cancellation_reason' => $reason ?: 'Abonnement résilié',
+                ]);
+
+            Log::info("[terminateSubscription] Abonnement {$parent->id} résilié");
+
+            return $parent->refresh();
+        });
+    }
+
     public function revokeFromSubscription(string $bookingId, string $driverId): Booking
     {
         return DB::transaction(function () use ($bookingId, $driverId) {
@@ -821,13 +878,16 @@ class BookingService
                     $data['subscription_driver_id'] = null;
                 }
 
-                if ($booking->is_subscription_parent) {
+                // Seule l'annulation du parent emporte ses courses à venir. ⚠️ La cascade
+                // partait à tout changement de statut, et lisait un `$validated` inexistant
+                // ici : le motif saisi n'atteignait jamais les courses (corrigé le 2026-09-27).
+                if ($booking->is_subscription_parent && ($data['status'] ?? null) === 'cancelled') {
                     Booking::where('parent_booking_id', $booking->id)
                         ->whereIn('status', ['pending', 'confirmed'])
                         ->update([
                             'status'              => 'cancelled',
                             'cancelled_at'        => now(),
-                            'cancellation_reason' => $validated['cancellation_reason'] ?? 'Abonnement annulé',
+                            'cancellation_reason' => $data['cancellation_reason'] ?? 'Abonnement annulé',
                         ]);
                 }
 
