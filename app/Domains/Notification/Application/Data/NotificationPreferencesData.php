@@ -14,7 +14,7 @@ use App\Shared\Data\BaseData;
  * gens qui reçoivent bel et bien des notifications, puis les couperait pour de bon au
  * premier enregistrement. Seul un `false` explicite désactive.
  *
- * C'est la même règle que celle appliquée à l'envoi, dans `FcmNotificationService` :
+ * C'est la même règle que celle appliquée à l'envoi, dans `PushSender` :
  * les deux doivent rester d'accord, sans quoi l'écran mentirait.
  */
 final class NotificationPreferencesData extends BaseData

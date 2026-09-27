@@ -3,9 +3,9 @@
 namespace Tests\Feature\Booking;
 
 use App\Domains\Booking\Application\Actions\TransferSubscription;
+use App\Domains\Notification\Application\PushSender;
 use App\Models\Booking;
 use App\Services\BookingService;
-use App\Services\FcmNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Mockery;
@@ -27,7 +27,7 @@ class TransferSubscriptionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mock(FcmNotificationService::class)->shouldIgnoreMissing();
+        $this->mock(PushSender::class)->shouldIgnoreMissing();
     }
 
     private function transfer(Booking $parent, string $driverId): void
@@ -121,9 +121,9 @@ class TransferSubscriptionTest extends TestCase
         $b = $this->makeDriver();
         $parent = $this->makeParent(['status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
 
-        $fcm = Mockery::mock(FcmNotificationService::class);
+        $fcm = Mockery::mock(PushSender::class);
         $fcm->shouldReceive('sendToUser')->once()->withArgs(fn ($user) => $user->id === $b->user_id);
-        $this->app->instance(FcmNotificationService::class, $fcm);
+        $this->app->instance(PushSender::class, $fcm);
 
         $this->transfer($parent, $b->id);
     }

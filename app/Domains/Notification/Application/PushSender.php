@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Domains\Notification\Application;
 
 use App\Models\Notification;
 use App\Models\User;
@@ -27,8 +27,11 @@ use Kreait\Firebase\Messaging\Notification as FcmNotification;
  *     observer ce qui partait. Le contrat se résout désormais depuis le conteneur —
  *     paresseusement, pour qu'un environnement sans identifiants Firebase n'échoue pas
  *     à la simple construction du service.
+ *
+ * Ex-`App\Services\FcmNotificationService`, déplacé et renommé sans changement le
+ * 2026-09-27. Non `final` : les tests en dérivent une doublure.
  */
-class FcmNotificationService
+class PushSender
 {
     /**
      * Envoie à un utilisateur : la trace en base d'abord, le push ensuite.

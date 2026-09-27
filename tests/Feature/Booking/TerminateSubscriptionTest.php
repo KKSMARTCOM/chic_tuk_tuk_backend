@@ -3,9 +3,9 @@
 namespace Tests\Feature\Booking;
 
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Domains\Notification\Application\PushSender;
 use App\Models\Booking;
 use App\Models\User;
-use App\Services\FcmNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -27,7 +27,7 @@ class TerminateSubscriptionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mock(FcmNotificationService::class)->shouldIgnoreMissing();
+        $this->mock(PushSender::class)->shouldIgnoreMissing();
     }
 
     private function asAdmin(): self

@@ -7,13 +7,13 @@ use App\Domains\Booking\Application\Actions\CancelBooking;
 use App\Domains\Booking\Application\Actions\CompleteBooking;
 use App\Domains\Booking\Application\Actions\StartBooking;
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Domains\Notification\Application\PushSender;
 use App\Domains\Workforce\Application\Actions\RequestLeave;
 use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\Notification;
 use App\Models\User;
-use App\Services\FcmNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Kreait\Firebase\Contract\Messaging;
@@ -121,8 +121,8 @@ class NotificationHooksTest extends TestCase
         // ⚠️ La promesse la plus importante du lot. Ces actions tournent dans des
         // transactions : une exception levée par l'envoi annulerait l'acceptation de la
         // course elle-même. On simule la panne en rendant l'envoi impossible.
-        $this->app->bind(FcmNotificationService::class, function () {
-            return new class extends FcmNotificationService
+        $this->app->bind(PushSender::class, function () {
+            return new class extends PushSender
             {
                 public function sendToUser(User $user, string $title, string $body, array $data = []): void
                 {

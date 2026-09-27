@@ -3,10 +3,10 @@
 namespace Tests\Feature\Notification;
 
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Domains\Notification\Application\PushSender;
 use App\Models\FcmToken;
 use App\Models\Notification;
 use App\Models\User;
-use App\Services\FcmNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Kreait\Firebase\Contract\Messaging;
@@ -77,7 +77,7 @@ class PushSendingTest extends TestCase
         $envois = $this->espionnerFirebase();
         $this->agent(['push_notifications' => false]);
 
-        app(FcmNotificationService::class)->sendToDrivers('Titre', 'Corps');
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
 
         $this->assertSame([], $envois->cibles, 'un agent qui a refusé les push en a reçu un');
     }
@@ -90,7 +90,7 @@ class PushSendingTest extends TestCase
         $envois = $this->espionnerFirebase();
         $user = $this->agent([]);
 
-        app(FcmNotificationService::class)->sendToDrivers('Titre', 'Corps');
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
 
         $this->assertSame(['jeton-'.$user->id], $envois->cibles);
     }
@@ -100,7 +100,7 @@ class PushSendingTest extends TestCase
         $envois = $this->espionnerFirebase();
         $user = $this->agent(['push_notifications' => true]);
 
-        app(FcmNotificationService::class)->sendToDrivers('Titre', 'Corps');
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
 
         $this->assertSame(['jeton-'.$user->id], $envois->cibles);
     }
@@ -110,7 +110,7 @@ class PushSendingTest extends TestCase
         $this->espionnerFirebase();
         $user = $this->agent([]);
 
-        app(FcmNotificationService::class)->sendToDrivers(
+        app(PushSender::class)->sendToDrivers(
             'Nouvelle réservation disponible',
             'Trajet : Cotonou → Calavi',
             ['url' => '/driver/bookings/available'],
@@ -131,7 +131,7 @@ class PushSendingTest extends TestCase
         $this->espionnerFirebase();
         $user = User::factory()->profil(Profil::Driver)->create(['notification_preferences' => []]);
 
-        app(FcmNotificationService::class)->sendToDrivers('Titre', 'Corps');
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
 
         $this->assertDatabaseHas('notifications', ['user_id' => $user->id, 'title' => 'Titre']);
     }
@@ -143,7 +143,7 @@ class PushSendingTest extends TestCase
         $this->espionnerFirebase();
         $user = $this->agent(['push_notifications' => false]);
 
-        app(FcmNotificationService::class)->sendToDrivers('Titre', 'Corps');
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
 
         $this->assertDatabaseHas('notifications', ['user_id' => $user->id, 'title' => 'Titre']);
     }

@@ -7,7 +7,6 @@ use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\VehiclePause;
-use App\Services\FcmNotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -57,7 +56,7 @@ use Illuminate\Support\Facades\Log;
  */
 final class Notifier
 {
-    public function __construct(private readonly FcmNotificationService $push) {}
+    public function __construct(private readonly PushSender $push) {}
 
     // ----- Réservations ------------------------------------------------------
 
