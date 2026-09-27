@@ -37,6 +37,7 @@ driver_id: string | null;
 driver_name: string | null;
 driver_phone: string | null;
 subscription_driver_name: string | null;
+subscription_driver_id: string | null;
 is_recurring: boolean;
 parent_booking_id: string | null;
 parent_booking_number: string | null;
@@ -58,6 +59,8 @@ can_remove_driver: boolean;
 can_delete: boolean;
 can_reopen: boolean;
 can_edit: boolean;
+can_transfer_subscription: boolean;
+can_terminate_subscription: boolean;
 };
 export type AdminBookingListItemData = {
 id: string;
@@ -295,6 +298,12 @@ days: number;
 total_price: number;
 surcharge_amount: number;
 surcharge_free_window: string;
+};
+export type TerminateSubscriptionData = {
+cancellation_reason: string | null;
+};
+export type TransferSubscriptionData = {
+driver_id: string;
 };
 export type UpdateAdminBookingData = {
 client_name: string | null;

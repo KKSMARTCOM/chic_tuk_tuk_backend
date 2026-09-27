@@ -294,6 +294,13 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             // son compteur de trajets. Ce n'est pas un changement d'étiquette.
             Route::post('/bookings/{booking}/reopen', [BookingController::class, 'reopen'])
                 ->name('bookings.reopen');
+            // Les deux gestes d'abonnement du Blade de production (2026-09-25), reportés
+            // le 2026-09-27. La résiliation ne concerne que les abonnements dont le
+            // premier jour est fait : les autres passent par `status`.
+            Route::post('/bookings/{booking}/transfer-subscription', [BookingController::class, 'transferSubscription'])
+                ->name('bookings.transfer-subscription');
+            Route::post('/bookings/{booking}/terminate-subscription', [BookingController::class, 'terminateSubscription'])
+                ->name('bookings.terminate-subscription');
         });
 
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])

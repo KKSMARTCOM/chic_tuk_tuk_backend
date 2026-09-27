@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domains\Booking\Application\Actions\TerminateSubscription;
+use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Driver;
@@ -260,6 +262,19 @@ class BookingController extends Controller
                     'status.in' => 'Le statut sélectionné est invalide.',
                 ]
             );
+
+            // Un abonnement dont le premier jour est fait (ou non traité) se résilie sans
+            // réécrire ce jour : le passer à « Annulée » le sortait du revenu d'abonnement
+            // de l'agent (corrigé le 2026-09-27, même règle que l'API).
+            if ($validated['status'] === 'cancelled' && BookingLifecycle::canTerminateSubscription($booking)) {
+                app(TerminateSubscription::class)($booking, $validated['cancellation_reason'] ?? null);
+
+                if ($request->wantsJson()) {
+                    return response()->json(['success' => true, 'message' => 'Abonnement résilié avec succès']);
+                }
+
+                return back()->with('success', 'Abonnement résilié avec succès');
+            }
 
             $updateData = ['_partial'  => true, 'status' => $validated['status']];
 

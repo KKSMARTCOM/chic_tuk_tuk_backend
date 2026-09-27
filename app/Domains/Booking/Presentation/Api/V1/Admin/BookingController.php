@@ -11,6 +11,8 @@ use App\Domains\Booking\Application\Actions\ListAssignableDrivers;
 use App\Domains\Booking\Application\Actions\QuotePrice;
 use App\Domains\Booking\Application\Actions\RemoveDriverFromBooking;
 use App\Domains\Booking\Application\Actions\ReopenCompletedBooking;
+use App\Domains\Booking\Application\Actions\TerminateSubscription;
+use App\Domains\Booking\Application\Actions\TransferSubscription;
 use App\Domains\Booking\Application\Actions\UpdateAdminBooking;
 use App\Domains\Booking\Application\Data\AdminBookingDetailData;
 use App\Domains\Booking\Application\Data\AdminBookingPageData;
@@ -19,6 +21,8 @@ use App\Domains\Booking\Application\Data\AssignDriverData;
 use App\Domains\Booking\Application\Data\CalculatePriceData;
 use App\Domains\Booking\Application\Data\ChangeBookingStatusData;
 use App\Domains\Booking\Application\Data\CreateAdminBookingData;
+use App\Domains\Booking\Application\Data\TerminateSubscriptionData;
+use App\Domains\Booking\Application\Data\TransferSubscriptionData;
 use App\Domains\Booking\Application\Data\UpdateAdminBookingData;
 use App\Models\Booking;
 use App\Models\Driver;
@@ -218,6 +222,56 @@ final class BookingController
         } catch (\Throwable $e) {
             return $this->failed($e, $request, 'le changement de statut d\'une réservation',
                 'Le statut n\'a pas pu être modifié.', 'BOOKING_STATUS_FAILED');
+        }
+    }
+
+    /**
+     * Transférer un abonnement à un autre agent — livré en production par le Blade le
+     * 2026-09-25, reporté le 2026-09-27. La règle vit dans `TransferSubscription`.
+     */
+    public function transferSubscription(
+        Request $request,
+        string $bookingId,
+        TransferSubscriptionData $data,
+        TransferSubscription $transfer,
+    ): JsonResponse {
+        try {
+            $booking = Booking::findOrFail($bookingId);
+
+            return response()->json(AdminBookingDetailData::fromModel(
+                $transfer($booking->id, $data->driverId)
+                    ->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
+            ));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failed($e, $request, 'le transfert d\'un abonnement',
+                'Cet abonnement n\'a pas pu être transféré.', 'SUBSCRIPTION_TRANSFER_FAILED');
+        }
+    }
+
+    /**
+     * Résilier un abonnement dont le premier jour est fait ou non traité, sans réécrire ce
+     * jour : voir `TerminateSubscription`.
+     */
+    public function terminateSubscription(
+        Request $request,
+        string $bookingId,
+        TerminateSubscriptionData $data,
+        TerminateSubscription $terminate,
+    ): JsonResponse {
+        try {
+            $booking = Booking::findOrFail($bookingId);
+
+            return response()->json(AdminBookingDetailData::fromModel(
+                $terminate($booking, $data->cancellationReason)
+                    ->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
+            ));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failed($e, $request, 'la résiliation d\'un abonnement',
+                'Cet abonnement n\'a pas pu être résilié.', 'SUBSCRIPTION_TERMINATE_FAILED');
         }
     }
 

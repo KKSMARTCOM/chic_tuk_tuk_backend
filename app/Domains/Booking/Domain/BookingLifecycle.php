@@ -142,4 +142,55 @@ final class BookingLifecycle
     {
         return in_array($booking->status, ['cancelled', 'expired'], true);
     }
+
+    /**
+     * L'abonnement a-t-il encore des courses à produire ?
+     *
+     * Repris de `$isActiveSubscription` dans `show.blade.php` (livré en production le
+     * 2026-09-25) : un parent qui a encore des jours à générer, ou des trajets non traités
+     * à rattraper. ⚠️ `remaining_days > 1` et non `> 0` : le jour en cours est compté, un
+     * abonnement de N jours fait N journées (« Dernier jour » à 1).
+     */
+    public static function isRunningSubscription(Booking $booking): bool
+    {
+        return $booking->is_subscription_parent
+            && ! in_array($booking->status, ['cancelled', 'expired'], true)
+            && ($booking->remaining_days > 1
+                || $booking->makeup_go_count > 0
+                || $booking->makeup_return_count > 0);
+    }
+
+    /**
+     * L'abonnement peut-il être TRANSFÉRÉ à un autre agent ?
+     *
+     * Repris de `$canTransfer` : un parent déjà pris, tant qu'il reste des courses à faire
+     * — à générer, à rattraper, ou déjà générées et pas encore faites.
+     */
+    public static function canTransferSubscription(Booking $booking): bool
+    {
+        if (! $booking->is_subscription_parent || ! $booking->subscription_driver_id) {
+            return false;
+        }
+
+        if (in_array($booking->status, ['cancelled', 'expired'], true)) {
+            return false;
+        }
+
+        return self::isRunningSubscription($booking)
+            || $booking->childBookings()->whereIn('status', ['pending', 'confirmed'])->exists();
+    }
+
+    /**
+     * L'abonnement peut-il être RÉSILIÉ sans toucher au statut de son premier jour ?
+     *
+     * ⚠️ Le parent EST la course du premier jour. Quand celle-ci est faite (ou non
+     * traitée), l'annuler — ce que faisait le Blade — la sortait du revenu d'abonnement
+     * de l'agent, calculé sur les courses terminées. Tant qu'elle est en attente ou
+     * acceptée, la résiliation reste le changement de statut ordinaire, qui annule tout.
+     */
+    public static function canTerminateSubscription(Booking $booking): bool
+    {
+        return self::isRunningSubscription($booking)
+            && in_array($booking->status, ['completed', 'missed'], true);
+    }
 }

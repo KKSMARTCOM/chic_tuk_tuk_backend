@@ -245,8 +245,16 @@ avec le mainteneur.
 - subscription_driver_id propagé depuis le parent sur tous les enfants
 - Révocation : is_revoked=true, subscription_driver_id=null sur la course révoquée uniquement
 - Résiliation : il n'existe PAS de statut `suspended` (ni en base, ni dans le code).
-  Un abonnement résilié est annulé : `cancel()` sur le parent passe le parent et ses
-  enfants pending en `cancelled`, la suppression se fait ensuite si besoin.
+  Un abonnement dont le parent est encore en attente ou accepté s'annule : le parent et
+  ses enfants pending passent en `cancelled`.
+  ⚠️ **Le parent EST la course du premier jour.** Quand elle est faite (ou non traitée),
+  la résiliation passe par `TerminateSubscription` (2026-09-27, API et Blade) : plus de
+  jours ni de rattrapages, courses à venir annulées, et le parent GARDE son statut. Le
+  Blade le passait à « Annulée », ce qui sortait ce jour, conduit, du revenu d'abonnement
+  de l'agent. `BookingLifecycle::isRunningSubscription()` porte la règle du Blade :
+  `remaining_days > 1` ou des trajets à rattraper.
+- Transfert à un autre agent : `TransferSubscription` (livré en production le 2026-09-25,
+  déplacé dans le domaine et exposé à l'API le 2026-09-27 ; `BookingService` délègue).
 
 ### take() — Acceptation
 

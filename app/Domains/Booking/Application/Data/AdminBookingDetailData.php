@@ -101,6 +101,8 @@ final class AdminBookingDetailData extends BaseData
         public ?string $driverPhone,
         /** L'agent titulaire d'un abonnement, qui n'est pas celui d'une course donnée. */
         public ?string $subscriptionDriverName,
+        /** Son identifiant d'AGENT : le transfert l'exclut de la liste des candidats. */
+        public ?string $subscriptionDriverId,
 
         // ----- L'abonnement --------------------------------------------------
         public bool $isRecurring,
@@ -159,6 +161,13 @@ final class AdminBookingDetailData extends BaseData
         public bool $canReopen,
         /** Le bouton « Modifier » — uniquement une réservation EN ATTENTE. */
         public bool $canEdit,
+        /**
+         * Les deux gestes d'abonnement livrés en production par le Blade le 2026-09-25
+         * et reportés le 2026-09-27 : voir `BookingLifecycle::canTransferSubscription()`
+         * et `canTerminateSubscription()`.
+         */
+        public bool $canTransferSubscription,
+        public bool $canTerminateSubscription,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -209,6 +218,7 @@ final class AdminBookingDetailData extends BaseData
             driverName: $booking->driver?->user?->name,
             driverPhone: $booking->driver?->user?->phone,
             subscriptionDriverName: $booking->subscriptionDriver?->user?->name,
+            subscriptionDriverId: $booking->subscription_driver_id,
 
             isRecurring: (bool) $booking->is_recurring,
             parentBookingId: $booking->parent_booking_id,
@@ -234,6 +244,8 @@ final class AdminBookingDetailData extends BaseData
             canDelete: BookingLifecycle::canDelete($booking),
             canReopen: BookingLifecycle::canReopen($booking),
             canEdit: BookingLifecycle::canEdit($booking),
+            canTransferSubscription: BookingLifecycle::canTransferSubscription($booking),
+            canTerminateSubscription: BookingLifecycle::canTerminateSubscription($booking),
         );
     }
 }
