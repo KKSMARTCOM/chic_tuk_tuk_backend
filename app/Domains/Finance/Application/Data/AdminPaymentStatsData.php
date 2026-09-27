@@ -24,7 +24,7 @@ final class AdminPaymentStatsData extends BaseData
         public int $cancelledPaymentsCount,
     ) {}
 
-    /** @param  array<string, mixed>  $stats  `PaymentService::getPaymentStats()` */
+    /** @param  array<string, mixed>  $stats  `ListPayments::getPaymentStats()` */
     public static function fromStats(array $stats): self
     {
         return new self(

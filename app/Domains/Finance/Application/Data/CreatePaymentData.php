@@ -53,7 +53,7 @@ final class CreatePaymentData extends BaseData
         ];
     }
 
-    /** @return array<string, mixed> les clés de `PaymentService::create()` */
+    /** @return array<string, mixed> les clés qu'attend `CreatePayment` */
     public function toServicePayload(): array
     {
         return [

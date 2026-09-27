@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\PaymentService;
+use App\Domains\Finance\Application\Actions\GenerateDailyContractPayments;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -22,7 +22,7 @@ class GenerateDailyContractPayment extends Command
      */
     protected $description = 'Génère les paiements journaliers sur contrat pour chaque agent actif';
 
-    public function __construct(private PaymentService $paymentService)
+    public function __construct(private GenerateDailyContractPayments $generatePayments)
     {
         parent::__construct();
     }
@@ -39,18 +39,19 @@ class GenerateDailyContractPayment extends Command
 
         if ($date->isWeekend()) {
             $this->warn("[{$date->toDateString()}] Jour de week-end — aucun paiement généré.");
+
             return self::SUCCESS;
         }
 
         $this->info("[{$date->toDateString()}] Génération des paiements journaliers...");
 
-        $result = $this->paymentService->generateDailyContractPayments($date);
+        $result = ($this->generatePayments)($date);
 
         foreach ($result['errors'] as $error) {
             $this->error("  ✗ Contrat #{$error['contract_id']} — {$error['message']}");
         }
 
-        $this->info("Terminé — {$result['generated']} généré(s), {$result['skipped']} ignoré(s), " . count($result['errors']) . " erreur(s).");
+        $this->info("Terminé — {$result['generated']} généré(s), {$result['skipped']} ignoré(s), ".count($result['errors']).' erreur(s).');
 
         return count($result['errors']) > 0 ? self::FAILURE : self::SUCCESS;
     }

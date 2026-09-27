@@ -7,7 +7,7 @@ use App\Shared\Data\BaseData;
 
 /**
  * Le « Résumé de l'agent » : commissions DUES, paiements de commission VALIDÉS, et ce
- * qu'il reste — `PaymentService::getDriverPayments()`.
+ * qu'il reste — `FindDriverPayments`.
  */
 final class AdminDriverPaymentSummaryData extends BaseData
 {

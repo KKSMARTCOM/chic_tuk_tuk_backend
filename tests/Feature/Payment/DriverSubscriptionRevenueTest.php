@@ -3,10 +3,10 @@
 namespace Tests\Feature\Payment;
 
 use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
+use App\Domains\Finance\Application\Actions\CreatePayment;
 use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\User;
-use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -144,10 +144,10 @@ class DriverSubscriptionRevenueTest extends TestCase
             'driver_earning' => 5000,
         ]));
 
-        $service = app(PaymentService::class);
+        $createPayment = app(CreatePayment::class);
 
         // Un premier paiement partiel passe.
-        $service->create([
+        $createPayment([
             'driver_id' => $driver->id,
             'payment_type' => 'subscription_revenue',
             'amount' => 3000,
@@ -159,7 +159,7 @@ class DriverSubscriptionRevenueTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('dépasse le revenu abonnement restant dû');
 
-        $service->create([
+        $createPayment([
             'driver_id' => $driver->id,
             'payment_type' => 'subscription_revenue',
             'amount' => 2001,

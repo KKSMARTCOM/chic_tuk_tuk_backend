@@ -49,7 +49,7 @@ final class UpdatePaymentData extends BaseData
         ];
     }
 
-    /** @return array<string, mixed> les clés de `PaymentService::update()` */
+    /** @return array<string, mixed> les clés qu'attend `UpdatePayment` */
     public function toServicePayload(): array
     {
         return [
