@@ -394,13 +394,16 @@ class BookingService
                     $data['subscription_driver_id'] = null;
                 }
 
-                if ($booking->is_subscription_parent) {
+                // Seule l'annulation du parent emporte ses courses à venir. ⚠️ La cascade
+                // partait à tout changement de statut, et lisait un `$validated` inexistant
+                // ici : le motif saisi n'atteignait jamais les courses (corrigé le 2026-09-27).
+                if ($booking->is_subscription_parent && ($data['status'] ?? null) === 'cancelled') {
                     Booking::where('parent_booking_id', $booking->id)
                         ->whereIn('status', ['pending', 'confirmed'])
                         ->update([
                             'status'              => 'cancelled',
                             'cancelled_at'        => now(),
-                            'cancellation_reason' => $validated['cancellation_reason'] ?? 'Abonnement annulé',
+                            'cancellation_reason' => $data['cancellation_reason'] ?? 'Abonnement annulé',
                         ]);
                 }
 
