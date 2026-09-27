@@ -155,11 +155,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         // si le code la vérifie — elle naît ici.
         'view-permissions' => ['Voir les permissions', 'Voir la liste des permissions'],
 
-        // Tarifs
-        'create-pricing' => ['Créer un tarif', 'Créer un tarif'],
-        'edit-pricing' => ['Modifier un tarif', 'Modifier un tarif'],
-        'manage-pricing' => ['Gérer les tarifs', 'Gérer les tarifs'],
-        'view-pricing' => ['Voir les tarifs', 'Voir les tarifs'],
+        // Tarifs : `create-`, `edit-`, `manage-` et `view-pricing` retirées le 2026-09-27
+        // avec la section « Tarifs », qui gérait des tarifs par zones que rien ne lisait.
+        // Aucune route ne les exigeait — pas même celles de la section.
 
         // Codes promo
         'create-promo-codes' => ['Créer un code promo', 'Créer un code promo'],
@@ -230,7 +228,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'create-leaves',
                 'create-owners',
                 'create-payments',
-                'create-pricing',
                 'create-promo-codes',
                 'create-vehicles',
                 'create-zones',
@@ -241,7 +238,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'edit-drivers',
                 'edit-leaves',
                 'edit-owners',
-                'edit-pricing',
                 'edit-promo-codes',
                 'edit-vehicles',
                 'edit-zones',
@@ -252,7 +248,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 // Paiements ouverts le 2026-09-26 comme les contrats : voir, créer, modifier,
                 // valider et annuler — la suppression reste à l'administrateur.
                 'edit-payments',
-                'manage-pricing',
                 'manage-settings',
                 // Ajoutée le 2026-09-25 : l'utilisateur gère déjà les pauses des agents.
                 'manage-vehicle-pauses',
@@ -272,7 +267,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 // supprime pas.
                 'view-owners',
                 'view-payments',
-                'view-pricing',
                 'view-promo-codes',
                 'view-reports',
                 'view-testimonials',
@@ -300,7 +294,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'edit-bookings',
                 'view-bookings',
                 'view-payments',
-                'view-pricing',
                 'view-testimonials',
                 'view-zones',
             ],
@@ -334,7 +327,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'edit-bookings',
                 'view-bookings',
                 'view-payments',
-                'view-pricing',
                 'view-zones',
             ],
         ],

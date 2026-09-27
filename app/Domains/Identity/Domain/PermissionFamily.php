@@ -28,7 +28,6 @@ final class PermissionFamily
         'users' => 'Administrateurs',
         'roles' => 'Rôles',
         'permissions' => 'Permissions',
-        'pricing' => 'Tarifs',
         'promo-codes' => 'Codes promo',
         'circuits' => 'Circuits',
         'zones' => 'Zones',

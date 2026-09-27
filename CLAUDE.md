@@ -140,8 +140,10 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (68 permissions), utilisateur — ex-`lecteur` — (51), driver (8),
-  client (7), proprietaire (5) — 72 permissions au catalogue depuis U2 (2026-09-26), qui a
+- Rôles Spatie : admin (64 permissions), utilisateur — ex-`lecteur` — (47), driver (7),
+  client (6), proprietaire (5) — 68 permissions au catalogue depuis le retrait de la section
+  « Tarifs » (2026-09-27), qui a emporté les quatre `*-pricing` — `driver` et `client`
+  portaient `view-pricing` sans qu'aucune route ne l'exige. U2 (2026-09-26) avait
   retiré `create-`, `edit-` et `delete-permissions`, après l'ajout des `*-contracts`, de
   `delete-commissions`, `edit-payments` et `delete-payments`, et le retrait des trois
   `manage-contracts|commissions|payments`. Les lignes retirées restent en base sans aucun
@@ -311,6 +313,10 @@ Tous dans `app/Services`, injectés dans les contrôleurs (pas de logique métie
   hérite d'`Exception`, les `catch (\Exception)` du chemin Blade continuent de fonctionner
   et affichent les mêmes messages flash.
 - PricingService : getDistance (OpenRouteService, clé dans config('services.openrouteservice.key')), getPrice
+  — ⚠️ le prix vient des constantes de `Price` appliquées à la distance, et de rien d'autre.
+  La section Blade « Tarifs » (tarifs par couple de zones, table `pricing`) que rien ne
+  lisait a été retirée le 2026-09-27 avec son modèle ; la table et ses lignes restent en
+  base. `/pricing/price` et `/api/v1/public/pricing/quote` sont le calcul réel : à garder.
 - PaymentService : create, update, validatePayment, cancelPayment, delete, getAllPayments,
   getPaymentStats, generateDailyContractPayments, generateDailyPaymentForContract — partagé
   par le Blade et l'API ; la validation et l'annulation y notifient l'agent

@@ -36,7 +36,6 @@ class AppServiceProvider extends ServiceProvider
         'notification'     => \App\Models\Notification::class,
         'payment'          => \App\Models\Payment::class,
         'permission'       => \App\Models\Permission::class,
-        'pricing'          => \App\Models\Pricing::class,
         'promo_code'       => \App\Models\PromoCode::class,
         'role'             => \App\Models\Role::class,
         'testimonial'      => \App\Models\Testimonial::class,

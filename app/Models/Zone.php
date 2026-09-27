@@ -17,13 +17,6 @@ class Zone extends Model
         'is_active'
     ];
 
-    public function pricesFrom()
-    {
-        return $this->hasMany(Pricing::class, 'from_zone');
-    }
-
-    public function pricesTo()
-    {
-        return $this->hasMany(Pricing::class, 'to_zone');
-    }
+    // `pricesFrom()` et `pricesTo()` retirées le 2026-09-27 avec la section « Tarifs » :
+    // aucun code ne les appelait, et le modèle `Pricing` n'existe plus.
 }

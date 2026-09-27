@@ -9,7 +9,6 @@ use App\Http\Controllers\Admin\DriverController;
 use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\OwnerController;
 use App\Http\Controllers\Admin\PaymentController;
-use App\Http\Controllers\Admin\PricingController;
 use App\Http\Controllers\Admin\PromoCodeController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\PermissionController;
@@ -60,8 +59,8 @@ Route::middleware(['auth:sanctum', 'profil:admin'])->prefix('admin')->name('admi
     Route::post('bookings/{booking}/remove-driver',     [BookingController::class, 'removeDriver'])->name('bookings.remove-driver')->middleware('permission:edit-bookings');
     Route::post('bookings/{booking}/update-status',     [BookingController::class, 'updateStatus'])->name('bookings.update-status')->middleware('permission:edit-bookings');
 
-    // Pricing
-    Route::resource('pricing',                          PricingController::class);
+    // La section « Tarifs » (tarifs par couple de zones) est retirée le 2026-09-27 : rien ne
+    // lisait ces tarifs, le prix vient de `PricingService` et des constantes de `Price`.
 
     //Circuits
     Route::resource('circuits', TouristCircuitController::class);
