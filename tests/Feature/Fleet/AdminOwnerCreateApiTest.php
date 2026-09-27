@@ -32,7 +32,7 @@ class AdminOwnerCreateApiTest extends TestCase
     {
         parent::setUp();
 
-        // `OwnerService::create()` fait `$user->assignRole('proprietaire')`.
+        // `CreateOwner` fait `$user->assignRole('proprietaire')`.
         Role::firstOrCreate(['name' => 'proprietaire', 'guard_name' => 'web']);
     }
 

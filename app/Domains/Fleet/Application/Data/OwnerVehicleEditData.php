@@ -10,7 +10,7 @@ use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 /**
  * Un véhicule que le propriétaire possède déjà, modifié depuis sa fiche.
  *
- * `OwnerService::update()` ignore un véhicule qui n'est pas à ce propriétaire, ou
+ * `UpdateOwner` ignore un véhicule qui n'est pas à ce propriétaire, ou
  * qu'un agent conduit : la lecture seule de l'écran est aussi tenue côté serveur.
  * Sans `contract`, le contrat en cours reste tel quel.
  */

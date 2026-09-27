@@ -11,7 +11,7 @@ use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
  *
  * ⚠️ `hasDriver` décide de tout l'écran : un véhicule dont un agent a un contrat actif
  * est en LECTURE SEULE — ni le véhicule ni son contrat ne se modifient, et
- * `OwnerService::update()` ignore d'ailleurs ce qu'on lui enverrait pour lui.
+ * `UpdateOwner` ignore d'ailleurs ce qu'on lui enverrait pour lui.
  * `driverName` peut être nul alors que `hasDriver` est vrai : le Blade affiche alors
  * « un agent ».
  */

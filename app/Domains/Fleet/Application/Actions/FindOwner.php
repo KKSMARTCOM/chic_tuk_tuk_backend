@@ -9,7 +9,7 @@ use App\Models\User;
  *
  * ⚠️ Le Blade liait `{owner}` à N'IMPORTE QUEL utilisateur : un agent ou un
  * administrateur s'ouvrait dans l'écran d'édition des propriétaires, et
- * `OwnerService::update()` lui imposait `profil=owner` en l'enregistrant. Ici, seul un
+ * `UpdateOwner` lui imposait `profil=owner` en l'enregistrant. Ici, seul un
  * compte que la liste montre peut être lu ou modifié.
  */
 final class FindOwner

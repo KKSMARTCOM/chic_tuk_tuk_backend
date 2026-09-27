@@ -51,7 +51,7 @@ final class VehicleContractInputData extends BaseData
     }
 
     /**
-     * Les clés qu'attend `OwnerService`, qui les tient du formulaire Blade.
+     * Les clés qu'attendent `CreateOwner` et `UpdateOwner`, héritées du formulaire Blade.
      *
      * @return array<string, mixed>
      */

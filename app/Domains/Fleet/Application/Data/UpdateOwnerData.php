@@ -59,7 +59,7 @@ final class UpdateOwnerData extends BaseData
     }
 
     /**
-     * Charge utile attendue par `OwnerService::update()`, aux clés du formulaire Blade.
+     * Charge utile attendue par `UpdateOwner`, aux clés du formulaire Blade.
      *
      * @return array<string, mixed>
      */

@@ -61,7 +61,7 @@ final class CreateOwnerData extends BaseData
     }
 
     /**
-     * Charge utile attendue par `OwnerService::create()`, aux clés du formulaire Blade.
+     * Charge utile attendue par `CreateOwner`, aux clés du formulaire Blade.
      *
      * @return array<string, mixed>
      */
