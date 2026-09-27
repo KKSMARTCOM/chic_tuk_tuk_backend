@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
 use App\Models\Booking;
 use App\Services\BookingService;
-use App\Services\CommissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -65,7 +65,7 @@ class SubscriptionLifecycleTest extends TestCase
             'driver_earning' => 800,
         ]);
 
-        $recap = app(CommissionService::class)->getDriverSubscriptionRevenue($driver->id);
+        $recap = app(ComputeDriverSubscriptionRevenue::class)($driver->id);
 
         $this->assertCount(1, $recap['subscriptions']);
         $this->assertSame(2, $recap['subscriptions'][0]['bookings_count']);

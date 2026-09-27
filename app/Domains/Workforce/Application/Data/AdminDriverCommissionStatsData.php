@@ -4,7 +4,7 @@ namespace App\Domains\Workforce\Application\Data;
 
 use App\Shared\Data\BaseData;
 
-/** Le cadre « Commissions » du dossier agent — CommissionService::getDriverCommissions(). */
+/** Le cadre « Commissions » du dossier agent — `SummarizeDriverCommissions`. */
 final class AdminDriverCommissionStatsData extends BaseData
 {
     public function __construct(

@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Domains\Notification\Application\PushSender;
 use App\Models\Booking;
 use App\Models\User;
-use App\Services\CommissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -170,7 +170,7 @@ class AdminSubscriptionApiTest extends TestCase
 
         // Le premier jour, conduit, reste dans le revenu d'abonnement de l'agent.
         // Le Blade l'en sortait : 1 course au lieu de 2.
-        $revenue = app(CommissionService::class)->getDriverSubscriptionRevenue($a->id);
+        $revenue = app(ComputeDriverSubscriptionRevenue::class)($a->id);
         $this->assertSame(2, $revenue['subscriptions']->first()['bookings_count']);
     }
 

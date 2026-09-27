@@ -6,7 +6,7 @@ use App\Shared\Data\BaseData;
 
 /**
  * Le cadre « Revenus abonnements » du dossier agent —
- * CommissionService::getDriverSubscriptionRevenue().
+ * `ComputeDriverSubscriptionRevenue`.
  */
 final class AdminDriverSubscriptionRevenueData extends BaseData
 {

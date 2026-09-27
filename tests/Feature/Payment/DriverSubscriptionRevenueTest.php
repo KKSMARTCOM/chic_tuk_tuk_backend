@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Payment;
 
+use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
 use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\User;
-use App\Services\CommissionService;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -88,19 +88,19 @@ class DriverSubscriptionRevenueTest extends TestCase
             ]));
         }
 
-        $service = app(CommissionService::class);
+        $computeRevenue = app(ComputeDriverSubscriptionRevenue::class);
 
-        $revenueA1 = $service->getDriverSubscriptionRevenue($a1->id);
+        $revenueA1 = $computeRevenue($a1->id);
         $this->assertSame(8000.0, $revenueA1['total_due']);
         $this->assertCount(1, $revenueA1['subscriptions']);
         $this->assertSame(8, $revenueA1['subscriptions'][0]['bookings_count']);
         $this->assertSame($parent->booking_number, $revenueA1['subscriptions'][0]['booking_number']);
 
-        $revenueA2 = $service->getDriverSubscriptionRevenue($a2->id);
+        $revenueA2 = $computeRevenue($a2->id);
         $this->assertSame(4000.0, $revenueA2['total_due']);
         $this->assertSame(4, $revenueA2['subscriptions'][0]['bookings_count']);
 
-        $revenueA3 = $service->getDriverSubscriptionRevenue($a3->id);
+        $revenueA3 = $computeRevenue($a3->id);
         $this->assertSame(3000.0, $revenueA3['total_due']);
         $this->assertSame(3, $revenueA3['subscriptions'][0]['bookings_count']);
     }
@@ -129,7 +129,7 @@ class DriverSubscriptionRevenueTest extends TestCase
             'driver_earning' => 1000,
         ]));
 
-        $revenue = app(CommissionService::class)->getDriverSubscriptionRevenue($driver->id);
+        $revenue = app(ComputeDriverSubscriptionRevenue::class)($driver->id);
 
         $this->assertSame(0.0, $revenue['total_due']);
         $this->assertCount(0, $revenue['subscriptions']);

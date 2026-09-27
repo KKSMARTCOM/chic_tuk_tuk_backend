@@ -23,13 +23,11 @@ class BookingService
 {
     protected PriceCalculator $pricingService;
     protected MeasureRouteDistance $measureDistance;
-    protected CommissionService $commissionService;
 
-    public function __construct(PriceCalculator $pricingService, MeasureRouteDistance $measureDistance, CommissionService $commissionService)
+    public function __construct(PriceCalculator $pricingService, MeasureRouteDistance $measureDistance)
     {
         $this->pricingService = $pricingService;
         $this->measureDistance = $measureDistance;
-        $this->commissionService = $commissionService;
     }
 
     public function create(array $data)

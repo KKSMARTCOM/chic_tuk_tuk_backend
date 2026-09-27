@@ -2,8 +2,9 @@
 
 namespace App\Domains\Workforce\Application\Data;
 
+use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
+use App\Domains\Finance\Application\Actions\SummarizeDriverCommissions;
 use App\Models\Driver;
-use App\Services\CommissionService;
 use App\Services\DriverService;
 use App\Shared\Data\BaseData;
 
@@ -42,15 +43,16 @@ final class AdminDriverDetailData extends BaseData
     public static function fromModel(
         Driver $driver,
         DriverService $driverService,
-        CommissionService $commissionService,
+        SummarizeDriverCommissions $summarizeCommissions,
+        ComputeDriverSubscriptionRevenue $computeRevenue,
     ): self {
         $user = $driver->user;
         $activeContract = $driver->activeDriverContract?->load(['vehicle.owner', 'vehicleContract']);
         $vehicle = $activeContract?->vehicle;
 
         $bookingStats = $driverService->getDriverBookingStats($driver->id);
-        $commissionStats = $commissionService->getDriverCommissions($driver->id);
-        $subscriptionRevenue = $commissionService->getDriverSubscriptionRevenue($driver->id);
+        $commissionStats = $summarizeCommissions($driver->id);
+        $subscriptionRevenue = $computeRevenue($driver->id);
 
         // Mêmes 5 dernières courses que le Blade, triées le plus récent d'abord — voir
         // `DriverService::getDriverById()`.

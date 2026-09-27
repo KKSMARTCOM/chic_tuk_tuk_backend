@@ -18,7 +18,7 @@ class PaymentService
 {
     // CommissionService injecté pour réutiliser `getDriverSubscriptionRevenue()` plutôt
     // que de recalculer le même montant ici et risquer une divergence entre les deux.
-    public function __construct(private readonly CommissionService $commissionService) {}
+    public function __construct(private readonly \App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue $computeRevenue) {}
 
     /**
      * Créer un paiement
@@ -284,7 +284,7 @@ class PaymentService
         }
 
         if ($data['payment_type'] === 'subscription_revenue') {
-            $remaining = $this->commissionService->getDriverSubscriptionRevenue($data['driver_id'])['balance_due'];
+            $remaining = ($this->computeRevenue)($data['driver_id'])['balance_due'];
 
             if ($existingPaymentId) {
                 $previousAmount = Payment::where('id', $existingPaymentId)->value('amount') ?? 0;
