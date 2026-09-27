@@ -5,31 +5,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ChicTukTuk — plateforme de réservation de courses (tuk-tuk) avec gestion de chauffeurs, véhicules,
 contrats et propriétaires.
 
-Ce dépôt est le **backend** (`api.chictuktuk.com`) : l'API v1 et l'interface Blade
-historique encore en service. Les fronts Nuxt vivent dans leurs propres dépôts —
-`landing` (vitrine + réservation publique, `chictuktuk.com`), puis `client` (espaces
-authentifiés, `app.chictuktuk.com`). Le seul lien entre eux est l'API : un changement
-de contrat se livre **ici d'abord**, et de façon rétrocompatible, puisque l'ancien front
-continue d'appeler la nouvelle API le temps de son propre déploiement.
+Ce dépôt est le **backend** (`api.chictuktuk.com`, `api-staging` sur staging) : **l'API v1
+et rien d'autre** depuis le 2026-09-27 — plus de vue, plus de route web, plus d'assets.
+Les fronts Nuxt vivent dans leurs propres dépôts — `landing` (vitrine + réservation
+publique, `chictuktuk.com` / `staging.chictuktuk.com`) et `client` (les quatre espaces
+authentifiés, `app.chictuktuk.com` / `app-staging.chictuktuk.com`). Le seul lien entre
+eux est l'API : un changement de contrat se livre **ici d'abord**, et de façon
+rétrocompatible, puisque l'ancien front continue d'appeler la nouvelle API le temps de
+son propre déploiement.
+
+⚠️ **La branche `prod` porte encore l'application Blade complète** (services, contrôleurs,
+vues). Un correctif de production s'y écrit dans le code Blade ; il ne se reporte plus
+sur `staging` par cherry-pick, mais à la main, dans l'action de domaine correspondante.
 
 ## Commandes
 
 ```bash
 # Setup
-composer install && npm install
+composer install
 cp .env.example .env && php artisan key:generate
 
-# Développement (serveur + queue + logs + vite en parallèle)
+# Développement (serveur + queue + logs)
 composer run dev
-# ou séparément :
-php artisan serve
-npm run dev            # Vite (JS)
-npm run watch:css      # Tailwind CSS en watch (build classique, en plus du CDN)
-
-# Build frontend
-npm run build           # Vite
-npm run build:css       # Tailwind CSS minifié
-npm run build:all       # les deux
+# ou : php artisan serve
 
 # Tests (PHPUnit — pas de Pest)
 php artisan test
@@ -114,25 +112,23 @@ avec le mainteneur.
 
 ## Stack technique
 
-- Laravel 11 (bootstrap/app.php, pas de Kernel.php)
+- Laravel 11 (bootstrap/app.php, pas de Kernel.php), **API seule**
 - PostgreSQL
-- Tailwind CSS (via CDN) + Font Awesome 6
-- Laravel Sanctum (session web, guard unique `web`)
-- Spatie Permission (rôles + permissions, guard `web`)
-- Firebase FCM (notifications push)
-- PWA (service worker, manifest)
-- DataTables + Alpine.js (sidebar accordion)
+- Laravel Sanctum : jetons Bearer uniquement (aucune session, aucun cookie)
+- Spatie Permission (rôles + permissions, guard `web`) et spatie/laravel-data
+- Firebase FCM (notifications push, `App\Domains\Notification\Application\PushSender`)
 
 ## Architecture auth
 
 - Un seul modèle `User` avec colonne `profil` : `admin`, `client`, `driver`, `owner`
-- Sanctum via cookie httpOnly `ctt_{profil}_token`
-- Session web + Sanctum combinés (`Auth::login()` + `createToken()`)
-- Middleware `InjectSanctumTokenFromCookie` injecte le token Bearer avant auth
-- 3 middlewares distincts (aliasés dans bootstrap/app.php) :
-  - `profil:xxx` → `CheckProfil`, vérifie `$user->profil` (utilisé sur tous les groupes de routes : `admin`, `driver`, `client`, `owner`)
-  - `permission:xxx` → `CheckPermission`, vérifie `$user->hasAnyPermission()` (Spatie, utilisé route par route pour les actions CRUD)
-  - `role:xxx` → `CheckRole`, vérifie `$user->hasAnyRole()` (alias déclaré mais non utilisé actuellement dans les routes)
+- Connexion par `POST /api/v1/auth/login` : un jeton Sanctum nommé `api`, portant le profil
+  comme ability. Chaque espace est gardé par `abilities:<profil>`, puis par une
+  permission Spatie par route (`permission:xxx` → `CheckPermission`).
+- ⚠️ **Un invité reçoit 401 JSON, jamais une redirection** : `redirectGuestsTo(null)` dans
+  `bootstrap/app.php`, et `CheckPermission` lève `AuthenticationException`. Il n'existe
+  plus de route `login` ; sans ces deux gardes, une 401 devenait une 500
+  (`ApiOnlyTest`).
+- Toute erreur est rendue en JSON par `ApiExceptionRenderer`, requête `Accept: json` ou non.
 - Verrou compte : 5 tentatives → locked_until en base (5 min)
 
 ## Modèles principaux
@@ -250,27 +246,31 @@ avec le mainteneur.
   Un abonnement dont le parent est encore en attente ou accepté s'annule : le parent et
   ses enfants pending passent en `cancelled`.
   ⚠️ **Le parent EST la course du premier jour.** Quand elle est faite (ou non traitée),
-  la résiliation passe par `TerminateSubscription` (2026-09-27, API et Blade) : plus de
+  la résiliation passe par `TerminateSubscription` (2026-09-27) : plus de
   jours ni de rattrapages, courses à venir annulées, et le parent GARDE son statut. Le
   Blade le passait à « Annulée », ce qui sortait ce jour, conduit, du revenu d'abonnement
   de l'agent. `BookingLifecycle::isRunningSubscription()` porte la règle du Blade :
   `remaining_days > 1` ou des trajets à rattraper.
 - Transfert à un autre agent : `TransferSubscription` (livré en production le 2026-09-25,
-  déplacé dans le domaine et exposé à l'API le 2026-09-27 ; `BookingService` délègue).
+  déplacé dans le domaine et exposé à l'API le 2026-09-27).
+- Génération des jours : `GenerateDueSubscriptionDays` (commande de 1 h) et
+  `CatchUpSubscriptionDays` (à l'acceptation), qui s'appuient tous deux sur
+  `GenerateNextSubscriptionDay`. Expiration : `ExpireStaleBookings` ; une course enfant
+  non prise passe « non traitée » par `RecordMissedChild`, qui rattrape le trajet.
 
-### take() — Acceptation
+### AcceptBooking — Acceptation
 
 - Vérifie isVisibleToDriver()
 - Abonnement parent sans titulaire → subscription_driver_id=A + retour abonnement liée
 - Course aller simple AR → subscription_driver_id=A sur la retour simple
 
-### cancel() — 3 cas
+### CancelBooking — 3 cas
 
 1. Enfant abonnement → cancelled + copie liée au titulaire (agent doit révoquer depuis disponibles)
 2. Parent abonnement → cancelled + enfants pending annulés + recréation parent (+ retour cachée si AR)
 3. Course unique → cancelled + recréation (+ gestion course retour si AR)
 
-### getAvailableBookings(driverId)
+### ListAvailableBookings(driverId)
 
 - Course unique aller (avec ou sans AR) → tout le monde
 - Abonnement parent sans titulaire → tout le monde
@@ -281,77 +281,40 @@ avec le mainteneur.
 - Retour d'abonnement liée → agent seul (branche omise de ce fichier jusqu'au 2026-09-18 ;
   la requête en compte **neuf**, pas huit)
 - Retour révoquée → tout le monde
-- ⚠️ La transposition en `App\Domains\Booking\Application\Actions\ListAvailableBookings`
-  est prouvée équivalente par `AvailableBookingsDifferentialTest` — dix formes, trois
-  observateurs, listes ordonnées. C'est ce test, et non cette liste, qui fait foi.
+- ⚠️ `AvailableBookingsDifferentialTest` fige, forme par forme, ce que rendait
+  l'ancienne implémentation Blade — dix formes, trois observateurs, listes ordonnées.
+  C'est ce test, et non cette liste, qui fait foi.
 
-### getByDriverId(driverId, status = null, search = null)
+### Courses d'un agent
 
-- driver_id = driverId, et rien d'autre. **Aucune recomposition** avec
-  `subscription_driver_id` : la description antérieure évoquait un « OU retour simple
-  pending liée », que le code ne fait pas et que les deux écrans appelants ne compensent
-  pas. Corrigé le 2026-09-18 après vérification dans le code.
-- Le paramètre `$search` n'est appelé par personne : l'écran d'historique a sa propre
-  requête dans `PageController::historiesBookings`.
-- ⚠️ Cette méthode ne sert PLUS l'API v1. L'espace agent lit par
-  `App\Domains\Booking\Application\Actions\ListAssignedBookings` (courses acceptées) et
-  `ListBookingHistory` (historique, paginé par 10). Elle reste pour le chemin Blade.
+- Acceptées : `ListAssignedBookings` (`driver_id` = l'agent, statuts `confirmed` et
+  `in_progress`, rien d'autre — aucune recomposition par `subscription_driver_id`).
+- Historique : `ListBookingHistory`, paginé par 10.
 
-## Services principaux
+## La logique métier vit dans `app/Domains`
 
-Tous dans `app/Services`, injectés dans les contrôleurs (pas de logique métier dans les contrôleurs).
+`app/Services` n'existe plus depuis le 2026-09-27 : ses méthodes vivantes ont été
+**déplacées sans réécriture** dans les domaines, celles que seul le Blade appelait ont
+disparu avec lui. Trois formes :
 
-- BookingService : create, createFromAdmin, update (\_partial pour status/driver), take,
-  cancel, complete, start, revokeFromSubscription, getAvailableBookings,
-  getByDriverId, createRecurringBookings, markExpiredBookings,
-  calculateEndDate, getNextAllowedDay
-- ⚠️ `take`, `cancel`, `complete`, `start` et `revokeFromSubscription` **DÉLÈGUENT**
-  depuis le 2026-09-18 à `App\Domains\Booking\Application\Actions\*`. Elles ne
-  contiennent plus de logique : toute modification de comportement se fait dans l'action,
-  jamais ici, sous peine de recréer deux implémentations divergentes de la cascade de
-  recréation. Les actions lèvent des `ApiException` portant statut et code ; comme celle-ci
-  hérite d'`Exception`, les `catch (\Exception)` du chemin Blade continuent de fonctionner
-  et affichent les mêmes messages flash.
-- PricingService : getDistance (OpenRouteService, clé dans config('services.openrouteservice.key')), getPrice
-  — ⚠️ le prix vient des constantes de `Price` appliquées à la distance, et de rien d'autre.
-  La section Blade « Tarifs » (tarifs par couple de zones, table `pricing`) que rien ne
-  lisait a été retirée le 2026-09-27 avec son modèle ; la table et ses lignes restent en
-  base. `/pricing/price` et `/api/v1/public/pricing/quote` sont le calcul réel : à garder.
-- PaymentService : create, update, validatePayment, cancelPayment, delete, getAllPayments,
-  getPaymentStats, generateDailyContractPayments, generateDailyPaymentForContract — partagé
-  par le Blade et l'API ; la validation et l'annulation y notifient l'agent
-- VehicleService : create, update, toggleStatus, pauseVehicle, endPause, createAutoAgentPause
-- VehicleContractService : create, update, delete, getStats — partagé par le Blade et l'API
-- DriverContractService : create, end, getStats
-- UserService : create, update, updatePassword, toggleStatus, delete, generatePassword
-- AuthService : login, logout, checkRateLimit, isAccountLocked, getLockRemainingTime,
-  incrementLoginAttempts, resetLoginAttempts
-- CommissionService, DriverService, OwnerService, TestimonialService, ZoneService : CRUD/stats dédiés à leur modèle
-- FcmNotificationService : envoi de notifications push (kreait/laravel-firebase)
+- une **action** `final class … { __invoke() }` dans `Application/Actions`, pour une
+  écriture ou une requête (le cas courant) ;
+- une classe de **règles** sans effet de bord dans `Domain/` (`BookingLifecycle`,
+  `PriceCalculator`, `VehicleContractRules`, `DriverContractRules`,
+  `VehicleAssignmentRules`, `LeaveBalance`) ;
+- un **adaptateur** d'infrastructure quand il le faut (`PushSender` pour FCM,
+  `MeasureRouteDistance` pour OpenRouteService).
 
-## Contrôleurs & routes
+Ce que plusieurs actions partagent devient une action à part, injectée par constructeur
+(`ClaimVehicleForOwner`, `SaveVehicleAttributes`, `ClosePause`, `CancelPause`,
+`CreateAgentLeavePause`, `CheckPaymentData`, `CreateRenewalContract`,
+`ComputeDriverSubscriptionRevenue`…). Le prix vient des constantes de `Price`
+appliquées à la distance (`PriceCalculator`), et de rien d'autre.
 
-- `app/Http/Controllers/Admin/*` → espace admin (`routes/admin.php`, préfixe `admin.`)
-- `app/Http/Controllers/Client/*` → espace client ET espace propriétaire (`routes/client.php`, préfixe `client.`
-  et préfixe `owner.` **dans le même fichier** — il n'y a pas de `routes/owner.php` séparé)
-- `app/Http/Controllers/Web/*` → auth, dashboard, bookings driver, settings, FCM (partagé entre profils)
-- `app/Http/Controllers/Api/PricingController` → endpoint public de calcul de prix
-- `routes/web.php` charge admin.php, client.php et driver.php via `require`
+## API v1
 
-Gating par groupe de routes (voir "Architecture auth") :
-
-- `/admin/*` → `auth:sanctum` + `profil:admin`, puis `permission:xxx` par action
-- `/driver/*` → `auth:sanctum` + `profil:driver`
-- `/client/*` → `auth:sanctum` + `profil:client`
-- `/owner/*` (défini dans routes/client.php) → `auth:sanctum` + `profil:owner`
-- /fcm/token → POST (enregistrement token FCM)
-- /install → page installation PWA
-- /admin/owners/{owner}/vehicles → AJAX véhicules d'un propriétaire
-
-## API v1 (migration vers front Nuxt)
-
-Le projet migre vers trois applications séparées : `landing` (Nuxt, chictuktuk.com),
-`client` (Nuxt, app.chictuktuk.com) et ce backend réduit à une API (api.chictuktuk.com).
+Trois applications séparées : `landing` (Nuxt, chictuktuk.com), `client` (Nuxt,
+app.chictuktuk.com) et ce backend, qui n'est plus qu'une API (api.chictuktuk.com).
 Authentification par **token Bearer** Sanctum, pas de cookie stateful.
 
 Conventions du nouveau code — ne pas réintroduire les anciennes :
@@ -368,7 +331,7 @@ Conventions du nouveau code — ne pas réintroduire les anciennes :
   (`user`, `booking`…) et non des FQCN, pour que les classes puissent être déplacées sans
   invalider rôles, permissions et tokens Sanctum.
 - **Erreurs JSON** normalisées par `App\Shared\Http\ApiExceptionRenderer`
-  (`{message, code, errors?}`). Le chemin web/Blade conserve son rendu historique.
+  (`{message, code, errors?}`), pour toute requête.
 - **Erreurs métier : on lève.** `ValidationException` donne un 422 avec ses `errors` ;
   `App\Shared\Http\ApiException` porte un statut, un code et des champs choisis
   (par ex. `ACCOUNT_LOCKED` avec `retry_after`, `PROFIL_AMBIGUOUS` avec `profils`).
@@ -398,8 +361,7 @@ Conventions du nouveau code — ne pas réintroduire les anciennes :
   Un échec ne peut y survenir que pour une adresse existante, donc toute réponse
   distinguable rouvrirait l'énumération des comptes.
 - Les traces ne fuitent jamais quand `APP_DEBUG` est à `false`
-  (`tests/Feature/Identity/ErrorHandlingTest.php`). Le chemin Blade, lui, conserve son
-  rendu historique.
+  (`tests/Feature/Identity/ErrorHandlingTest.php`).
 - **Endpoints publics** (`routes/api/v1/public.php`) : throttlés, sans champ de prix en
   entrée — le tarif est toujours recalculé côté serveur.
 
@@ -739,10 +701,11 @@ renvoie le prix déjà majoré (`PriceQuoteData`) pour que le front n'ait rien �
 
 ## Commandes artisan
 
-- `app:expire-bookings` → marque expired les courses pending +24h dépassées
-- `app:process-recurring-bookings` → crée les courses J+1 depuis les abonnements (cron à 1h)
-- `app:generate-daily {--date=}` → génère les paiements journaliers (lun-ven uniquement)
-- `app:activate-leave-pauses` → active les pauses véhicule automatiques liées aux pauses agent
+- `app:expire-bookings` → `ExpireStaleBookings` : les courses pending dépassées de 24 h
+- `app:process-recurring-bookings` → `GenerateDueSubscriptionDays` : les journées J+1 (1 h)
+- `app:recover-missed-subscription-bookings` → `ListMissedSubscriptionChildren` + `RecordMissedChild`
+- `app:generate-daily {--date=}` → `GenerateDailyContractPayments` (lun-ven uniquement)
+- `app:activate-leave-pauses` → `CreateAgentLeavePause` : les pauses véhicule des agents en pause
 
 ## Scheduler (bootstrap/app.php → withSchedule)
 
@@ -760,34 +723,20 @@ minute par une boucle supervisord (`docker/supervisord.conf`), pas par un cron s
 
 ## Déploiement (Coolify)
 
-Image Docker construite depuis `Dockerfile` (build pack Dockerfile de Coolify) :
+Image Docker construite depuis `Dockerfile` (build pack Dockerfile de Coolify), sans
+étage Node depuis le 2026-09-27 (plus d'assets à construire) :
 nginx + php-fpm + 2 workers `queue:work` + boucle scheduler, orchestrés par supervisord.
 `docker/start.sh` attend PostgreSQL, puis lance **`migrate --force` à chaque démarrage**
-et reconstruit les caches (config, routes, vues) — les variables d'environnement
+et reconstruit les caches (config, routes, vues — le gabarit d'e-mail de
+réinitialisation est la dernière vue Blade) — les variables d'environnement
 n'existent pas au build. Une migration est donc exécutée en production dès que l'image
 est déployée : elle doit être compatible avec l'image précédente (rollback).
 
-## PWA & Firebase
+## Notifications push
 
-- Service worker : /sw.js
-- Firebase messaging SW : /firebase-messaging-sw.js
-- Clés VAPID dans meta[name="firebase-vapid-key"]
-- Token FCM sauvegardé dans table fcm_tokens
-- Notifications envoyées via FcmNotificationService (kreait/laravel-firebase)
-- Page d'installation : /install
-
-## Vues importantes
-
-- layouts/app.blade.php → layout admin/driver/owner avec sidebar
-- layouts/auth.blade.php → layout login/install
-- pages/admin/bookings/index → DataTables, colonne 0 cachée (timestamp tri)
-- pages/admin/contracts/index → onglets Contrats agents / Contrats propriétaires
-- pages/driver/bookings/available → courses disponibles avec logique visibilité
-- pages/driver/bookings/accepting → courses actives avec label dynamique
-- pages/client/owner/\* → espace propriétaire : index (véhicules), leaves, payments
-  (sous client/, pas de dossier pages/owner). `OwnerVehicleController::show` rend
-  pages.client.owner.vehicles.show, qui n'existe pas : la route owner.vehicles.show
-  est orpheline, aucune vue n'y mène.
+- Jetons FCM enregistrés par l'API (`RegisterDevice`, table `fcm_tokens`), envoi par
+  `PushSender` (kreait/laravel-firebase). La PWA et son service worker vivent dans le
+  front `client` ; le backend n'en sert plus aucun.
 
 ## Points d'attention
 
@@ -939,18 +888,10 @@ les actions l'appellent réellement, ce que le premier ne dit pas.
 ## ⚠️ Un compte désactivé perd l'accès à sa requête suivante
 
 Jusqu'au 2026-09-26, **seule la connexion vérifiait `is_active`** : un jeton déjà émis
-survivait à la désactivation jusqu'à son expiration, et une session Blade jusqu'à sa fin.
-Désactiver un agent parti ou le compte d'un téléphone volé ne coupait rien. Deux contrôles,
-et il faut les deux :
-
-- **API** : `Sanctum::authenticateAccessTokensUsing` (`AppServiceProvider`) refuse tout
-  jeton dont le compte est inactif — 401, et le front renvoie à la connexion, qui répond
-  `ACCOUNT_DISABLED`. Le jeton n'est pas effacé : réactiver le compte le rend valide.
-- **Blade** : `EndDisabledAccountSession`, ajouté au groupe `web`, ferme la session. Le
-  premier contrôle ne suffit pas ici, le garde de Sanctum consultant la session web AVANT
-  tout jeton.
-
-`DisabledAccountSessionTest` couvre les quatre profils.
+survivait à la désactivation jusqu'à son expiration. `Sanctum::authenticateAccessTokensUsing`
+(`AppServiceProvider`) refuse désormais tout jeton dont le compte est inactif — 401, et le
+front renvoie à la connexion, qui répond `ACCOUNT_DISABLED`. Le jeton n'est pas effacé :
+réactiver le compte le rend valide. `DisabledAccountSessionTest` le couvre.
 
 ## ⚠️ L'unicité e-mail/téléphone porte sur `(valeur, profil)`
 
