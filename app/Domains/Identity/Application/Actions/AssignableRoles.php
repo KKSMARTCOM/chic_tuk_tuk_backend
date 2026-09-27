@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Les rôles qu'un compte administrateur peut porter : tous, sauf ceux des trois autres
- * espaces. Même liste que `UserService::getAvailableRoles()` du Blade, qui ne servait
+ * espaces. Même liste que l'ancien `UserService::getAvailableRoles()` du Blade, qui ne servait
  * pourtant qu'à remplir la liste déroulante — la validation acceptait n'importe quel rôle.
  */
 final class AssignableRoles
