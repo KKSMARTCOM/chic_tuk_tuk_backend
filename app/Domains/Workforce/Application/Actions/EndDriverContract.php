@@ -4,21 +4,69 @@ namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
-use App\Services\DriverContractService;
+use App\Models\VehiclePause;
+use App\Shared\Http\ApiException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Terminer un contrat agent — ex-Admin\DriverContractController::end().
  *
- * ⚠️ Effets de bord, dans `DriverContractService::end()` : le véhicule est désactivé,
+ * ⚠️ Effets de bord, dans `endContract()` ci-dessous (ex-`DriverContractService::end()`) : le véhicule est désactivé,
  * une pause véhicule automatique « changement d'agent » s'ouvre à la date de fin, et le
  * compteur de pauses de l'agent est remis à zéro.
  */
 final class EndDriverContract
 {
-    public function __construct(private readonly DriverContractService $contractService) {}
-
     public function __invoke(DriverContract $contract, EndDriverContractData $data): DriverContract
     {
-        return $this->contractService->end($contract, $data->toServicePayload());
+        return $this->endContract($contract, $data->toServicePayload());
+    }
+
+    /**
+     * Termine un contrat actif : pause véhicule « changement d'agent », véhicule désactivé,
+     * compteur de pauses de l'agent remis à zéro.
+     *
+     * Corrigé le 2026-09-26 : un contrat déjà terminé pouvait l'être une seconde fois, ce
+     * qui créait une seconde pause véhicule automatique.
+     */
+    private function endContract(DriverContract $contract, array $data): DriverContract
+    {
+        if ($contract->status !== 'active') {
+            throw new ApiException(409, 'DRIVER_CONTRACT_NOT_ACTIVE', 'Ce contrat est déjà terminé.');
+        }
+
+        return DB::transaction(function () use ($contract, $data) {
+            $contract->update([
+                'status' => 'ended',
+                'end_date' => $data['end_date'] ?? now()->toDateString(),
+                'end_reason' => $data['end_reason'],
+                'end_notes' => $data['end_notes'] ?? null,
+            ]);
+
+            // Réinitialiser les jours de pause utilisés pour le conducteur
+            $contract->driver->update([
+                'leave_days_used' => 0,
+                'leave_dates' => [],
+            ]);
+
+            // Marquer le véhicule comme inactif
+            $contract->vehicle->update([
+                'is_active' => false,
+            ]);
+
+            // Créer une pause véhicule pour changement d'agent
+            VehiclePause::create([
+                'vehicle_id' => $contract->vehicle_id,
+                'vehicle_contract_id' => $contract->vehicle_contract_id,
+                'driver_contract_id' => $contract->id,
+                'start_date' => $data['end_date'] ?? now()->toDateString(),
+                'end_date' => null, // sera fermée à la création du prochain contrat agent
+                'reason_type' => 'agent_change',
+                'reason_notes' => $data['end_reason'].(! empty($data['end_notes']) ? ' — '.$data['end_notes'] : ''),
+                'is_auto' => true,
+            ]);
+
+            return $contract->refresh();
+        });
     }
 }

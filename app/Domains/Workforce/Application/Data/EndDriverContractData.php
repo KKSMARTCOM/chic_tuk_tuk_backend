@@ -37,7 +37,7 @@ final class EndDriverContractData extends BaseData
         ];
     }
 
-    /** @return array<string, mixed> les clés de `DriverContractService::end()` */
+    /** @return array<string, mixed> les clés qu'attend `EndDriverContract` */
     public function toServicePayload(): array
     {
         return [

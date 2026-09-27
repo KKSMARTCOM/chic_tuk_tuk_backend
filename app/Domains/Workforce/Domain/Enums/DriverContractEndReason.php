@@ -7,7 +7,7 @@ use App\Shared\Enums\HasOptions;
 /**
  * Raison de fin d'un contrat agent — colonne `driver_contracts.end_reason`, chaîne libre
  * en base. Les quatre premières viennent de la modale « Terminer le contrat » ;
- * `new_contract` est posée par `DriverContractService::create()` quand un nouveau contrat
+ * `new_contract` est posée par le renouvellement d'un agent (ex-`DriverContractService::create()`) quand un nouveau contrat
  * remplace l'actif sur le même véhicule.
  */
 enum DriverContractEndReason: string

@@ -15,12 +15,10 @@ use Illuminate\Testing\Fluent\Concerns\Has;
 class DriverService
 {
     protected BookingService $bookingService;
-    protected DriverContractService $driverContractService;
 
-    public function __construct(BookingService $bookingService, DriverContractService $driverContractService)
+    public function __construct(BookingService $bookingService)
     {
         $this->bookingService = $bookingService;
-        $this->driverContractService = $driverContractService;
     }
 
     public function getAllDrivers($filters = [])
@@ -180,7 +178,7 @@ class DriverService
         }
 
         // Validation règles métier (1 véhicule = 1 agent)
-        $this->driverContractService->validateVehicleAssignment($vehicle);
+        \App\Domains\Workforce\Domain\VehicleAssignmentRules::assertAssignable($vehicle);
 
         // Clôturer la pause active du véhicule si existante
         $vehicle->activePause?->update(['end_date' => $data['start_date'] ?? now()->toDateString()]);
@@ -241,7 +239,7 @@ class DriverService
         }
 
         // Validation règles métier (1 véhicule = 1 agent)
-        $this->driverContractService->validateVehicleAssignment($vehicle);
+        \App\Domains\Workforce\Domain\VehicleAssignmentRules::assertAssignable($vehicle);
 
         // Clôturer la pause active du véhicule si existante
         $vehicle->activePause?->update(['end_date' => $data['renewal_start_date']]);
@@ -299,7 +297,7 @@ class DriverService
                         throw new \Exception('Ce véhicule n\'appartient pas au propriétaire sélectionné.');
                     }
 
-                    $this->driverContractService->validateVehicleAssignment($vehicle);
+                    \App\Domains\Workforce\Domain\VehicleAssignmentRules::assertAssignable($vehicle);
 
                     DriverContract::create([
                         'driver_id'           => $user->driver->id,

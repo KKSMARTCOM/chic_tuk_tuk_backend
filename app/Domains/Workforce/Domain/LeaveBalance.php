@@ -12,7 +12,7 @@ use Carbon\Carbon;
  * ## Pourquoi le contrat est un paramètre
  *
  * Un solde de pauses n'existe pas dans l'absolu : le droit vaut `2 × contract_months`, et
- * `DriverContractService` remet le compteur à zéro à la clôture d'un contrat. Deux écrans
+ * `EndDriverContract` remet le compteur à zéro à la clôture d'un contrat. Deux écrans
  * ont donc besoin de la même formule sur deux contrats différents :
  *
  *  - l'écran de l'AGENT montre ce à quoi il a droit MAINTENANT, donc son contrat actif —

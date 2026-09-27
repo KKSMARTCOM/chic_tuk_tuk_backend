@@ -170,7 +170,7 @@ class Driver extends Model
      *
      * ⚠️ La portée au contrat n'est pas un raffinement : c'est ce que le reste du code
      * suppose déjà. Le droit annoncé vaut `2 × contract_months`, donc celui du contrat en
-     * cours ; et `DriverContractService` remet `leave_days_used` à zéro quand un contrat
+     * cours ; et `EndDriverContract` remet `leave_days_used` à zéro quand un contrat
      * se termine, ce qui dit explicitement que le compteur repart avec chaque contrat.
      *
      * Sans cette portée, les pauses d'un contrat PRÉCÉDENT se déduisaient du solde du

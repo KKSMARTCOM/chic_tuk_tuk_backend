@@ -123,7 +123,7 @@ class LeaveCountersTest extends TestCase
     {
         // ⚠️ LE cas de l'agent réel, reproduit. Cinq jours pris sous un contrat clos, puis
         // un nouveau contrat : le solde doit repartir entier. C'est déjà ce que fait
-        // `DriverContractService`, qui remet `leave_days_used` à zéro à la clôture — le
+        // `EndDriverContract`, qui remet `leave_days_used` à zéro à la clôture — le
         // recalcul devait suivre la même règle, sans quoi il aurait rouvert le défaut
         // qu'il venait de corriger.
         $user = User::factory()->profil(Profil::Driver)->create();
