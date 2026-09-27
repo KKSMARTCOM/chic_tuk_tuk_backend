@@ -115,7 +115,7 @@ final class UpdateAdminBookingData extends BaseData
     }
 
     /**
-     * Charge utile attendue par `BookingService::update()` — chemin COMPLET (sans
+     * Charge utile attendue par `UpdateAdminBooking::applyUpdate()` — ex-chemin COMPLET (sans
      * `_partial`), qui recalcule prix et distance. `status` n'y figure jamais : absent
      * du tableau, `$data['status'] ?? $booking->status` dans le service garde le statut
      * courant.

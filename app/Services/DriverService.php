@@ -14,12 +14,7 @@ use Illuminate\Testing\Fluent\Concerns\Has;
 
 class DriverService
 {
-    protected BookingService $bookingService;
 
-    public function __construct(BookingService $bookingService)
-    {
-        $this->bookingService = $bookingService;
-    }
 
     public function getAllDrivers($filters = [])
     {
@@ -377,63 +372,6 @@ class DriverService
         $user->delete();
     }
 
-    public function getDriverDashboardStats(Driver $driver)
-    {
-        // Calcul du temps total de courses en minutes
-        $total_duration_seconds = Booking::where('driver_id', $driver->id)
-            ->where('status', 'completed')
-            ->whereNotNull('started_at')
-            ->whereNotNull('completed_at')
-            ->get()
-            ->sum(function ($booking) {
-                return $booking->started_at->diffInSeconds($booking->completed_at);
-            });
-
-        // Courses disponibles pour cet agent (même logique que getAvailableBookings)
-        $recentBookings = $this->bookingService->getAvailableBookings($driver->id)
-            ->take(5);
-
-        $recentBookingsAccepting = Booking::where('driver_id', $driver->id)
-            ->where('status', 'confirmed')
-            ->orderByRaw("(pickup_date::date + pickup_time::time) ASC")
-            ->take(5)
-            ->get();
-
-        $stats = [
-            'total_trips' => $driver->total_trips,
-            'rating' => $driver->rating,
-            'confirmed_trips' => Booking::where('driver_id', $driver->id)
-                ->where('status', 'confirmed')->count(),
-            'completed_trips' => Booking::where('driver_id', $driver->id)
-                ->where('status', 'completed')->count(),
-            'cancelled_trips' => Booking::where('driver_id', $driver->id)
-                ->where('status', 'cancelled')->count(),
-
-            'earnings_today' => Booking::where('driver_id', $driver->id)
-                ->where('status', 'completed')
-                ->whereDate('completed_at', today())
-                ->sum('driver_earning'),
-
-            'total_earnings' => Booking::where('driver_id', $driver->id)
-                ->where('status', 'completed')
-                ->sum('driver_earning'),
-
-            'commission_today' => Booking::where('driver_id', $driver->id)
-                ->where('status', 'completed')
-                ->whereDate('completed_at', today())
-                ->sum('commission'),
-
-            'total_commission' => Booking::where('driver_id', $driver->id)
-                ->where('status', 'completed')
-                ->sum('commission'),
-
-            'total_duration_minutes' => round($total_duration_seconds / 60),
-            'recent_bookings' => $recentBookings,
-            'recent_bookings_accepting' => $recentBookingsAccepting
-        ];
-
-        return $stats;
-    }
 
     public function getAllDriversForExport($filters = [])
     {

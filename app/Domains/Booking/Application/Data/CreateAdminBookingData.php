@@ -20,7 +20,7 @@ use Spatie\LaravelData\Support\Validation\ValidationContext;
  *    aujourd'hui, pas à demain. Un administrateur saisit souvent une course qu'un client
  *    vient de demander par téléphone ;
  *  - **le prix est accepté en entrée**, brut et sans majoration horaire — la seule route
- *    de création qui le permette. `BookingService::create()` l'applique tel quel plutôt
+ *    de création qui le permette. `CreateBooking` l'applique tel quel plutôt
  *    que de le recalculer ; c'est ce qui permet de négocier un tarif.
  */
 final class CreateAdminBookingData extends BaseData
@@ -86,7 +86,7 @@ final class CreateAdminBookingData extends BaseData
 
     /**
      * Même règle que `CreatePublicBookingData` : le premier jour d'un abonnement doit
-     * tomber sur un jour de circulation. Sans elle, `BookingService::create()` la
+     * tomber sur un jour de circulation. Sans elle, `CreateBooking` la
      * découvre en levant une `\Exception` générique — un défaut déjà payé une fois côté
      * public, et qu'un formulaire admin séparé aurait laissé se reproduire.
      */
@@ -126,7 +126,7 @@ final class CreateAdminBookingData extends BaseData
         });
     }
 
-    /** Charge utile attendue par `BookingService::create()`. */
+    /** Charge utile attendue par `CreateBooking`. */
     public function toServicePayload(): array
     {
         return [

@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Booking\Characterization;
 
+use App\Domains\Booking\Application\Actions\StartBooking;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,17 +21,12 @@ class StartBookingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function service(): BookingService
-    {
-        return app(BookingService::class);
-    }
-
     public function test_une_course_confirmee_passe_in_progress_et_date_son_depart(): void
     {
         $driver = Driver::factory()->create();
         $booking = Booking::factory()->confirmed($driver)->create();
 
-        $this->service()->start($booking->id, $driver->id);
+        app(StartBooking::class)($booking->id, $driver->id);
 
         $booking->refresh();
         $this->assertSame('in_progress', $booking->status);
@@ -47,7 +42,7 @@ class StartBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Démarrage non autorisé.');
 
-        $this->service()->start($booking->id, $autre->id);
+        app(StartBooking::class)($booking->id, $autre->id);
     }
 
     public function test_une_course_deja_en_cours_bloque_le_demarrage_d_une_autre(): void
@@ -64,7 +59,7 @@ class StartBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Vous avez déjà une course en cours.');
 
-        $this->service()->start($suivante->id, $driver->id);
+        app(StartBooking::class)($suivante->id, $driver->id);
     }
 
     public function test_une_course_d_un_jour_anterieur_non_soldee_bloque_le_demarrage(): void
@@ -84,7 +79,7 @@ class StartBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Vous devez terminer ou annuler toutes les courses précédentes avant de démarrer celle-ci.');
 
-        $this->service()->start($visee->id, $driver->id);
+        app(StartBooking::class)($visee->id, $driver->id);
     }
 
     public function test_une_course_anterieure_du_meme_jour_bloque_aussi_le_demarrage(): void
@@ -110,7 +105,7 @@ class StartBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Vous devez terminer ou annuler toutes les courses précédentes avant de démarrer celle-ci.');
 
-        $this->service()->start($visee->id, $driver->id);
+        app(StartBooking::class)($visee->id, $driver->id);
     }
 
     public function test_une_course_posterieure_du_meme_jour_ne_bloque_pas(): void
@@ -128,7 +123,7 @@ class StartBookingTest extends TestCase
             'pickup_time' => '10:00',
         ]);
 
-        $this->service()->start($visee->id, $driver->id);
+        app(StartBooking::class)($visee->id, $driver->id);
 
         $this->assertSame('in_progress', $visee->fresh()->status);
     }
@@ -144,7 +139,7 @@ class StartBookingTest extends TestCase
             'pickup_time' => '10:00',
         ]);
 
-        $this->service()->start($visee->id, $driver->id);
+        app(StartBooking::class)($visee->id, $driver->id);
 
         $this->assertSame('in_progress', $visee->fresh()->status);
     }

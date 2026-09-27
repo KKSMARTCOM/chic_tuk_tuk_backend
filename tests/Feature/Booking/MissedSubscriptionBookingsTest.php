@@ -2,8 +2,9 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Booking\Application\Actions\ExpireStaleBookings;
+use App\Domains\Booking\Application\Actions\GenerateDueSubscriptionDays;
 use App\Models\Booking;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -29,11 +30,6 @@ class MissedSubscriptionBookingsTest extends TestCase
         parent::tearDown();
     }
 
-    private function service(): BookingService
-    {
-        return app(BookingService::class);
-    }
-
     public function test_une_course_enfant_en_attente_24h_apres_passe_non_traitee_et_se_rattrape(): void
     {
         // Il reste un jour normal, dont la génération est à venir : rien n'est dû maintenant.
@@ -41,7 +37,7 @@ class MissedSubscriptionBookingsTest extends TestCase
         $child = $this->makeChild($parent, ['pickup_date' => '2026-09-29']);
 
         Carbon::setTestNow('2026-09-30 09:00:00');
-        $this->service()->markExpiredBookings();
+        app(ExpireStaleBookings::class)();
 
         $this->assertSame('missed', $child->refresh()->status);
         $this->assertSame(1, $parent->refresh()->makeup_go_count);
@@ -56,7 +52,7 @@ class MissedSubscriptionBookingsTest extends TestCase
         ]);
 
         Carbon::setTestNow('2026-09-30 09:00:00');
-        $this->service()->markExpiredBookings();
+        app(ExpireStaleBookings::class)();
 
         $this->assertSame('expired', $simple->refresh()->status);
     }
@@ -67,7 +63,7 @@ class MissedSubscriptionBookingsTest extends TestCase
         $parent = $this->makeParent(['status' => 'pending']);
 
         Carbon::setTestNow('2026-09-30 09:00:00');
-        $this->service()->markExpiredBookings();
+        app(ExpireStaleBookings::class)();
 
         $this->assertSame('expired', $parent->refresh()->status);
     }
@@ -79,7 +75,7 @@ class MissedSubscriptionBookingsTest extends TestCase
         $child = $this->makeChild($parent, ['status' => 'confirmed']);
 
         Carbon::setTestNow('2026-09-30 09:00:00');
-        $this->service()->markExpiredBookings();
+        app(ExpireStaleBookings::class)();
 
         $this->assertSame('confirmed', $child->refresh()->status);
         $this->assertSame(0, $parent->refresh()->makeup_go_count);
@@ -92,20 +88,20 @@ class MissedSubscriptionBookingsTest extends TestCase
         $parent = $this->makeParent(['remaining_days' => 3]);
 
         Carbon::setTestNow('2026-09-28 01:00:05');
-        $this->service()->createRecurringBookings(); // mardi 29
+        app(GenerateDueSubscriptionDays::class)(); // mardi 29
         $tuesday = Booking::where('parent_booking_id', $parent->id)->firstOrFail();
 
         Carbon::setTestNow('2026-09-29 01:00:05');
-        $this->service()->createRecurringBookings(); // mercredi 30 — dernier jour normal
+        app(GenerateDueSubscriptionDays::class)(); // mercredi 30 — dernier jour normal
 
         Carbon::setTestNow('2026-09-30 09:00:00');
-        $this->service()->markExpiredBookings(); // mardi passe non traité
+        app(ExpireStaleBookings::class)(); // mardi passe non traité
 
         Carbon::setTestNow('2026-10-01 01:00:05');
-        $this->service()->createRecurringBookings(); // jeudi 1er : rattrapage
+        app(GenerateDueSubscriptionDays::class)(); // jeudi 1er : rattrapage
 
         Carbon::setTestNow('2026-10-02 01:00:05');
-        $this->service()->createRecurringBookings(); // rien de plus
+        app(GenerateDueSubscriptionDays::class)(); // rien de plus
 
         $this->assertSame('missed', $tuesday->refresh()->status);
 
@@ -135,8 +131,8 @@ class MissedSubscriptionBookingsTest extends TestCase
 
         // Le constat tombe au passage de 1h, comme en production.
         Carbon::setTestNow('2026-10-01 01:00:05');
-        $this->service()->markExpiredBookings();
-        $this->service()->createRecurringBookings(); // même minute : ne doit rien doubler
+        app(ExpireStaleBookings::class)();
+        app(GenerateDueSubscriptionDays::class)(); // même minute : ne doit rien doubler
 
         $this->assertSame('missed', $missedReturn->refresh()->status);
 

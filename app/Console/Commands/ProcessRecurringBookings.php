@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\BookingService;
+use App\Domains\Booking\Application\Actions\GenerateDueSubscriptionDays;
 use Illuminate\Console\Command;
 
 class ProcessRecurringBookings extends Command
@@ -21,7 +21,7 @@ class ProcessRecurringBookings extends Command
      */
     protected $description = 'Crée les courses du jour suivant pour les réservations récurrentes';
 
-    public function __construct(private BookingService $bookingService)
+    public function __construct(private GenerateDueSubscriptionDays $generateDueDays)
     {
         parent::__construct();
     }
@@ -31,8 +31,9 @@ class ProcessRecurringBookings extends Command
      */
     public function handle()
     {
-        $count = $this->bookingService->createRecurringBookings();
+        $count = ($this->generateDueDays)();
         $this->info("✓ {$count} réservation(s) récurrente(s) traitée(s).");
+
         return Command::SUCCESS;
     }
 }

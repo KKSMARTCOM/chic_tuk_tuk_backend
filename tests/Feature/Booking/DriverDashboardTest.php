@@ -5,7 +5,6 @@ namespace Tests\Feature\Booking;
 use App\Domains\Booking\Application\Actions\BuildDriverDashboard;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\DriverService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -40,7 +39,13 @@ class DriverDashboardTest extends TestCase
     {
         $driver = $this->jeuDeDonnees();
 
-        $ancien = app(DriverService::class)->getDriverDashboardStats($driver);
+        // Les valeurs que rendait `DriverService::getDriverDashboardStats()` sur ce jeu,
+        // relevées le 2026-09-27 avant sa suppression avec le Blade.
+        $ancien = [
+            'total_trips' => 12, 'rating' => '4.50', 'confirmed_trips' => 2, 'completed_trips' => 2,
+            'cancelled_trips' => 3, 'earnings_today' => '4250.00', 'total_earnings' => '7250.00',
+            'commission_today' => '750.00', 'total_commission' => '1250.00', 'total_duration_minutes' => 60,
+        ];
         $nouveau = app(BuildDriverDashboard::class)($driver);
 
         foreach ([

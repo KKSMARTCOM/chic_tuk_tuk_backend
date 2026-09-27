@@ -2,7 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\BookingService;
+use App\Domains\Booking\Application\Actions\ListMissedSubscriptionChildren;
+use App\Domains\Booking\Application\Actions\RecordMissedChild;
 use Illuminate\Console\Command;
 
 /**
@@ -19,14 +20,14 @@ class RecoverMissedSubscriptionBookings extends Command
 
     protected $description = 'Convertit en « non traitée » les courses enfants expirées des abonnements en cours, et les rattrape';
 
-    public function __construct(private BookingService $bookingService)
+    public function __construct(private ListMissedSubscriptionChildren $listMissedChildren, private RecordMissedChild $recordMissedChild)
     {
         parent::__construct();
     }
 
     public function handle(): int
     {
-        $bookings = $this->bookingService->expiredChildrenOfOngoingSubscriptions();
+        $bookings = ($this->listMissedChildren)();
 
         $this->table(
             ['Abonnement', 'Course', 'Sens', 'Date'],
@@ -45,7 +46,7 @@ class RecoverMissedSubscriptionBookings extends Command
         }
 
         foreach ($bookings as $booking) {
-            $this->bookingService->recordMissedChild($booking->id);
+            ($this->recordMissedChild)($booking->id);
         }
 
         $this->info("✓ {$bookings->count()} course(s) passée(s) « non traitée », rattrapage programmé.");

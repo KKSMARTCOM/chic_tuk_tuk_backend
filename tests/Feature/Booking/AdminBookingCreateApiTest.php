@@ -18,7 +18,7 @@ use Tests\TestCase;
  * Créer une réservation depuis l'administration, et obtenir un devis.
  *
  * ⚠️ `MeasureRouteDistance` appelle réellement OpenRouteService : chaque test
- * qui atteint `BookingService::create()` fausse la réponse avec `Http::fake()`, sinon il
+ * qui atteint `CreateBooking` fausse la réponse avec `Http::fake()`, sinon il
  * partirait sur le réseau et échouerait en CI comme en local sans connexion.
  */
 class AdminBookingCreateApiTest extends TestCase
@@ -178,7 +178,7 @@ class AdminBookingCreateApiTest extends TestCase
     {
         /*
          * ⚠️ Même défaut que celui fermé côté public le 2026-09-18 : sans cette
-         * validation, `BookingService::create()` le découvre en levant une \Exception
+         * validation, `CreateBooking` le découvre en levant une \Exception
          * générique, et l'administrateur ne saurait pas pourquoi sa réservation a
          * échoué.
          */
@@ -196,7 +196,7 @@ class AdminBookingCreateApiTest extends TestCase
 
     public function test_une_nouvelle_reservation_notifie_les_agents_et_les_administrateurs(): void
     {
-        // Passe par BookingService::create(), qui appelle déjà le Notifier — aucune
+        // Passe par `CreateBooking`, qui appelle déjà le Notifier — aucune
         // nouvelle logique de routage à tester ici, seulement qu'elle est bien atteinte.
         User::factory()->profil(Profil::Driver)->create();
         [$admin, $token] = $this->login(Profil::Admin, ['create-bookings']);

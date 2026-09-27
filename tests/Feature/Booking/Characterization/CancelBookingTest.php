@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Booking\Characterization;
 
+use App\Domains\Booking\Application\Actions\CancelBooking;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,11 +19,6 @@ class CancelBookingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function service(): BookingService
-    {
-        return app(BookingService::class);
-    }
-
     public function test_cas_1_enfant_d_abonnement_annule_et_recree_lie_au_titulaire(): void
     {
         // La course passe `cancelled` ET une copie `pending` est créée, qui conserve
@@ -35,7 +30,7 @@ class CancelBookingTest extends TestCase
             ->linkedToSubscriptionDriver($titulaire)
             ->create(['driver_id' => $titulaire->id, 'status' => 'confirmed']);
 
-        $this->service()->cancel($enfant->id, $titulaire->id, 'Panne de tricycle');
+        app(CancelBooking::class)($enfant->id, $titulaire->id, 'Panne de tricycle');
 
         $enfant->refresh();
         $this->assertSame('cancelled', $enfant->status);
@@ -62,7 +57,7 @@ class CancelBookingTest extends TestCase
             ->create(['driver_id' => $titulaire->id, 'status' => 'confirmed']);
         $ancienRetour = Booking::factory()->returnOf($parent)->create(['base_price' => 3000]);
 
-        $this->service()->cancel($parent->id, $titulaire->id, 'Indisponible');
+        app(CancelBooking::class)($parent->id, $titulaire->id, 'Indisponible');
 
         $this->assertSame('cancelled', $parent->fresh()->status);
         // L'ancienne course retour a été supprimée : pas d'enfants J2+.
@@ -98,7 +93,7 @@ class CancelBookingTest extends TestCase
         $ancienRetour = Booking::factory()->returnOf($parent)->create();
         Booking::factory()->subscriptionChild($parent)->create();
 
-        $this->service()->cancel($parent->id, $titulaire->id, 'Indisponible');
+        app(CancelBooking::class)($parent->id, $titulaire->id, 'Indisponible');
 
         $this->assertNotNull(Booking::find($ancienRetour->id), 'La course retour du J1 survit.');
     }
@@ -110,7 +105,7 @@ class CancelBookingTest extends TestCase
             ->subscriptionParent()
             ->create(['driver_id' => $titulaire->id, 'status' => 'confirmed']);
 
-        $this->service()->cancel($parent->id, $titulaire->id, 'Indisponible');
+        app(CancelBooking::class)($parent->id, $titulaire->id, 'Indisponible');
 
         $this->assertSame(0, Booking::where('trip_type', 'return')->count());
     }
@@ -120,7 +115,7 @@ class CancelBookingTest extends TestCase
         $driver = Driver::factory()->create();
         $booking = Booking::factory()->confirmed($driver)->create();
 
-        $this->service()->cancel($booking->id, $driver->id, 'Client absent');
+        app(CancelBooking::class)($booking->id, $driver->id, 'Client absent');
 
         $this->assertSame('cancelled', $booking->fresh()->status);
 
@@ -139,7 +134,7 @@ class CancelBookingTest extends TestCase
         $aller = Booking::factory()->roundTrip('19:00')->confirmed($driver)->create();
         $ancienRetour = Booking::factory()->returnOf($aller)->create(['base_price' => 2500]);
 
-        $this->service()->cancel($aller->id, $driver->id, 'Client absent');
+        app(CancelBooking::class)($aller->id, $driver->id, 'Client absent');
 
         $this->assertNull(Booking::find($ancienRetour->id), 'L\'ancienne course retour est supprimée.');
 
@@ -161,7 +156,7 @@ class CancelBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Accès non autorisé.');
 
-        $this->service()->cancel($booking->id, $autre->id, 'Peu importe');
+        app(CancelBooking::class)($booking->id, $autre->id, 'Peu importe');
     }
 
     public function test_une_course_terminee_ne_peut_plus_etre_annulee(): void
@@ -172,6 +167,6 @@ class CancelBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Cette réservation ne peut plus être annulée.');
 
-        $this->service()->cancel($booking->id, $driver->id, 'Trop tard');
+        app(CancelBooking::class)($booking->id, $driver->id, 'Trop tard');
     }
 }

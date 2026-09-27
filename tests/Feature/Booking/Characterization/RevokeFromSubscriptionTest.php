@@ -2,20 +2,15 @@
 
 namespace Tests\Feature\Booking\Characterization;
 
+use App\Domains\Booking\Application\Actions\RevokeFromSubscription;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class RevokeFromSubscriptionTest extends TestCase
 {
     use RefreshDatabase;
-
-    private function service(): BookingService
-    {
-        return app(BookingService::class);
-    }
 
     public function test_la_course_redevient_libre_et_visible_de_tous(): void
     {
@@ -27,7 +22,7 @@ class RevokeFromSubscriptionTest extends TestCase
             ->linkedToSubscriptionDriver($titulaire)
             ->create(['driver_id' => $titulaire->id, 'status' => 'confirmed']);
 
-        $this->service()->revokeFromSubscription($enfant->id, $titulaire->id);
+        app(RevokeFromSubscription::class)($enfant->id, $titulaire->id);
 
         $enfant->refresh();
         $this->assertNull($enfant->driver_id);
@@ -53,7 +48,7 @@ class RevokeFromSubscriptionTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Vous n\'êtes pas autorisé à révoquer cette course.');
 
-        $this->service()->revokeFromSubscription($enfant->id, $autre->id);
+        app(RevokeFromSubscription::class)($enfant->id, $autre->id);
     }
 
     public function test_une_course_terminee_ne_peut_plus_etre_revoquee(): void
@@ -69,6 +64,6 @@ class RevokeFromSubscriptionTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Cette course ne peut plus être révoquée.');
 
-        $this->service()->revokeFromSubscription($enfant->id, $titulaire->id);
+        app(RevokeFromSubscription::class)($enfant->id, $titulaire->id);
     }
 }

@@ -5,7 +5,6 @@ namespace Tests\Feature\Booking;
 use App\Domains\Booking\Application\Actions\ListAssignedBookings;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,18 +15,17 @@ class AssignedBookingsTest extends TestCase
     public function test_equivalence_avec_l_appel_du_blade(): void
     {
         // Le Blade appelle getByDriverId($id, ['confirmed', 'in_progress']).
+        // Ce que rendait cet appel, relevé le 2026-09-27 avant la suppression du Blade :
+        // la course en cours (7 h) puis l'acceptée (9 h) ; ni la terminée ni la libre.
         $driver = Driver::factory()->create();
-        Booking::factory()->confirmed($driver)->create(['pickup_time' => '09:00']);
-        Booking::factory()->inProgress($driver)->create(['pickup_time' => '07:00']);
+        $confirmed = Booking::factory()->confirmed($driver)->create(['pickup_time' => '09:00']);
+        $inProgress = Booking::factory()->inProgress($driver)->create(['pickup_time' => '07:00']);
         Booking::factory()->completed($driver)->create(['pickup_time' => '08:00']);
         Booking::factory()->create(); // course libre, d'aucun agent
 
-        $ancienne = app(BookingService::class)
-            ->getByDriverId($driver->id, ['confirmed', 'in_progress'])
-            ->pluck('id')->all();
         $nouvelle = app(ListAssignedBookings::class)($driver->id)->pluck('id')->all();
 
-        $this->assertSame($ancienne, $nouvelle);
+        $this->assertSame([$inProgress->id, $confirmed->id], $nouvelle);
     }
 
     public function test_ne_renvoie_ni_les_courses_terminees_ni_celles_d_un_autre_agent(): void

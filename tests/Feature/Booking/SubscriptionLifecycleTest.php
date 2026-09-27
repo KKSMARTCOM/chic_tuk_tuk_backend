@@ -2,9 +2,10 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Booking\Application\Actions\AcceptBooking;
+use App\Domains\Booking\Application\Actions\GenerateDueSubscriptionDays;
 use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
 use App\Models\Booking;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -36,7 +37,7 @@ class SubscriptionLifecycleTest extends TestCase
         $parent = $this->makeParent(['remaining_days' => 2]);
 
         Carbon::setTestNow('2026-09-28 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
 
         $parent->refresh();
         $child = Booking::where('parent_booking_id', $parent->id)->firstOrFail();
@@ -57,7 +58,7 @@ class SubscriptionLifecycleTest extends TestCase
         ]);
 
         Carbon::setTestNow('2026-09-28 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
 
         Booking::where('parent_booking_id', $parent->id)->update([
             'status' => 'completed',
@@ -78,11 +79,11 @@ class SubscriptionLifecycleTest extends TestCase
         $parent = $this->makeParent(['remaining_days' => 2]);
 
         Carbon::setTestNow('2026-09-28 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
         Carbon::setTestNow('2026-09-29 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
         Carbon::setTestNow('2026-09-30 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
 
         $this->assertSame(1, Booking::where('parent_booking_id', $parent->id)->count());
     }
@@ -123,11 +124,11 @@ class SubscriptionLifecycleTest extends TestCase
         $driver = $this->makeDriver();
 
         Carbon::setTestNow('2026-09-28 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
         $this->assertSame(0, Booking::where('parent_booking_id', $parent->id)->count(), 'pas encore accepté, rien de généré');
 
         Carbon::setTestNow('2026-09-28 07:30:00');
-        app(BookingService::class)->take($parent->id, $driver->id);
+        app(AcceptBooking::class)($parent->id, $driver->id);
 
         $child = Booking::where('parent_booking_id', $parent->id)->firstOrFail();
         $this->assertSame('2026-09-29', $child->pickup_date->toDateString());
@@ -141,7 +142,7 @@ class SubscriptionLifecycleTest extends TestCase
         $driver = $this->makeDriver();
 
         Carbon::setTestNow('2026-09-27 15:00:00');
-        app(BookingService::class)->take($parent->id, $driver->id);
+        app(AcceptBooking::class)($parent->id, $driver->id);
 
         $this->assertSame(0, Booking::where('parent_booking_id', $parent->id)->count());
     }
@@ -153,9 +154,9 @@ class SubscriptionLifecycleTest extends TestCase
         $driver = $this->makeDriver();
 
         Carbon::setTestNow('2026-09-28 07:30:00');
-        app(BookingService::class)->take($parent->id, $driver->id);
+        app(AcceptBooking::class)($parent->id, $driver->id);
         Carbon::setTestNow('2026-09-29 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
 
         $dates = Booking::where('parent_booking_id', $parent->id)->pluck('pickup_date')
             ->map(fn ($d) => $d->toDateString())->sort()->values()->all();
@@ -165,7 +166,7 @@ class SubscriptionLifecycleTest extends TestCase
     /**
      * ⚠️ Un abonnement de N jours produisait N+1 journées : le parent (J1) PLUS N courses
      * enfants, la commande générant tant que `remaining_days` restait positif. Or ce
-     * compteur inclut la journée en cours — `BookingService::create()` l'initialise à
+     * compteur inclut la journée en cours — `CreateBooking` l'initialise à
      * `days`, les écrans affichent « Dernier jour » à 1 — et la date de fin, la
      * numérotation « Course X » comme le prix comptent N jours, J1 compris.
      */
@@ -175,11 +176,11 @@ class SubscriptionLifecycleTest extends TestCase
         $parent = $this->makeParent(['status' => 'pending', 'days' => 3, 'remaining_days' => 3]);
 
         Carbon::setTestNow('2026-09-27 12:00:00');
-        app(BookingService::class)->take($parent->id, $this->makeDriver()->id);
+        app(AcceptBooking::class)($parent->id, $this->makeDriver()->id);
 
         foreach (['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'] as $day) {
             Carbon::setTestNow("{$day} 01:00:05");
-            app(BookingService::class)->createRecurringBookings();
+            app(GenerateDueSubscriptionDays::class)();
         }
 
         $dates = Booking::where('parent_booking_id', $parent->id)->orderBy('pickup_date')

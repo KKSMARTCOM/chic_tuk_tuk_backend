@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Booking\Characterization;
 
+use App\Domains\Booking\Application\Actions\AcceptBooking;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -23,17 +23,12 @@ class TakeBookingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function service(): BookingService
-    {
-        return app(BookingService::class);
-    }
-
     public function test_une_course_unique_passe_confirmed_et_recoit_son_agent(): void
     {
         $driver = Driver::factory()->create();
         $booking = Booking::factory()->create();
 
-        $this->service()->take($booking->id, $driver->id);
+        app(AcceptBooking::class)($booking->id, $driver->id);
 
         $booking->refresh();
         $this->assertSame('confirmed', $booking->status);
@@ -48,7 +43,7 @@ class TakeBookingTest extends TestCase
         $parent = Booking::factory()->subscriptionParent()->roundTrip()->create();
         $retour = Booking::factory()->returnOf($parent)->create();
 
-        $this->service()->take($parent->id, $driver->id);
+        app(AcceptBooking::class)($parent->id, $driver->id);
 
         $this->assertSame($driver->id, $parent->fresh()->subscription_driver_id);
         $this->assertSame($driver->id, $retour->fresh()->subscription_driver_id);
@@ -64,7 +59,7 @@ class TakeBookingTest extends TestCase
         $aller = Booking::factory()->roundTrip()->create();
         $retour = Booking::factory()->returnOf($aller)->create();
 
-        $this->service()->take($aller->id, $driver->id);
+        app(AcceptBooking::class)($aller->id, $driver->id);
 
         $this->assertSame($driver->id, $retour->fresh()->subscription_driver_id);
         $this->assertSame('pending', $retour->fresh()->status);
@@ -79,7 +74,7 @@ class TakeBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Réservation déjà prise ou annulée.');
 
-        $this->service()->take($booking->id, $second->id);
+        app(AcceptBooking::class)($booking->id, $second->id);
     }
 
     public function test_un_abonnement_lie_a_un_autre_agent_est_refuse(): void
@@ -94,7 +89,7 @@ class TakeBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Cette course n\'est pas accessible.');
 
-        $this->service()->take($parent->id, $autre->id);
+        app(AcceptBooking::class)($parent->id, $autre->id);
     }
 
     public function test_un_enfant_d_abonnement_lie_a_a_reste_acceptable_par_b(): void
@@ -111,7 +106,7 @@ class TakeBookingTest extends TestCase
             ->linkedToSubscriptionDriver($titulaire)
             ->create();
 
-        $this->service()->take($enfant->id, $autre->id);
+        app(AcceptBooking::class)($enfant->id, $autre->id);
 
         $this->assertSame('confirmed', $enfant->fresh()->status);
         $this->assertSame($autre->id, $enfant->fresh()->driver_id);

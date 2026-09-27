@@ -21,12 +21,12 @@ final class BookingController extends Controller
         try {
             $booking = $action->execute($data);
         } catch (\Throwable $e) {
-            Log::error('Échec de création d\'une réservation publique : ' . $e->getMessage(), [
+            Log::error('Échec de création d\'une réservation publique : '.$e->getMessage(), [
                 'exception' => $e,
-                'phone'     => $data->phone,
+                'phone' => $data->phone,
             ]);
 
-            // BookingService lève une exception générique quand l'itinéraire ne peut
+            // `CreateBooking` lève une exception générique quand l'itinéraire ne peut
             // pas être calculé : le détail ne doit pas remonter au client.
             throw new UnprocessableEntityHttpException(
                 'La réservation n\'a pas pu être enregistrée. Vérifiez votre trajet et réessayez.',

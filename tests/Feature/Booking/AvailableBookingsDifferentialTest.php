@@ -5,7 +5,6 @@ namespace Tests\Feature\Booking;
 use App\Domains\Booking\Application\Actions\ListAvailableBookings;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,9 +12,9 @@ use Tests\TestCase;
  * Le test différentiel : dix formes × trois observateurs.
  *
  * L'ancienne implémentation (BookingService::getAvailableBookings) et la nouvelle
- * (ListAvailableBookings) doivent rendre EXACTEMENT les mêmes identifiants, dans le même
- * ordre. La preuve ne dépend alors ni d'une lecture de code, ni d'une documentation prise
- * en défaut — le CLAUDE.md du backend l'est déjà sur ce terrain.
+ * (ListAvailableBookings) devaient rendre EXACTEMENT les mêmes identifiants, dans le même
+ * ordre. L'ancienne a disparu avec le Blade le 2026-09-27 : ce qu'elle rendait sur ces
+ * dix formes a été relevé en la faisant tourner, et figé ici forme par forme.
  */
 class AvailableBookingsDifferentialTest extends TestCase
 {
@@ -112,10 +111,15 @@ class AvailableBookingsDifferentialTest extends TestCase
             ->create(['pickup_time' => $heure(11)])->id;
     }
 
-    /** @return array<int, string> */
-    private function ancienne(Driver $driver): array
+    /**
+     * Ce que rendait l'ancienne implémentation, relevé le 2026-09-27 avant sa suppression.
+     *
+     * @param  list<string>  $forms
+     * @return array<int, string>
+     */
+    private function ancienne(array $forms): array
     {
-        return app(BookingService::class)->getAvailableBookings($driver->id)->pluck('id')->all();
+        return array_map(fn (string $form) => $this->formes[$form], $forms);
     }
 
     /** @return array<int, string> */
@@ -126,17 +130,20 @@ class AvailableBookingsDifferentialTest extends TestCase
 
     public function test_le_titulaire_voit_la_meme_chose_des_deux_implementations(): void
     {
-        $this->assertSame($this->ancienne($this->titulaire), $this->nouvelle($this->titulaire));
+        $this->assertSame($this->ancienne([
+            'unique_simple', 'unique_aller_retour', 'retour_cachee_prise', 'abo_parent_libre', 'abo_parent_lie',
+            'abo_enfant_lie', 'abo_enfant_revoque', 'abo_retour_lie', 'abo_retour_revoque',
+        ]), $this->nouvelle($this->titulaire));
     }
 
     public function test_un_autre_agent_voit_la_meme_chose_des_deux_implementations(): void
     {
-        $this->assertSame($this->ancienne($this->autre), $this->nouvelle($this->autre));
+        $this->assertSame($this->ancienne(['unique_simple', 'unique_aller_retour', 'abo_parent_libre', 'abo_enfant_revoque', 'abo_retour_revoque']), $this->nouvelle($this->autre));
     }
 
     public function test_un_tiers_sans_lien_voit_la_meme_chose_des_deux_implementations(): void
     {
-        $this->assertSame($this->ancienne($this->tiers), $this->nouvelle($this->tiers));
+        $this->assertSame($this->ancienne(['unique_simple', 'unique_aller_retour', 'abo_parent_libre', 'abo_enfant_revoque', 'abo_retour_revoque']), $this->nouvelle($this->tiers));
     }
 
     public function test_les_trois_observateurs_ne_voient_pas_la_meme_chose(): void

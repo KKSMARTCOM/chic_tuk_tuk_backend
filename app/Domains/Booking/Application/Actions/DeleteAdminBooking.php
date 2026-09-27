@@ -4,7 +4,6 @@ namespace App\Domains\Booking\Application\Actions;
 
 use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
-use App\Services\BookingService;
 use App\Shared\Http\ApiException;
 
 /**
@@ -21,8 +20,6 @@ use App\Shared\Http\ApiException;
  */
 final class DeleteAdminBooking
 {
-    public function __construct(private readonly BookingService $bookingService) {}
-
     public function __invoke(Booking $booking): void
     {
         if (! BookingLifecycle::canDelete($booking)) {
@@ -33,9 +30,23 @@ final class DeleteAdminBooking
             );
         }
 
-        // La suppression elle-même reste dans `BookingService` : elle n'a pas été
-        // transposée en action, et la dupliquer ici créerait la divergence que la
-        // délégation cherche à éviter.
-        $this->bookingService->delete($booking->id);
+        // La suppression elle-même : ex-`BookingService::delete()`, déplacée ici sans
+        // changement le 2026-09-27.
+        $this->deleteBooking($booking->id);
+    }
+
+    private function deleteBooking(string $bookingId)
+    {
+        $booking = Booking::findOrFail($bookingId);
+
+        if (! $booking) {
+            throw new \Exception('La course demandée est introuvable.');
+        }
+
+        if (! in_array($booking->status, ['cancelled', 'expired'])) {
+            throw new \Exception('Cette course ne peut pas être supprimée car elle est en cours ou en attente.');
+        }
+
+        $booking->delete();
     }
 }

@@ -4,7 +4,6 @@ namespace App\Domains\Booking\Application\Actions;
 
 use App\Domains\Notification\Application\Notifier;
 use App\Models\Booking;
-use App\Services\BookingService;
 use App\Models\Driver;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
@@ -14,8 +13,8 @@ use Illuminate\Support\Facades\Log;
  * Accepter une course — ex-BookingService::take().
  *
  * Déplacée sans réécriture le 2026-09-18 : même transaction, même lockForUpdate, même
- * ordre d'opérations, mêmes messages. BookingService::take() délègue désormais ici, de
- * sorte qu'il n'existe qu'une seule implémentation pour le chemin Blade et pour l'API.
+ * ordre d'opérations, mêmes messages. C'est la seule implémentation de l'acceptation,
+ * depuis que le chemin Blade a disparu (2026-09-27).
  *
  * Ne renvoie rien, comme la méthode d'origine : son DB::transaction n'était pas
  * `return`é. Lui faire renvoyer la course serait une réécriture, si petite soit-elle.
@@ -37,7 +36,7 @@ final class AcceptBooking
                 throw new ApiException(409, 'BOOKING_ALREADY_TAKEN', 'Réservation déjà prise ou annulée.');
             }
 
-            if (!$booking->isVisibleToDriver($driverId)) {
+            if (! $booking->isVisibleToDriver($driverId)) {
                 // 404 et non 403 : un refus qui révélerait l'existence d'une course la
                 // rend introuvable. Le message reste celui du Blade — le front ne
                 // l'affiche pas, il s'appuie sur le `code`.
@@ -48,14 +47,14 @@ final class AcceptBooking
 
             $updateData = [
                 'driver_id' => $driver->id,
-                'status'    => 'confirmed',
+                'status' => 'confirmed',
             ];
 
             // Abonnement parent → lier le titulaire + course retour abonnement
             if (
                 $booking->is_recurring
                 && is_null($booking->parent_booking_id)
-                && !$booking->subscription_driver_id
+                && ! $booking->subscription_driver_id
             ) {
                 $updateData['subscription_driver_id'] = $driver->id;
 
@@ -67,7 +66,7 @@ final class AcceptBooking
 
             // Course unique aller avec aller-retour → lier l'agent à la course retour
             if (
-                !$booking->is_recurring
+                ! $booking->is_recurring
                 && $booking->round_trip
                 && $booking->trip_type === 'go'
                 && is_null($booking->parent_booking_id) // course aller principale
@@ -99,7 +98,7 @@ final class AcceptBooking
         // de son démarrage après 1h, un abonnement attendait le passage suivant — le jour
         // J lui-même — pour générer la course du lendemain. Constaté en production. Hors
         // de la transaction : chaque journée prend son propre verrou.
-        app(BookingService::class)->catchUpRecurringBookings($bookingId);
+        app(CatchUpSubscriptionDays::class)($bookingId);
     }
 
     private function previenir(string $bookingId, string $driverId): void

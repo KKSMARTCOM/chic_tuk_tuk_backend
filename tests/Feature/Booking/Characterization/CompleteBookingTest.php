@@ -2,21 +2,16 @@
 
 namespace Tests\Feature\Booking\Characterization;
 
+use App\Domains\Booking\Application\Actions\CompleteBooking;
 use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\Driver;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CompleteBookingTest extends TestCase
 {
     use RefreshDatabase;
-
-    private function service(): BookingService
-    {
-        return app(BookingService::class);
-    }
 
     public function test_la_commission_vaut_15_pourcent_arrondis_aux_50_fcfa_superieurs(): void
     {
@@ -26,7 +21,7 @@ class CompleteBookingTest extends TestCase
         $driver = Driver::factory()->create();
         $booking = Booking::factory()->inProgress($driver)->create(['base_price' => 5300]);
 
-        $this->service()->complete($booking->id, $driver->id);
+        app(CompleteBooking::class)($booking->id, $driver->id);
 
         $booking->refresh();
         // 5300 × 15 % = 795 → arrondi aux 50 supérieurs = 800.
@@ -43,7 +38,7 @@ class CompleteBookingTest extends TestCase
         $driver = Driver::factory()->create();
         $booking = Booking::factory()->inProgress($driver)->create(['base_price' => 5000]);
 
-        $this->service()->complete($booking->id, $driver->id);
+        app(CompleteBooking::class)($booking->id, $driver->id);
 
         $this->assertSame(750.0, (float) $booking->fresh()->commission);
     }
@@ -53,7 +48,7 @@ class CompleteBookingTest extends TestCase
         $driver = Driver::factory()->create(['total_trips' => 7]);
         $booking = Booking::factory()->inProgress($driver)->create();
 
-        $this->service()->complete($booking->id, $driver->id);
+        app(CompleteBooking::class)($booking->id, $driver->id);
 
         $this->assertSame(8, $driver->fresh()->total_trips);
     }
@@ -63,7 +58,7 @@ class CompleteBookingTest extends TestCase
         $driver = Driver::factory()->create();
         $booking = Booking::factory()->inProgress($driver)->create(['base_price' => 5000]);
 
-        $this->service()->complete($booking->id, $driver->id);
+        app(CompleteBooking::class)($booking->id, $driver->id);
 
         $commission = Commission::where('booking_id', $booking->id)->first();
         $this->assertNotNull($commission);
@@ -80,7 +75,7 @@ class CompleteBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Finalisation non autorisée.');
 
-        $this->service()->complete($booking->id, $driver->id);
+        app(CompleteBooking::class)($booking->id, $driver->id);
     }
 
     public function test_la_course_d_un_autre_agent_ne_peut_pas_etre_terminee(): void
@@ -92,6 +87,6 @@ class CompleteBookingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Finalisation non autorisée.');
 
-        $this->service()->complete($booking->id, $autre->id);
+        app(CompleteBooking::class)($booking->id, $autre->id);
     }
 }

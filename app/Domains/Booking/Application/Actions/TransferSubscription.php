@@ -12,8 +12,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Change le titulaire d'un abonnement déjà pris — ex. quand l'agent titulaire ne tient
  * plus ses engagements. Livré en production par le Blade le 2026-09-25, déplacé ici le
- * 2026-09-27 : `BookingService::transferSubscription()` DÉLÈGUE, les deux chemins
- * partagent donc la même règle. Les refus portent les messages d'origine mot pour mot.
+ * 2026-09-27, avant la suppression du Blade. Les refus portent les messages d'origine mot pour mot.
  *
  * Passent au nouvel agent :
  *  - le parent (titulaire), et son J1 s'il est accepté mais pas encore démarré ;

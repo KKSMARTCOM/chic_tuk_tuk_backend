@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\BookingService;
+use App\Domains\Booking\Application\Actions\ExpireStaleBookings;
 use Illuminate\Console\Command;
 
 class ExpireBookings extends Command
@@ -21,7 +21,7 @@ class ExpireBookings extends Command
      */
     protected $description = 'Marque comme expirées les courses dont la date de départ est dépassée';
 
-    public function __construct(private BookingService $bookingService)
+    public function __construct(private ExpireStaleBookings $expireStaleBookings)
     {
         parent::__construct();
     }
@@ -31,8 +31,9 @@ class ExpireBookings extends Command
      */
     public function handle()
     {
-        $count = $this->bookingService->markExpiredBookings();
+        $count = ($this->expireStaleBookings)();
         $this->info("✓ {$count} réservation(s) marquée(s) comme expirées.");
+
         return Command::SUCCESS;
     }
 }

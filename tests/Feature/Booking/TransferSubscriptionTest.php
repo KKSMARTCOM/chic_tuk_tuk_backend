@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Booking;
 
+use App\Domains\Booking\Application\Actions\GenerateDueSubscriptionDays;
 use App\Domains\Booking\Application\Actions\TransferSubscription;
 use App\Domains\Notification\Application\PushSender;
 use App\Models\Booking;
-use App\Services\BookingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Mockery;
@@ -109,7 +109,7 @@ class TransferSubscriptionTest extends TestCase
         $this->transfer($parent, $b->id);
 
         Carbon::setTestNow('2026-09-28 01:00:05');
-        app(BookingService::class)->createRecurringBookings();
+        app(GenerateDueSubscriptionDays::class)();
         Carbon::setTestNow();
 
         $this->assertSame($b->id, Booking::where('parent_booking_id', $parent->id)->firstOrFail()->subscription_driver_id);

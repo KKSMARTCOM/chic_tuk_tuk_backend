@@ -5,13 +5,12 @@ namespace App\Domains\Booking\Application\Actions;
 use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Models\Driver;
-use App\Services\BookingService;
 use App\Shared\Http\ApiException;
 
 /**
  * Affecter un agent à une course — ex-Admin\BookingController::assignDriver().
  *
- * ⚠️ L'affectation passe par `BookingService::take()`, qui délègue à `AcceptBooking`,
+ * ⚠️ L'affectation passe par `AcceptBooking`,
  * exactement comme si l'agent avait pris la course lui-même. C'est indispensable et non
  * une commodité : accepter une course propage `subscription_driver_id` sur la course
  * RETOUR cachée et sur les enfants d'un abonnement. Poser `driver_id` à la main —
@@ -20,7 +19,7 @@ use App\Shared\Http\ApiException;
  */
 final class AssignDriverToBooking
 {
-    public function __construct(private readonly BookingService $bookingService) {}
+    public function __construct(private readonly AcceptBooking $acceptBooking) {}
 
     public function __invoke(Booking $booking, string $driverId): Booking
     {
@@ -58,7 +57,7 @@ final class AssignDriverToBooking
             );
         }
 
-        $this->bookingService->take($booking->id, $driver->id);
+        ($this->acceptBooking)($booking->id, $driver->id);
 
         return $booking->refresh();
     }

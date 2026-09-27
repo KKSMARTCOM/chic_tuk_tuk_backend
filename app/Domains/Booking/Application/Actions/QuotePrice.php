@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Cache;
 /**
  * Calcule le devis d'une course.
  *
- * Reproduit exactement la logique de tarification de BookingService::create()
+ * Reproduit exactement la logique de tarification de `CreateBooking`
  * (prix de base, majoration horaire sur l'aller et sur le retour, multiplication
  * par le nombre de jours d'un abonnement), afin que le devis affiché au client
  * corresponde au prix réellement enregistré à la création.
@@ -29,7 +29,7 @@ final class QuotePrice
         // durée, mais la distance ne dépend que du trajet : elle est mise en cache pour ne
         // consommer le quota OpenRouteService qu'une fois par couple de coordonnées.
         // (Arrondi à 5 décimales ≈ 1 m.) La création de la réservation, elle, recalcule
-        // toujours la distance via BookingService::create().
+        // toujours la distance via `CreateBooking`.
         $distance = Cache::remember(
             sprintf('pricing:distance:%.5f,%.5f:%.5f,%.5f', $data->fromLng, $data->fromLat, $data->toLng, $data->toLat),
             now()->addDays(7),
