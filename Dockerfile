@@ -1,11 +1,10 @@
 # ================================
-# Stage 1 : Build des assets
+# Stage 1 : dépendances PHP (plus d'assets front depuis le 2026-09-27 : API seule)
 # ================================
 FROM php:8.2-fpm-alpine AS builder
 
 RUN apk add --no-cache \
     git curl zip unzip \
-    nodejs npm \
     libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
     libzip-dev oniguruma-dev postgresql-dev
 
@@ -21,11 +20,7 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
-COPY package.json package-lock.json* ./
-RUN npm ci
-
 COPY . .
-RUN npm run build
 
 # post-autoload uniquement — PAS de config:cache/route:cache ici
 # (les variables d'env ne sont pas disponibles au build)

@@ -15,9 +15,9 @@ use App\Shared\Data\BaseData;
  * ⚠️ `totalTrips` reprend `drivers.total_trips`, un compteur STOCKÉ (incrémenté à la
  * complétion d'une course, décrémenté à une réouverture) — pas un COUNT live des
  * réservations terminées, que porte plutôt le dossier (`bookingStats.completed`). Les
- * deux coïncident en fonctionnement normal, mais `DriversImport` permet de fixer
- * `total_trips` depuis un CSV sans aucun lien avec de vraies réservations : le champ peut
- * diverger pour un agent importé. Reproduit tel quel depuis le Blade — l'écart n'est pas
+ * deux coïncident en fonctionnement normal, mais l'ancien import CSV du Blade (retiré le
+ * 2026-09-27) permettait de fixer `total_trips` sans lien avec de vraies réservations :
+ * le champ peut diverger pour un agent importé avant cette date. Reproduit tel quel depuis le Blade — l'écart n'est pas
  * corrigé dans ce lot.
  */
 final class AdminDriverListItemData extends BaseData

@@ -7,6 +7,7 @@ use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -134,7 +135,7 @@ class DriverLeavesApiTest extends TestCase
     {
         // `addBusinessDays` : un vendredi + 3 jours ouvrés tombe le mardi suivant.
         [$driver, $token] = $this->loginDriver();
-        $vendredi = now()->addWeek()->next(\Carbon\CarbonInterface::FRIDAY);
+        $vendredi = now()->addWeek()->next(CarbonInterface::FRIDAY);
         LeaveRequest::factory()->create([
             'driver_id' => $driver->id,
             'status' => 'pending',
@@ -209,6 +210,36 @@ class DriverLeavesApiTest extends TestCase
         ])
             ->assertStatus(409)
             ->assertJsonPath('code', 'LEAVE_ALREADY_PENDING');
+    }
+
+    public function test_une_pause_deja_en_cours_bloque_une_nouvelle_demande(): void
+    {
+        // L'autre moitié de la condition : `pending` OU `ongoing`. Reporté du test
+        // Blade `RequestLeaveTest` le 2026-09-27, avant sa suppression.
+        [$driver, $token] = $this->loginDriver();
+        LeaveRequest::factory()->create(['driver_id' => $driver->id, 'status' => 'ongoing']);
+
+        $this->entete($token)->postJson('/api/v1/driver/leaves', [
+            'start_date' => now()->addDays(3)->toDateString(),
+            'requested_days' => 2,
+        ])->assertStatus(409);
+
+        $this->assertSame(1, LeaveRequest::count());
+    }
+
+    public function test_une_demande_refusee_ne_bloque_pas_une_nouvelle(): void
+    {
+        // Le garde-fou : sans lui, une condition trop large bloquerait tout et les deux
+        // refus ci-dessus passeraient pour la mauvaise raison.
+        [$driver, $token] = $this->loginDriver();
+        LeaveRequest::factory()->create(['driver_id' => $driver->id, 'status' => 'rejected']);
+
+        $this->entete($token)->postJson('/api/v1/driver/leaves', [
+            'start_date' => now()->addDays(3)->toDateString(),
+            'requested_days' => 2,
+        ])->assertStatus(201);
+
+        $this->assertSame(1, LeaveRequest::where('status', 'pending')->count());
     }
 
     public function test_une_date_a_moins_de_24_heures_est_refusee_en_422(): void

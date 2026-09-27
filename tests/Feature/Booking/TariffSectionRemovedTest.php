@@ -25,10 +25,10 @@ class TariffSectionRemovedTest extends TestCase
         }
     }
 
-    public function test_the_price_computation_routes_stay(): void
+    public function test_the_price_computation_route_stays(): void
     {
-        // Le calcul du prix des formulaires Blade, et le devis de l'API publique.
-        $this->assertTrue(Route::has('pricing.get-price'));
+        // Le devis de l'API publique ; la route de calcul des formulaires Blade est partie
+        // avec eux le 2026-09-27.
         $this->assertTrue(Route::has('api.v1.public.pricing.quote'));
     }
 

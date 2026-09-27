@@ -30,23 +30,4 @@ class DriverDashboardPermissionTest extends TestCase
             'Sans cette permission, l\'agent n\'a pas d\'entrée « Tableau de bord » dans son menu.',
         );
     }
-
-    public function test_view_dashboard_n_ouvre_aucun_espace_d_un_autre_profil(): void
-    {
-        // Le garde-fou : `view-dashboard` garde /admin/dashboard et /client/dashboard,
-        // mais ces routes portent AUSSI `profil:admin` et `profil:client`. La permission
-        // seule n'ouvre donc rien à un agent. Ce test échouerait si quelqu'un retirait
-        // un jour le garde de profil en s'appuyant sur la permission seule.
-        $this->seed(ReferenceRolesAndPermissionsSeeder::class);
-
-        foreach (['admin', 'client'] as $espace) {
-            $fichier = file_get_contents(base_path("routes/{$espace}.php"));
-
-            $this->assertStringContainsString(
-                "profil:{$espace}",
-                $fichier,
-                "Les routes de l'espace {$espace} doivent rester gardées par leur profil.",
-            );
-        }
-    }
 }

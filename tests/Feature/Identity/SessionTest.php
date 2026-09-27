@@ -126,18 +126,4 @@ class SessionTest extends TestCase
             ->getJson('/api/v1/auth/me')
             ->assertOk();
     }
-
-    public function test_un_jeton_d_api_survit_a_une_connexion_sur_le_chemin_blade(): void
-    {
-        [$user, $token] = $this->login();
-
-        // Reproduit ce que fait AuthService::login() du chemin Blade : il supprime
-        // les jetons dont le nom vaut le profil. Les jetons d'API sont nommés « api »,
-        // ils doivent donc survivre.
-        $user->tokens()->where('name', $user->profil)->delete();
-
-        $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson('/api/v1/auth/me')
-            ->assertOk();
-    }
 }

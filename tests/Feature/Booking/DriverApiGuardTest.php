@@ -46,9 +46,8 @@ class DriverApiGuardTest extends TestCase
 
     public function test_sans_jeton_la_reponse_est_un_401_json(): void
     {
-        // Et surtout PAS une 302 vers /login : CheckPermission et CheckProfil
-        // contiennent tous deux une branche Blade qui redirige. Elle doit rester
-        // inatteignable sur ce chemin.
+        // Et surtout PAS une 302 vers /login, que l'ancienne branche Blade de
+        // CheckPermission renvoyait (retirée le 2026-09-27).
         $this->getJson('/api/v1/driver/bookings/available')
             ->assertStatus(401)
             ->assertJsonPath('code', 'UNAUTHENTICATED');

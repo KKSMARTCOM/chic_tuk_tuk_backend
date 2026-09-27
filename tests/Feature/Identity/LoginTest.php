@@ -50,8 +50,8 @@ class LoginTest extends TestCase
 
         $token = $user->tokens()->sole();
 
-        // Jamais le nom du profil : AuthService::login() (chemin Blade) supprime les
-        // jetons ainsi nommés et tuerait la session du front Nuxt.
+        // Toujours « api » : c'est le nom que portent les jetons en base (voir
+        // `config/identity.php`).
         $this->assertSame('api', $token->name);
         $this->assertSame(['admin'], $token->abilities);
         $this->assertTrue($token->expires_at->between(now()->addDays(89), now()->addDays(91)));

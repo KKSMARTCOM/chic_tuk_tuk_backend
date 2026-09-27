@@ -17,9 +17,9 @@
 
 return [
     'token' => [
-        // Nom des jetons émis par l'API. Volontairement différent du profil :
-        // AuthService::login() (chemin Blade) supprime les jetons dont le nom vaut
-        // le profil de l'utilisateur, et balaierait donc les sessions du front Nuxt.
+        // Nom des jetons émis par l'API. Il fut choisi différent du profil parce que la
+        // connexion Blade, retirée le 2026-09-27, supprimait les jetons nommés d'après
+        // le profil ; le nom reste, les jetons en base le portent.
         'name' => 'api',
 
         // Fenêtre d'inactivité glissante, vérifiée par EnforceTokenFreshness.
