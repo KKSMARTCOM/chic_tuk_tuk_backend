@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Domains\Fleet\Application\Actions\CreateAgentLeavePause;
 use App\Models\LeaveRequest;
-use App\Services\VehicleService;
 use Illuminate\Console\Command;
 
 class ActivateLeavePauses extends Command
@@ -25,11 +25,11 @@ class ActivateLeavePauses extends Command
     /**
      * Execute the console command.
      */
-    public function handle(VehicleService $vehicleService): int
+    public function handle(CreateAgentLeavePause $createAgentLeavePause): int
     {
         $toActivate = LeaveRequest::where('status', 'ongoing')
             ->whereDate('start_date', '<=', now()->toDateString())
-            ->whereHas('driver', fn($q) => $q->where('is_available', true))
+            ->whereHas('driver', fn ($q) => $q->where('is_available', true))
             ->with('driver.activeDriverContract.vehicle')
             ->get();
 
@@ -38,8 +38,8 @@ class ActivateLeavePauses extends Command
             $driver->update(['is_available' => false]);
 
             $contract = $driver->activeDriverContract;
-            if ($contract && $contract->vehicle && !$contract->vehicle->isOnPause()) {
-                $vehicleService->createAutoAgentPause(
+            if ($contract && $contract->vehicle && ! $contract->vehicle->isOnPause()) {
+                $createAgentLeavePause(
                     $contract->vehicle_id,
                     $contract->id,
                     $leave->start_date->toDateString()
@@ -47,7 +47,8 @@ class ActivateLeavePauses extends Command
             }
         }
 
-        $this->info($toActivate->count() . ' pause(s) activée(s).');
+        $this->info($toActivate->count().' pause(s) activée(s).');
+
         return self::SUCCESS;
     }
 }

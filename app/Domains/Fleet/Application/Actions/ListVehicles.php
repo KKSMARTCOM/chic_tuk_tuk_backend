@@ -8,17 +8,14 @@ use App\Domains\Fleet\Application\Data\AdminVehiclePersonData;
 use App\Domains\Fleet\Application\Data\AdminVehicleStatsData;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Services\VehicleService;
 
-/** La liste des véhicules — ex-Admin\VehicleController::index(), par `VehicleService::getAll()`. */
+/** La liste des véhicules — ex-Admin\VehicleController::index(), par sa requête (ex-`VehicleService::getAll()`). */
 final class ListVehicles
 {
-    public function __construct(private readonly VehicleService $vehicleService) {}
-
     /** @param  array{search?: ?string, is_active?: ?string, owner_id?: ?string}  $filters */
     public function __invoke(array $filters = []): AdminVehiclePageData
     {
-        $vehicles = $this->vehicleService->getAll($filters);
+        $vehicles = $this->getAll($filters);
 
         return new AdminVehiclePageData(
             vehicles: $vehicles->map(fn (Vehicle $vehicle) => AdminVehicleListItemData::fromModel($vehicle))->all(),
@@ -36,5 +33,24 @@ final class ListVehicles
                 ->map(fn (User $owner) => new AdminVehiclePersonData($owner->id, $owner->name, $owner->phone))
                 ->all(),
         );
+    }
+
+    private function getAll(array $filters = [])
+    {
+        $query = Vehicle::with(['owner', 'activeVehicleContract', 'activeDriverContract.driver.user', 'activePause']);
+
+        if (! empty($filters['search'])) {
+            $query->where('vehicle_number', 'LIKE', "%{$filters['search']}%");
+        }
+
+        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
+            $query->where('is_active', (bool) $filters['is_active']);
+        }
+
+        if (! empty($filters['owner_id'])) {
+            $query->where('owner_id', $filters['owner_id']);
+        }
+
+        return $query->latest()->get();
     }
 }

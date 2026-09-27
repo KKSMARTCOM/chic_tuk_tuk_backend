@@ -2,8 +2,8 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\ClosePause;
 use App\Models\LeaveRequest;
-use App\Services\VehicleService;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class EndLeave
 {
-    public function __construct(private readonly VehicleService $vehicleService) {}
+    public function __construct(private readonly ClosePause $closePause) {}
 
     public function __invoke(LeaveRequest $pause, string $dateDeFin): LeaveRequest
     {
@@ -58,7 +58,7 @@ final class EndLeave
             $agent->markLeaveDaysUsed($joursEffectifs);
 
             if ($pause->vehiclePause) {
-                $this->vehicleService->endPause($pause->vehiclePause, $fin->toDateString());
+                ($this->closePause)($pause->vehiclePause, $fin->toDateString());
             }
 
             // ⚠️ Seulement si plus AUCUNE pause ne court : sans cette condition, clôturer

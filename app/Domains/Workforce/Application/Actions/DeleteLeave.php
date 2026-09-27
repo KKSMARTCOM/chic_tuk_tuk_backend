@@ -2,9 +2,9 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\CancelPause;
 use App\Models\Driver;
 use App\Models\LeaveRequest;
-use App\Services\VehicleService;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
 
@@ -42,7 +42,7 @@ final class DeleteLeave
     /** Les origines qu'un administrateur a saisies lui-même, et peut donc défaire. */
     private const ADMIN_SOURCES = ['admin_historical', 'legacy'];
 
-    public function __construct(private readonly VehicleService $vehicleService) {}
+    public function __construct(private readonly CancelPause $cancelPause) {}
 
     public function __invoke(LeaveRequest $leave): void
     {
@@ -66,7 +66,7 @@ final class DeleteLeave
             }
 
             if ($leave->vehiclePause) {
-                $this->vehicleService->cancelPause($leave->vehiclePause);
+                ($this->cancelPause)($leave->vehiclePause);
             }
 
             $leave->delete();

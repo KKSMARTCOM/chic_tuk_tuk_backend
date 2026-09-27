@@ -2,9 +2,9 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\CreateAgentLeavePause;
 use App\Domains\Notification\Application\Notifier;
 use App\Models\LeaveRequest;
-use App\Services\VehicleService;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
 
@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
 final class ApproveLeaveRequest
 {
     public function __construct(
-        private readonly VehicleService $vehicleService,
+        private readonly CreateAgentLeavePause $createAgentLeavePause,
         private readonly Notifier $notifier,
     ) {}
 
@@ -55,7 +55,7 @@ final class ApproveLeaveRequest
 
             // La pause véhicule : le tricycle ne roule pas pendant que son agent est en
             // pause, et son propriétaire doit le savoir.
-            $pause = $this->vehicleService->createAutoAgentPause(
+            $pause = ($this->createAgentLeavePause)(
                 $contrat->vehicle_id,
                 $contrat->id,
                 $demande->start_date->toDateString(),

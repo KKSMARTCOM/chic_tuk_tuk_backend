@@ -4,7 +4,7 @@ namespace App\Domains\Workforce\Application\Actions;
 
 use App\Models\Driver;
 use App\Models\LeaveRequest;
-use App\Services\VehicleService;
+use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -35,8 +35,6 @@ use Illuminate\Support\Facades\DB;
  */
 final class UpdateOngoingLeave
 {
-    public function __construct(private readonly VehicleService $vehicleService) {}
-
     public function __invoke(LeaveRequest $leave, string $dateDeDebut, int $joursDemandes): LeaveRequest
     {
         if ($leave->status !== 'ongoing') {
@@ -56,7 +54,7 @@ final class UpdateOngoingLeave
             ]);
 
             if ($leave->vehiclePause) {
-                $this->vehicleService->correctPauseDates($leave->vehiclePause, $debut->toDateString());
+                $this->correctPauseDates($leave->vehiclePause, $debut->toDateString());
             }
 
             $driver = $leave->driver;
@@ -82,5 +80,35 @@ final class UpdateOngoingLeave
             ->where('status', 'ongoing')
             ->whereDate('start_date', '<=', now()->startOfDay())
             ->exists();
+    }
+
+    /**
+     * Corriger la date de début (et éventuellement la date de fin) d'une pause véhicule existante,
+     * sans en créer une nouvelle.
+     */
+    private function correctPauseDates(VehiclePause $pause, string $startDate, ?string $endDate = null): VehiclePause
+    {
+        return DB::transaction(function () use ($pause, $startDate, $endDate) {
+            $pause->update([
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ]);
+
+            $vehicle = $pause->vehicle;
+            $today = Carbon::today();
+            $start = Carbon::parse($startDate)->startOfDay();
+            $end = $endDate ? Carbon::parse($endDate)->startOfDay() : null;
+
+            $isCurrentlyPaused = $start->lte($today) && (! $end || $end->gte($today));
+
+            // Le véhicule doit refléter l'état réel après correction
+            if ($isCurrentlyPaused) {
+                $vehicle->update(['is_active' => false]);
+            } elseif (! $vehicle->activePause) {
+                $vehicle->update(['is_active' => true]);
+            }
+
+            return $pause->refresh();
+        });
     }
 }

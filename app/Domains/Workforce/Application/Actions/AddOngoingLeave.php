@@ -2,9 +2,9 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\CreateAgentLeavePause;
 use App\Models\Driver;
 use App\Models\LeaveRequest;
-use App\Services\VehicleService;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class AddOngoingLeave
 {
-    public function __construct(private readonly VehicleService $vehicleService) {}
+    public function __construct(private readonly CreateAgentLeavePause $createAgentLeavePause) {}
 
     public function __invoke(Driver $agent, string $dateDeDebut, int $joursDemandes, string $auteurId): LeaveRequest
     {
@@ -53,7 +53,7 @@ final class AddOngoingLeave
                 'created_by' => $auteurId,
             ]);
 
-            $pauseVehicule = $this->vehicleService->createAutoAgentPause(
+            $pauseVehicule = ($this->createAgentLeavePause)(
                 $contrat->vehicle_id,
                 $contrat->id,
                 $dateDeDebut,
