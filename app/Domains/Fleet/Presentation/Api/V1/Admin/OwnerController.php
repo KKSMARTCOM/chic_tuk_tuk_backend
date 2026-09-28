@@ -35,10 +35,7 @@ final class OwnerController
     public function index(Request $request, ListOwners $list): JsonResponse
     {
         try {
-            return response()->json($list([
-                'search' => $request->query('search'),
-                'is_active' => $request->query('is_active'),
-            ]));
+            return response()->json($list($request->query()));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {

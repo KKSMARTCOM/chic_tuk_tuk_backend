@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Application\Data;
 
 use App\Shared\Data\BaseData;
+use App\Shared\Data\PaginationData;
 
 /**
  * GET /admin/vehicles — la liste, ses compteurs et les propriétaires du filtre.
@@ -15,6 +16,7 @@ final class AdminVehiclePageData extends BaseData
     public function __construct(
         /** @var array<int, AdminVehicleListItemData> */
         public array $vehicles,
+        public PaginationData $pagination,
         public AdminVehicleStatsData $stats,
         /** @var array<int, AdminVehiclePersonData> */
         public array $owners,

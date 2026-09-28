@@ -85,6 +85,23 @@ class AdminVehicleContractsReadApiTest extends TestCase
         $this->assertTrue($rows[$untouched->id]['is_deletable']);
     }
 
+    /** Paginée et triée côté serveur depuis le 2026-09-28. */
+    public function test_the_list_is_paginated_and_sorted_by_the_server(): void
+    {
+        $token = $this->login(['view-contracts']);
+        foreach (range(1, 26) as $n) {
+            VehicleContract::factory()->create(['total_amount' => 1000000 + $n, 'status' => 'completed']);
+        }
+
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicle-contracts?sort=-total_amount')
+            ->assertOk()
+            ->assertJsonCount(25, 'contracts')
+            ->assertJsonPath('contracts.0.total_amount', 1000026)
+            ->assertJsonPath('pagination.last_page', 2);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicle-contracts?sort=owner_id')->assertStatus(400);
+    }
+
     public function test_available_vehicles_have_an_owner_and_no_active_contract(): void
     {
         $free = Vehicle::factory()->create();

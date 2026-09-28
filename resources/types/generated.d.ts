@@ -491,6 +491,7 @@ created_at: string;
 };
 export type AdminOwnerPageData = {
 owners: Array<App.Domains.Fleet.Application.Data.AdminOwnerListItemData>;
+pagination: App.Shared.Data.PaginationData;
 stats: App.Domains.Fleet.Application.Data.AdminOwnerStatsData;
 };
 export type AdminOwnerStatsData = {
@@ -584,6 +585,7 @@ total: number;
 };
 export type AdminVehicleContractPageData = {
 contracts: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractListItemData>;
+pagination: App.Shared.Data.PaginationData;
 available_vehicles: Array<App.Domains.Fleet.Application.Data.AdminAvailableVehicleData>;
 };
 export type AdminVehicleContractPartyData = {
@@ -658,6 +660,7 @@ email: string | null;
 };
 export type AdminVehiclePageData = {
 vehicles: Array<App.Domains.Fleet.Application.Data.AdminVehicleListItemData>;
+pagination: App.Shared.Data.PaginationData;
 stats: App.Domains.Fleet.Application.Data.AdminVehicleStatsData;
 owners: Array<App.Domains.Fleet.Application.Data.AdminVehiclePersonData>;
 };

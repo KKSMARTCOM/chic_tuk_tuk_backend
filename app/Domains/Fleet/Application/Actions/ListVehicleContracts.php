@@ -7,7 +7,10 @@ use App\Domains\Fleet\Application\Data\AdminVehicleContractListItemData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractPageData;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
+use App\Shared\Data\PaginationData;
+use App\Shared\Http\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
+use Spatie\QueryBuilder\QueryBuilder;
 
 /**
  * La liste des contrats propriétaire-véhicule — ex-Admin\VehicleContractController::index().
@@ -17,14 +20,21 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class ListVehicleContracts
 {
-    public function __invoke(): AdminVehicleContractPageData
+    /**
+     * @param  array<string, mixed>  $params  `sort` (created_at, start_date, total_amount),
+     *                                         `page`, `per_page` — paginée depuis le 2026-09-28
+     */
+    public function __invoke(array $params = []): AdminVehicleContractPageData
     {
+        $page = ListQuery::paginate(ListQuery::build(self::query(), $params, fn (QueryBuilder $query) => $query
+            ->allowedSorts(['created_at', 'start_date', 'total_amount'])
+            ->defaultSort('-created_at')), $params);
+
         return new AdminVehicleContractPageData(
-            contracts: self::query()
-                ->latest()
-                ->get()
+            contracts: collect($page->items())
                 ->map(fn (VehicleContract $contract) => AdminVehicleContractListItemData::fromModel($contract))
                 ->all(),
+            pagination: PaginationData::fromPaginator($page),
             // Comme le Blade : actifs et sans contrat en cours. Sans propriétaire en plus,
             // puisqu'un contrat est au nom du propriétaire du véhicule.
             availableVehicles: Vehicle::query()

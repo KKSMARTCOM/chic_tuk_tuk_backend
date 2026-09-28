@@ -103,12 +103,40 @@ class AdminVehiclesReadApiTest extends TestCase
         Vehicle::factory()->create(['owner_id' => $owner->id, 'vehicle_number' => 'BJ-AAA']);
         Vehicle::factory()->create(['owner_id' => null, 'vehicle_number' => 'BJ-BBB', 'is_active' => false]);
 
-        $this->asBearer($token)->getJson('/api/v1/admin/vehicles?search=BBB')
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicles?filter[search]=BBB')
             ->assertJsonCount(1, 'vehicles')->assertJsonPath('vehicles.0.vehicle_number', 'BJ-BBB');
-        $this->asBearer($token)->getJson('/api/v1/admin/vehicles?is_active=1')
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicles?filter[is_active]=1')
             ->assertJsonCount(1, 'vehicles')->assertJsonPath('vehicles.0.vehicle_number', 'BJ-AAA');
-        $this->asBearer($token)->getJson("/api/v1/admin/vehicles?owner_id={$owner->id}")
+        $this->asBearer($token)->getJson("/api/v1/admin/vehicles?filter[owner_id]={$owner->id}")
             ->assertJsonCount(1, 'vehicles')->assertJsonPath('vehicles.0.vehicle_number', 'BJ-AAA');
+    }
+
+    /**
+     * Paginée et triée côté serveur depuis le 2026-09-28. Les compteurs, eux, portent sur
+     * TOUTE la liste filtrée, comme avant — pas sur la page affichée.
+     */
+    public function test_the_list_is_paginated_and_its_counters_cover_every_page(): void
+    {
+        $token = $this->login(['view-vehicles']);
+        foreach (range(1, 27) as $n) {
+            Vehicle::factory()->create(['vehicle_number' => sprintf('T-%04d', $n), 'is_active' => $n <= 20]);
+        }
+
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicles')
+            ->assertOk()
+            ->assertJsonCount(25, 'vehicles')
+            // Par numéro croissant par défaut, comme l'écran.
+            ->assertJsonPath('vehicles.0.vehicle_number', 'T-0001')
+            ->assertJsonPath('pagination.total', 27)
+            ->assertJsonPath('stats.total', 27)
+            ->assertJsonPath('stats.active', 20);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicles?sort=-vehicle_number')
+            ->assertJsonPath('vehicles.0.vehicle_number', 'T-0027');
+
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicles?filter[is_active]=0')
+            ->assertJsonPath('stats.total', 7)
+            ->assertJsonPath('pagination.total', 7);
     }
 
     public function test_the_detail_carries_every_block_of_the_blade_screen(): void

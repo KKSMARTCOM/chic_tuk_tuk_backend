@@ -6,6 +6,10 @@ use App\Domains\Fleet\Application\Data\AdminOwnerListItemData;
 use App\Domains\Fleet\Application\Data\AdminOwnerPageData;
 use App\Domains\Fleet\Application\Data\AdminOwnerStatsData;
 use App\Models\User;
+use App\Shared\Data\PaginationData;
+use App\Shared\Http\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\QueryBuilder\QueryBuilder;
 
 /**
  * La liste des propriétaires — ex-Admin\OwnerController::index().
@@ -15,14 +19,18 @@ use App\Models\User;
  */
 final class ListOwners
 {
-    /** @param  array{search?: ?string, is_active?: ?string}  $filters */
-    public function __invoke(array $filters = []): AdminOwnerPageData
+    /**
+     * @param  array<string, mixed>  $params  `filter[search|is_active]`, `sort` (created_at,
+     *                                         name, email, is_active), `page`, `per_page`
+     */
+    public function __invoke(array $params = []): AdminOwnerPageData
     {
-        $owners = $this->getAll($filters);
+        $page = ListQuery::paginate($this->query($params), $params);
         $stats = $this->getStats();
 
         return new AdminOwnerPageData(
-            owners: $owners->map(fn (User $owner) => AdminOwnerListItemData::fromModel($owner))->all(),
+            owners: collect($page->items())->map(fn (User $owner) => AdminOwnerListItemData::fromModel($owner))->all(),
+            pagination: PaginationData::fromPaginator($page),
             stats: new AdminOwnerStatsData(
                 total: $stats['total'],
                 active: $stats['active'],
@@ -31,30 +39,23 @@ final class ListOwners
         );
     }
 
-    private function getAll(array $filters = [])
+    /** Paginée et triée côté serveur depuis le 2026-09-28. */
+    private function query(array $params): QueryBuilder
     {
-        $query = User::with('roles', 'vehicles')
+        $owners = User::with('roles', 'vehicles')
             ->where('profil', 'owner')
             ->role('proprietaire');
 
-        if (! empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
+        return ListQuery::build($owners, $params, fn (QueryBuilder $query) => $query
+            ->allowedFilters([
+                ListQuery::search(fn (Builder $q, string $search) => $q->where(fn (Builder $inner) => $inner
+                    ->where('name', 'LIKE', "%{$search}%")
                     ->orWhere('email', 'LIKE', "%{$search}%")
-                    ->orWhere('phone', 'LIKE', "%{$search}%");
-            });
-        }
-
-        if (isset($filters['profil']) && $filters['profil'] !== '') {
-            $query->where('profil', $filters['profil']);
-        }
-
-        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
-            $query->where('is_active', (bool) $filters['is_active']);
-        }
-
-        return $query->latest()->get();
+                    ->orWhere('phone', 'LIKE', "%{$search}%"))),
+                ListQuery::boolean('is_active'),
+            ])
+            ->allowedSorts(['created_at', 'name', 'email', 'is_active'])
+            ->defaultSort('-created_at'));
     }
 
     private function getStats(): array

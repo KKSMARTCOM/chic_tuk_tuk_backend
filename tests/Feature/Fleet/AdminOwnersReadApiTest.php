@@ -87,11 +87,33 @@ class AdminOwnersReadApiTest extends TestCase
         $this->owner(['name' => 'Awa Propriétaire', 'phone' => '97000001', 'is_active' => true]);
         $this->owner(['name' => 'Koffi Inactif', 'phone' => '97000002', 'is_active' => false]);
 
-        $this->asBearer($token)->getJson('/api/v1/admin/owners?search=97000002')
+        $this->asBearer($token)->getJson('/api/v1/admin/owners?filter[search]=97000002')
             ->assertOk()->assertJsonCount(1, 'owners')->assertJsonPath('owners.0.name', 'Koffi Inactif');
 
-        $this->asBearer($token)->getJson('/api/v1/admin/owners?is_active=1')
+        $this->asBearer($token)->getJson('/api/v1/admin/owners?filter[is_active]=1')
             ->assertOk()->assertJsonCount(1, 'owners')->assertJsonPath('owners.0.name', 'Awa Propriétaire');
+    }
+
+    /** Paginée et triée côté serveur depuis le 2026-09-28. */
+    public function test_the_list_is_paginated_and_sorted_by_the_server(): void
+    {
+        [, $token] = $this->login(['view-owners']);
+        foreach (range(1, 26) as $n) {
+            $this->owner(['name' => sprintf('Propriétaire %02d', $n)]);
+        }
+
+        $this->asBearer($token)->getJson('/api/v1/admin/owners?sort=name')
+            ->assertOk()
+            ->assertJsonCount(25, 'owners')
+            ->assertJsonPath('owners.0.name', 'Propriétaire 01')
+            ->assertJsonPath('pagination.total', 26)
+            ->assertJsonPath('stats.total', 26);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/owners?sort=-name&page=2')
+            ->assertJsonCount(1, 'owners')
+            ->assertJsonPath('owners.0.name', 'Propriétaire 01');
+
+        $this->asBearer($token)->getJson('/api/v1/admin/owners?sort=password')->assertStatus(400);
     }
 
     public function test_the_detail_separates_vehicles_with_and_without_an_assigned_driver(): void

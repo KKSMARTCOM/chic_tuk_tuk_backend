@@ -36,11 +36,7 @@ final class VehicleController
     public function index(Request $request, ListVehicles $list): JsonResponse
     {
         try {
-            return response()->json($list([
-                'search' => $request->query('search'),
-                'is_active' => $request->query('is_active'),
-                'owner_id' => $request->query('owner_id'),
-            ]));
+            return response()->json($list($request->query()));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {

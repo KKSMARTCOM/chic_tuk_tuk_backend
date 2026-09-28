@@ -30,7 +30,7 @@ final class VehicleContractController
     public function index(Request $request, ListVehicleContracts $list): JsonResponse
     {
         try {
-            return response()->json($list());
+            return response()->json($list($request->query()));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
