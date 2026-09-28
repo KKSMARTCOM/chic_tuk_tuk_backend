@@ -7,6 +7,12 @@ use App\Domains\Workforce\Application\Data\AdminDriverPageData;
 use App\Domains\Workforce\Application\Data\AdminDriverStatsData;
 use App\Models\Driver;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Shared\Data\PaginationData;
+use App\Shared\Http\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\QueryBuilder\AllowedSort;
+use Spatie\QueryBuilder\QueryBuilder;
 
 /**
  * La liste générale des agents — ex-Admin\DriverController::index().
@@ -23,19 +29,39 @@ use App\Models\User;
 final class ListDrivers
 {
     /**
-     * @param  array{search?: ?string, is_active?: ?string, is_available?: ?string}  $filters
+     * @param  array<string, mixed>  $params  `filter[search|is_active|is_available]`, `sort`
+     *                                         (created_at, name, email, is_active, vehicle_number,
+     *                                         total_trips), `page`, `per_page`
      */
-    public function __invoke(array $filters = []): AdminDriverPageData
+    public function __invoke(array $params = []): AdminDriverPageData
     {
-        $query = User::query()
+        $page = ListQuery::paginate($this->query($params), $params);
+
+        return new AdminDriverPageData(
+            drivers: collect($page->items())->map(fn (User $u) => AdminDriverListItemData::fromModel($u))->all(),
+            pagination: PaginationData::fromPaginator($page),
+            stats: $this->stats(),
+        );
+    }
+
+    /**
+     * Paginée et triée côté serveur depuis le 2026-09-28.
+     *
+     * La requête porte sur `users` : deux colonnes de l'écran vivent ailleurs, et se
+     * trient par sous-requête — le compteur de courses sur `drivers`, et la plaque du
+     * véhicule ACTUEL (contrat agent actif), la même que `currentVehicle`.
+     */
+    private function query(array $params): QueryBuilder
+    {
+        $drivers = User::query()
             ->where('profil', 'driver')
             ->whereHas('driver')
             ->with('driver.currentVehicle');
 
-        if (! empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
+        return ListQuery::build($drivers, $params, fn (QueryBuilder $query) => $query
+            ->allowedFilters([
+                ListQuery::search(fn (Builder $q, string $search) => $q->where(fn (Builder $inner) => $inner
+                    ->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%")
                     ->orWhereHas('driver', fn ($driverQuery) => $driverQuery->where('license_number', 'like', "%{$search}%"))
@@ -44,26 +70,29 @@ final class ListDrivers
                     // dépôt déclarent mais que la base de staging n'a plus (constaté le
                     // 2026-09-23 : `column "vehicle_number" does not exist`). Cette clause
                     // faisait partie de TOUTE recherche, peu importe le terme tapé — la
-                    // recherche d'agent était donc cassée sans exception, y compris côté
-                    // Blade, qui porte la même requête.
-                    ->orWhereHas('driver.currentVehicle', fn ($vehicleQuery) => $vehicleQuery->where('vehicle_number', 'like', "%{$search}%"));
-            });
-        }
-
-        if (isset($filters['is_active']) && $filters['is_active'] !== '' && $filters['is_active'] !== null) {
-            $query->where('is_active', (bool) $filters['is_active']);
-        }
-
-        if (isset($filters['is_available']) && $filters['is_available'] !== '' && $filters['is_available'] !== null) {
-            $query->whereHas('driver', fn ($q) => $q->where('is_available', (bool) $filters['is_available']));
-        }
-
-        $users = $query->latest()->get();
-
-        return new AdminDriverPageData(
-            drivers: $users->map(fn (User $u) => AdminDriverListItemData::fromModel($u))->all(),
-            stats: $this->stats(),
-        );
+                    // recherche d'agent était donc cassée sans exception.
+                    ->orWhereHas('driver.currentVehicle', fn ($vehicleQuery) => $vehicleQuery->where('vehicle_number', 'like', "%{$search}%")))),
+                ListQuery::boolean('is_active'),
+                ListQuery::boolean('is_available', fn (Builder $q, bool $available) => $q
+                    ->whereHas('driver', fn ($driverQuery) => $driverQuery->where('is_available', $available))),
+            ])
+            ->allowedSorts([
+                'created_at', 'name', 'email', 'is_active',
+                AllowedSort::callback('total_trips', fn (Builder $q, bool $descending) => $q->orderBy(
+                    Driver::select('total_trips')->whereColumn('drivers.user_id', 'users.id')->limit(1),
+                    $descending ? 'desc' : 'asc',
+                )),
+                AllowedSort::callback('vehicle_number', fn (Builder $q, bool $descending) => $q->orderBy(
+                    Vehicle::select('vehicles.vehicle_number')
+                        ->join('driver_contracts', 'driver_contracts.vehicle_id', '=', 'vehicles.id')
+                        ->join('drivers', 'drivers.id', '=', 'driver_contracts.driver_id')
+                        ->where('driver_contracts.status', 'active')
+                        ->whereColumn('drivers.user_id', 'users.id')
+                        ->limit(1),
+                    $descending ? 'desc' : 'asc',
+                )),
+            ])
+            ->defaultSort('-created_at'));
     }
 
     private function stats(): AdminDriverStatsData

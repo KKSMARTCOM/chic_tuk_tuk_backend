@@ -107,14 +107,33 @@ class AdminUsersApiTest extends TestCase
         $this->assertEqualsCanonicalizing(['admin', 'utilisateur'], $names);
     }
 
+    /** Paginée et triée côté serveur depuis le 2026-09-28. */
+    public function test_the_list_is_paginated_and_sorted_by_the_server(): void
+    {
+        [, $token] = $this->login();
+        foreach (range(1, 25) as $n) {
+            $this->account('utilisateur', ['name' => sprintf('Compte %02d', $n)]);
+        }
+
+        // 26 comptes avec celui qui se connecte.
+        $this->asBearer($token)->getJson('/api/v1/admin/users?sort=name')
+            ->assertOk()
+            ->assertJsonCount(25, 'users')
+            ->assertJsonPath('users.0.name', 'Compte 01')
+            ->assertJsonPath('pagination.total', 26)
+            ->assertJsonPath('stats.total', 26);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/users?sort=password')->assertStatus(400);
+    }
+
     public function test_the_list_filters_by_search_and_status(): void
     {
         [, $token] = $this->login();
         $this->account('utilisateur', ['name' => 'Inès Inactive', 'is_active' => false]);
 
-        $this->asBearer($token)->getJson('/api/v1/admin/users?search=Inès')
+        $this->asBearer($token)->getJson('/api/v1/admin/users?filter[search]=Inès')
             ->assertJsonCount(1, 'users');
-        $this->asBearer($token)->getJson('/api/v1/admin/users?is_active=0')
+        $this->asBearer($token)->getJson('/api/v1/admin/users?filter[is_active]=0')
             ->assertJsonCount(1, 'users')
             ->assertJsonPath('users.0.name', 'Inès Inactive');
     }

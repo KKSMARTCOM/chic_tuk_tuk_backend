@@ -104,6 +104,23 @@ class AdminDriverContractsApiTest extends TestCase
         $this->assertFalse($row['is_deletable']);
     }
 
+    /** Paginée et triée côté serveur depuis le 2026-09-28. */
+    public function test_the_list_is_paginated_and_sorted_by_the_server(): void
+    {
+        foreach (range(1, 26) as $n) {
+            DriverContract::factory()->create(['start_date' => now()->subDays($n)->toDateString()]);
+        }
+        $token = $this->login(['view-contracts']);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/driver-contracts?sort=-start_date')
+            ->assertOk()
+            ->assertJsonCount(25, 'contracts')
+            ->assertJsonPath('contracts.0.start_date', now()->subDay()->toDateString())
+            ->assertJsonPath('pagination.total', 26);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/driver-contracts?sort=driver_id')->assertStatus(400);
+    }
+
     public function test_the_detail_counts_only_completed_payments(): void
     {
         $contract = $this->activeContract();

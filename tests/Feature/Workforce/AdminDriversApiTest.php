@@ -105,7 +105,7 @@ class AdminDriversApiTest extends TestCase
         [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
 
         $response = $this->entete($token)
-            ->getJson('/api/v1/admin/drivers?search=Kofi')
+            ->getJson('/api/v1/admin/drivers?filter[search]=Kofi')
             ->assertOk();
 
         $response->assertJsonCount(1, 'drivers');
@@ -132,7 +132,7 @@ class AdminDriversApiTest extends TestCase
         [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
 
         $response = $this->entete($token)
-            ->getJson('/api/v1/admin/drivers?search=T-9001')
+            ->getJson('/api/v1/admin/drivers?filter[search]=T-9001')
             ->assertOk();
 
         $response->assertJsonCount(1, 'drivers');
@@ -151,7 +151,7 @@ class AdminDriversApiTest extends TestCase
         [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
 
         $this->entete($token)
-            ->getJson('/api/v1/admin/drivers?is_active=&is_available=')
+            ->getJson('/api/v1/admin/drivers?filter[is_active]=&filter[is_available]=')
             ->assertOk()
             ->assertJsonCount(1, 'drivers');
     }
@@ -163,9 +163,46 @@ class AdminDriversApiTest extends TestCase
         [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
 
         $this->entete($token)
-            ->getJson('/api/v1/admin/drivers?is_available=1')
+            ->getJson('/api/v1/admin/drivers?filter[is_available]=1')
             ->assertOk()
             ->assertJsonCount(1, 'drivers');
+    }
+
+    /** Paginée et triée côté serveur depuis le 2026-09-28, y compris sur les deux colonnes calculées. */
+    public function test_the_list_is_paginated_and_sorted_by_the_server(): void
+    {
+        foreach (range(1, 26) as $n) {
+            Driver::factory()->create(['total_trips' => $n]);
+        }
+        [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
+
+        $this->entete($token)->getJson('/api/v1/admin/drivers?sort=-total_trips')
+            ->assertOk()
+            ->assertJsonCount(25, 'drivers')
+            ->assertJsonPath('drivers.0.total_trips', 26)
+            ->assertJsonPath('pagination.total', 26)
+            ->assertJsonPath('stats.total', 26);
+
+        $this->entete($token)->getJson('/api/v1/admin/drivers?sort=total_trips&page=2')
+            ->assertJsonCount(1, 'drivers')
+            ->assertJsonPath('drivers.0.total_trips', 26);
+
+        $this->entete($token)->getJson('/api/v1/admin/drivers?sort=password')->assertStatus(400);
+    }
+
+    public function test_the_list_sorts_by_the_current_vehicle(): void
+    {
+        foreach (['T-0002', 'T-0001'] as $number) {
+            $driver = Driver::factory()->create();
+            $vehicleContract = VehicleContract::factory()->forVehicle(Vehicle::factory()->create(['vehicle_number' => $number]))->create();
+            DriverContract::factory()->forVehicleContract($vehicleContract)->create(['driver_id' => $driver->id]);
+        }
+        [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
+
+        $this->entete($token)->getJson('/api/v1/admin/drivers?sort=vehicle_number')
+            ->assertOk()
+            ->assertJsonPath('drivers.0.vehicle_number', 'T-0001')
+            ->assertJsonPath('drivers.1.vehicle_number', 'T-0002');
     }
 
     // ----- Le dossier ------------------------------------------------------------

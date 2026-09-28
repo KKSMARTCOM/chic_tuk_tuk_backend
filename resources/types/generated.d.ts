@@ -923,6 +923,7 @@ created_at: string;
 };
 export type AdminUserPageData = {
 users: Array<App.Domains.Identity.Application.Data.AdminUserListItemData>;
+pagination: App.Shared.Data.PaginationData;
 stats: App.Domains.Identity.Application.Data.AdminUserStatsData;
 assignable_roles: Array<App.Domains.Identity.Application.Data.AdminUserRoleData>;
 };
@@ -1071,6 +1072,7 @@ created_at: string;
 };
 export type AdminDriverContractPageData = {
 contracts: Array<App.Domains.Workforce.Application.Data.AdminDriverContractListItemData>;
+pagination: App.Shared.Data.PaginationData;
 };
 export type AdminDriverDetailData = {
 id: string;
@@ -1140,6 +1142,7 @@ created_at: string;
 };
 export type AdminDriverPageData = {
 drivers: Array<App.Domains.Workforce.Application.Data.AdminDriverListItemData>;
+pagination: App.Shared.Data.PaginationData;
 stats: App.Domains.Workforce.Application.Data.AdminDriverStatsData;
 };
 export type AdminDriverRecentBookingData = {

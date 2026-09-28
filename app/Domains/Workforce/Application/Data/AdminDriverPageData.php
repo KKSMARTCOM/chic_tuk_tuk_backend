@@ -3,6 +3,7 @@
 namespace App\Domains\Workforce\Application\Data;
 
 use App\Shared\Data\BaseData;
+use App\Shared\Data\PaginationData;
 
 /**
  * GET /admin/drivers — la liste des agents et ses compteurs.
@@ -15,6 +16,7 @@ final class AdminDriverPageData extends BaseData
     public function __construct(
         /** @var array<int, AdminDriverListItemData> */
         public array $drivers,
+        public PaginationData $pagination,
         public AdminDriverStatsData $stats,
     ) {}
 }

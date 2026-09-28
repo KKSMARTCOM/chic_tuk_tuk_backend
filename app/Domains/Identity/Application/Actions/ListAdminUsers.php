@@ -8,6 +8,10 @@ use App\Domains\Identity\Application\Data\AdminUserRoleData;
 use App\Domains\Identity\Application\Data\AdminUserStatsData;
 use App\Models\Role;
 use App\Models\User;
+use App\Shared\Data\PaginationData;
+use App\Shared\Http\ListQuery;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\QueryBuilder\QueryBuilder;
 
 /**
  * La liste des administrateurs — ex-Admin\UserController::index(), par la même requête
@@ -20,15 +24,20 @@ final class ListAdminUsers
         private readonly AssignableRoles $assignableRoles,
     ) {}
 
-    /** @param  array{search?: ?string, is_active?: ?string}  $filters */
-    public function __invoke(array $filters = []): AdminUserPageData
+    /**
+     * @param  array<string, mixed>  $params  `filter[search|is_active]`, `sort` (created_at,
+     *                                         name, email, is_active), `page`, `per_page`
+     */
+    public function __invoke(array $params = []): AdminUserPageData
     {
         $stats = $this->getStats();
+        $page = ListQuery::paginate($this->query($params), $params);
 
         return new AdminUserPageData(
-            users: $this->getAll($filters)
+            users: collect($page->items())
                 ->map(fn (User $user) => AdminUserListItemData::fromModel($user))
                 ->all(),
+            pagination: PaginationData::fromPaginator($page),
             stats: new AdminUserStatsData($stats['total'], $stats['active'], $stats['inactive']),
             assignableRoles: ($this->assignableRoles)()
                 ->map(fn (Role $role) => AdminUserRoleData::fromModel($role))
@@ -36,29 +45,19 @@ final class ListAdminUsers
         );
     }
 
-    private function getAll(array $filters = [])
+    /** Paginée et triée côté serveur depuis le 2026-09-28. */
+    private function query(array $params): QueryBuilder
     {
-        $query = User::with('roles')
-            ->where('profil', 'admin');
-
-        if (! empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
+        return ListQuery::build(User::with('roles')->where('profil', 'admin'), $params, fn (QueryBuilder $query) => $query
+            ->allowedFilters([
+                ListQuery::search(fn (Builder $q, string $search) => $q->where(fn (Builder $inner) => $inner
+                    ->where('name', 'LIKE', "%{$search}%")
                     ->orWhere('email', 'LIKE', "%{$search}%")
-                    ->orWhere('phone', 'LIKE', "%{$search}%");
-            });
-        }
-
-        if (isset($filters['profil']) && $filters['profil'] !== '') {
-            $query->where('profil', $filters['profil']);
-        }
-
-        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
-            $query->where('is_active', (bool) $filters['is_active']);
-        }
-
-        return $query->latest()->get();
+                    ->orWhere('phone', 'LIKE', "%{$search}%"))),
+                ListQuery::boolean('is_active'),
+            ])
+            ->allowedSorts(['created_at', 'name', 'email', 'is_active'])
+            ->defaultSort('-created_at'));
     }
 
     private function getStats(): array

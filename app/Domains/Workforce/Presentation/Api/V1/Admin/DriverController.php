@@ -38,11 +38,7 @@ final class DriverController
     public function index(Request $request, ListDrivers $list): JsonResponse
     {
         try {
-            $result = $list([
-                'search' => $request->query('search'),
-                'is_active' => $request->query('is_active'),
-                'is_available' => $request->query('is_available'),
-            ]);
+            $result = $list($request->query());
 
             return response()->json($result);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
