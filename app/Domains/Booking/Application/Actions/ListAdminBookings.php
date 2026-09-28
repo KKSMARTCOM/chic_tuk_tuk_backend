@@ -3,13 +3,16 @@
 namespace App\Domains\Booking\Application\Actions;
 
 use App\Models\Booking;
+use App\Shared\Http\ListQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\QueryBuilder\QueryBuilder;
 
 /**
  * Les réservations, vues de l'administration — ex-Admin\BookingController::index().
  *
- * Les trois filtres du Blade, repris tels quels : le statut, une recherche libre, et le
- * sens du tri par date de création.
+ * Les trois filtres du Blade : le statut, une recherche libre, et le sens du tri par date
+ * de création — sous la convention commune des listes depuis le 2026-09-28.
  *
  * ⚠️ La liste est PAGINÉE depuis le 2026-09-22. Elle ne l'était pas, contrairement à
  * celle des pauses : une flotte se compte en dizaines d'agents, mais les réservations
@@ -28,51 +31,33 @@ final class ListAdminBookings
     /** Les colonnes que la recherche libre traverse. */
     private const SEARCHABLE = ['booking_number', 'phone', 'from_location', 'to_location'];
 
-    /** Vingt-cinq lignes : ce qu'un écran de bureau montre sans défilement excessif. */
-    public const PER_PAGE = 25;
-
-    /** Plafond de sécurité : `per_page=100000` ne doit pas pouvoir tout charger. */
-    private const MAX_PER_PAGE = 100;
-
     /**
-     * @param  array{status?: ?string, search?: ?string, sort?: ?string, page?: ?int, per_page?: ?int}  $filters
+     * @param  array<string, mixed>  $params  `filter[status|search]`, `sort` (`created_at` ou
+     *                                         `-created_at`, par défaut), `page`, `per_page`
      * @return LengthAwarePaginator<Booking>
      */
-    public function __invoke(array $filters = []): LengthAwarePaginator
+    public function __invoke(array $params = []): LengthAwarePaginator
     {
-        $query = Booking::query()
-            // `parentBooking` est chargé pour le libellé des courses filles et des
-            // retours : sans lui, chaque ligne de la liste déclencherait sa propre
-            // requête, et une liste de cent courses en ferait cent.
-            ->with(['user', 'driver.user', 'parentBooking.user']);
+        // `parentBooking` est chargé pour le libellé des courses filles et des retours :
+        // sans lui, chaque ligne de la liste déclencherait sa propre requête, et une liste
+        // de cent courses en ferait cent.
+        $bookings = Booking::query()->with(['user', 'driver.user', 'parentBooking.user']);
 
-        if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (! empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                foreach (self::SEARCHABLE as $column) {
-                    $q->orWhere($column, 'LIKE', "%{$search}%");
-                }
-            });
-        }
-
-        // Tout sauf `asc` vaut `desc` : les plus récentes en premier, comme le Blade.
-        $sort = ($filters['sort'] ?? null) === 'asc' ? 'asc' : 'desc';
-
-        $perPage = (int) ($filters['per_page'] ?? self::PER_PAGE);
-        $perPage = max(1, min($perPage, self::MAX_PER_PAGE));
-
-        return $query
-            ->orderBy('created_at', $sort)
-            // ⚠️ Un second critère de tri, sur une colonne UNIQUE. `created_at` n'est pas
-            // unique — le cron crée toutes les courses filles d'un abonnement dans la
-            // même seconde — et PostgreSQL ne garantit alors aucun ordre stable entre
-            // deux requêtes. Sans cela, une même course peut apparaître sur deux pages
-            // ou sur aucune.
-            ->orderBy('id', $sort)
-            ->paginate($perPage, ['*'], 'page', max(1, (int) ($filters['page'] ?? 1)));
+        // La convention commune des listes depuis le 2026-09-28 (`ListQuery`) : le filtre
+        // `status`, la recherche, et le tri par date de création dans les deux sens — les
+        // plus récentes d'abord, comme le Blade. Le socle départage les dates identiques
+        // par l'identifiant : le cron crée toutes les courses filles d'un abonnement dans
+        // la même seconde.
+        return ListQuery::paginate(ListQuery::build($bookings, $params, fn (QueryBuilder $query) => $query
+            ->allowedFilters([
+                ListQuery::exact('status'),
+                ListQuery::search(fn (Builder $q, string $search) => $q->where(function (Builder $inner) use ($search) {
+                    foreach (self::SEARCHABLE as $column) {
+                        $inner->orWhere($column, 'LIKE', "%{$search}%");
+                    }
+                })),
+            ])
+            ->allowedSorts(['created_at'])
+            ->defaultSort('-created_at')), $params);
     }
 }

@@ -148,11 +148,11 @@ class AdminBookingsApiTest extends TestCase
 
         [, $token] = $this->login(Profil::Admin, ['view-bookings']);
 
-        $this->header($token)->getJson('/api/v1/admin/bookings?status=pending')
+        $this->header($token)->getJson('/api/v1/admin/bookings?filter[status]=pending')
             ->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.from_location', 'Cotonou, Ganhi');
 
-        $this->header($token)->getJson('/api/v1/admin/bookings?search=Parakou')
+        $this->header($token)->getJson('/api/v1/admin/bookings?filter[search]=Parakou')
             ->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.from_location', 'Parakou, Centre');
     }
@@ -277,6 +277,20 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('per_page', 100);
     }
 
+    /** La convention commune des listes depuis le 2026-09-28 : `sort=created_at` ou `-created_at`. */
+    public function test_the_list_sorts_by_creation_date_either_way(): void
+    {
+        $old = Booking::factory()->create(['created_at' => now()->subDays(2)]);
+        $recent = Booking::factory()->create(['created_at' => now()->subDay()]);
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson('/api/v1/admin/bookings')->assertJsonPath('data.0.id', $recent->id);
+        $this->header($token)->getJson('/api/v1/admin/bookings?sort=created_at')->assertJsonPath('data.0.id', $old->id);
+        $this->header($token)->getJson('/api/v1/admin/bookings?sort=phone')
+            ->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_LIST_QUERY');
+    }
+
     public function test_l_ordre_est_departage_quand_les_dates_sont_identiques(): void
     {
         /*
@@ -288,8 +302,10 @@ class AdminBookingsApiTest extends TestCase
          *
          * ⚠️ Le test ne peut PAS reproduire l'instabilité — sur une table fraîche,
          * PostgreSQL rend l'ordre physique, qui se trouve être stable. Il vérifie donc
-         * que le départage EST APPLIQUÉ, en exigeant l'ordre décroissant des `id` : c'est
+         * que le départage EST APPLIQUÉ, en exigeant l'ordre croissant des `id` : c'est
          * la seule chose observable, et elle tombe dès que le second `orderBy` disparaît.
+         * Croissant depuis le 2026-09-28 (socle `ListQuery`, commun à toutes les listes) :
+         * des uuid n'ont pas d'ordre chronologique, le sens du départage est indifférent.
          */
         $instant = now()->subDay();
         Booking::factory()->count(6)->create(['created_at' => $instant, 'updated_at' => $instant]);
@@ -301,7 +317,7 @@ class AdminBookingsApiTest extends TestCase
             ->all();
 
         $attendu = $ids;
-        rsort($attendu);
+        sort($attendu);
 
         $this->assertSame($attendu, $ids, 'les dates identiques ne sont pas départagées par l\'identifiant');
     }
@@ -365,7 +381,7 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('can_delete', false)
             ->assertJsonPath('can_reopen', false);
 
-        $this->header($token)->getJson('/api/v1/admin/bookings?status=missed')
+        $this->header($token)->getJson('/api/v1/admin/bookings?filter[status]=missed')
             ->assertOk()
             ->assertJsonPath('data.0.id', $booking->id);
     }

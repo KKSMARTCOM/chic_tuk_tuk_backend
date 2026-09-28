@@ -47,13 +47,7 @@ final class BookingController
     public function index(Request $request, ListAdminBookings $list): JsonResponse
     {
         try {
-            $page = $list([
-                'status' => $request->query('status'),
-                'search' => $request->query('search'),
-                'sort' => $request->query('sort'),
-                'page' => $request->query('page'),
-                'per_page' => $request->query('per_page'),
-            ]);
+            $page = $list($request->query());
 
             return response()->json(AdminBookingPageData::fromPaginator($page));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
