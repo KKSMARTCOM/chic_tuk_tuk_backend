@@ -291,6 +291,34 @@ class AdminBookingsApiTest extends TestCase
             ->assertJsonPath('code', 'INVALID_LIST_QUERY');
     }
 
+    /**
+     * Les colonnes du tableau se trient sur TOUTE la liste depuis le 2026-09-28 — avant,
+     * le navigateur ne rangeait que les 25 courses affichées. « Client » et « Agent » sont
+     * calculés : le nom saisi ou celui du compte, et le nom du compte de l'agent.
+     */
+    public function test_the_table_columns_sort_the_whole_list(): void
+    {
+        $zoe = User::factory()->create(['name' => 'Zoé Client']);
+        $b1 = Booking::factory()->create(['client_name' => null, 'user_id' => $zoe->id,
+            'base_price' => 3000, 'pickup_date' => '2026-10-02', 'pickup_time' => '08:00:00',
+            'driver_id' => Driver::factory()->create(['user_id' => User::factory()->create(['name' => 'Bio Agent'])->id])->id]);
+        $b2 = Booking::factory()->create(['client_name' => 'Adjoa',
+            'base_price' => 5000, 'pickup_date' => '2026-10-01', 'pickup_time' => '09:00:00',
+            'driver_id' => Driver::factory()->create(['user_id' => User::factory()->create(['name' => 'Ali Agent'])->id])->id]);
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $first = fn (string $sort) => $this->header($token)->getJson("/api/v1/admin/bookings?sort={$sort}")->assertOk()->json('data.0.id');
+
+        // Le numéro est tiré au hasard à la création (`Booking::booted`) : on attend le plus petit.
+        $lowest = strcmp($b1->booking_number, $b2->booking_number) < 0 ? $b1 : $b2;
+        $this->assertSame($lowest->id, $first('booking_number'));
+        $this->assertSame($b2->id, $first('-base_price'));
+        $this->assertSame($b2->id, $first('pickup_at'));
+        $this->assertSame($b2->id, $first('client_name'), 'le nom saisi, « Adjoa », avant le compte « Zoé »');
+        $this->assertSame($b1->id, $first('-client_name'));
+        $this->assertSame($b2->id, $first('driver_name'));
+    }
+
     public function test_l_ordre_est_departage_quand_les_dates_sont_identiques(): void
     {
         /*

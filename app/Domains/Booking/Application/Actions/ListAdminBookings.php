@@ -3,9 +3,11 @@
 namespace App\Domains\Booking\Application\Actions;
 
 use App\Models\Booking;
+use App\Models\User;
 use App\Shared\Http\ListQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Spatie\QueryBuilder\AllowedSort;
 use Spatie\QueryBuilder\QueryBuilder;
 
 /**
@@ -32,8 +34,9 @@ final class ListAdminBookings
     private const SEARCHABLE = ['booking_number', 'phone', 'from_location', 'to_location'];
 
     /**
-     * @param  array<string, mixed>  $params  `filter[status|search]`, `sort` (`created_at` ou
-     *                                         `-created_at`, par défaut), `page`, `per_page`
+     * @param  array<string, mixed>  $params  `filter[status|search]`, `sort` (created_at — `-created_at`
+     *                                         par défaut —, booking_number, base_price, pickup_at,
+     *                                         client_name, driver_name), `page`, `per_page`
      * @return LengthAwarePaginator<Booking>
      */
     public function __invoke(array $params = []): LengthAwarePaginator
@@ -57,7 +60,24 @@ final class ListAdminBookings
                     }
                 })),
             ])
-            ->allowedSorts(['created_at'])
+            ->allowedSorts([
+                'created_at', 'booking_number', 'base_price',
+                // Les colonnes du tableau, triées sur toute la liste depuis le 2026-09-28.
+                AllowedSort::callback('pickup_at', fn (Builder $q, bool $descending) => $q
+                    ->orderBy('pickup_date', $descending ? 'desc' : 'asc')
+                    ->orderBy('pickup_time', $descending ? 'desc' : 'asc')),
+                // Ce que l'écran affiche : le nom saisi, sinon celui du compte.
+                AllowedSort::callback('client_name', fn (Builder $q, bool $descending) => $q->orderByRaw(
+                    'COALESCE(bookings.client_name, (SELECT users.name FROM users WHERE users.id = bookings.user_id)) '.($descending ? 'desc' : 'asc'),
+                )),
+                AllowedSort::callback('driver_name', fn (Builder $q, bool $descending) => $q->orderBy(
+                    User::select('users.name')
+                        ->join('drivers', 'drivers.user_id', '=', 'users.id')
+                        ->whereColumn('drivers.id', 'bookings.driver_id')
+                        ->limit(1),
+                    $descending ? 'desc' : 'asc',
+                )),
+            ])
             ->defaultSort('-created_at')), $params);
     }
 }
