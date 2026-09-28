@@ -365,6 +365,31 @@ Conventions du nouveau code — ne pas réintroduire les anciennes :
 - **Endpoints publics** (`routes/api/v1/public.php`) : throttlés, sans champ de prix en
   entrée — le tarif est toujours recalculé côté serveur.
 
+**Les listes de l'administration sont paginées et triées par l'API** (2026-09-28), sur une
+seule convention, celle de `spatie/laravel-query-builder` :
+`?filter[status]=pending&sort=-created_at&page=2&per_page=25`. Le socle est
+`App\Shared\Http\ListQuery` : `build()` déclare filtres et tris autorisés, `paginate()`
+découpe (25 par défaut, 100 au plus) et départage les ex aequo par la clé primaire. La
+réponse garde son tableau (`payments`, `owners`…) et gagne `pagination` (`PaginationData`,
+quatre compteurs) ; les compteurs et les listes de filtres portent toujours sur tout
+l'ensemble, pas sur la page. Les réservations gardent leur enveloppe (`data` + compteurs
+à plat).
+
+- ⚠️ **Un tri ou un filtre hors liste blanche est un 400 `INVALID_LIST_QUERY`**, converti
+  dans `ListQuery::build()` : le `guard()` des contrôleurs ne relance intactes que les
+  `ApiException`, et en ferait sinon un 500.
+- ⚠️ **Filtrer par `ListQuery::exact()`, `boolean()` et `search()`, jamais par
+  `AllowedFilter` nu.** Le paquet applique `filter[x]=` tel quel (`where x = ''`, une
+  erreur SQL sur un `uuid`) et découpe toute valeur sur la virgule (« Cotonou, Akpakpa »
+  devient deux termes). `boolean()` lit `1`/`0`/`true`/`false` sans `->ignore('')`, que
+  le paquet compare sans rigueur (`false == ''`).
+- Les colonnes calculées se trient par `AllowedSort::callback` et une sous-requête (le
+  véhicule actuel d'un agent, le client d'une réservation).
+- **La liste des pauses** trie des soldes CALCULÉS en PHP : `ListDriverLeaveSummaries`
+  suit la même convention à la main, trie toute la liste filtrée puis découpe, et rend les
+  durées de contrat du filtre et le total des demandes en attente, calculés sur tous les
+  agents.
+
 Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
 `POST /api/v1/public/bookings`, et l'authentification : `POST /api/v1/auth/login`,
 `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`, `POST /api/v1/auth/password`,
