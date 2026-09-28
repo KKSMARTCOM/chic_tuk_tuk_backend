@@ -1111,6 +1111,12 @@ pending: Array<App.Domains.Workforce.Application.Data.LeaveRequestData>;
 ongoing: App.Domains.Workforce.Application.Data.LeaveRequestData | null;
 history: Array<App.Domains.Workforce.Application.Data.LeaveRequestData>;
 };
+export type AdminDriverLeavePageData = {
+drivers: Array<App.Domains.Workforce.Application.Data.AdminDriverLeaveSummaryData>;
+pagination: App.Shared.Data.PaginationData;
+contract_months_options: Array<number>;
+pending_requests_total: number;
+};
 export type AdminDriverLeaveSummaryData = {
 id: string;
 user_id: string;

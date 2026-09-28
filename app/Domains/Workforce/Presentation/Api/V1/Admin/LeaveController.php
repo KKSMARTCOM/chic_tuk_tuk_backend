@@ -7,12 +7,11 @@ use App\Domains\Workforce\Application\Actions\AddOngoingLeave;
 use App\Domains\Workforce\Application\Actions\ApproveLeaveRequest;
 use App\Domains\Workforce\Application\Actions\DeleteLeave;
 use App\Domains\Workforce\Application\Actions\EndLeave;
-use App\Domains\Workforce\Application\Actions\ListDriversForLeaves;
+use App\Domains\Workforce\Application\Actions\ListDriverLeaveSummaries;
 use App\Domains\Workforce\Application\Actions\RejectLeaveRequest;
 use App\Domains\Workforce\Application\Actions\UpdateHistoricalLeave;
 use App\Domains\Workforce\Application\Actions\UpdateOngoingLeave;
 use App\Domains\Workforce\Application\Data\AdminDriverLeaveDetailData;
-use App\Domains\Workforce\Application\Data\AdminDriverLeaveSummaryData;
 use App\Domains\Workforce\Application\Data\AdminLeaveRequestData;
 use App\Domains\Workforce\Application\Data\EndLeaveData;
 use App\Domains\Workforce\Application\Data\LeavePeriodData;
@@ -38,20 +37,10 @@ use Illuminate\Validation\ValidationException;
  */
 final class LeaveController
 {
-    public function index(Request $request, ListDriversForLeaves $lister): JsonResponse
+    public function index(Request $request, ListDriverLeaveSummaries $list): JsonResponse
     {
         try {
-            $agents = $lister([
-                'search' => $request->query('search'),
-                'contract' => $request->query('contract'),
-                'available' => $request->query('available'),
-                'pending' => $request->query('pending'),
-                'status' => $request->query('status'),
-            ]);
-
-            return response()->json(
-                $agents->map(fn (Driver $d) => AdminDriverLeaveSummaryData::fromModel($d))->all()
-            );
+            return response()->json($list($request->query()));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {

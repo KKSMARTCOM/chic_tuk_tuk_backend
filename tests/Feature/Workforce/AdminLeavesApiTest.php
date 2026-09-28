@@ -111,9 +111,9 @@ class AdminLeavesApiTest extends TestCase
 
         $this->entete($token)->getJson('/api/v1/admin/leaves')
             ->assertOk()
-            ->assertJsonPath('0.id', $agent->id)
-            ->assertJsonPath('0.user_id', $agent->user_id)
-            ->assertJsonPath('0.name', 'Awa Dossou');
+            ->assertJsonPath('drivers.0.id', $agent->id)
+            ->assertJsonPath('drivers.0.user_id', $agent->user_id)
+            ->assertJsonPath('drivers.0.name', 'Awa Dossou');
     }
 
     public function test_le_dossier_d_un_agent_porte_ses_trois_listes(): void
@@ -207,7 +207,88 @@ class AdminLeavesApiTest extends TestCase
     {
         [, $token] = $this->connecter(Profil::Admin, ['view-leaves', 'view-leave-requests']);
 
-        $this->entete($token)->getJson('/api/v1/admin/leaves')->assertOk()->assertExactJson([]);
+        $this->entete($token)->getJson('/api/v1/admin/leaves')->assertOk()
+            ->assertJsonPath('drivers', [])
+            ->assertJsonPath('pagination.total', 0);
         $this->entete($token)->getJson('/api/v1/admin/leave-requests')->assertOk()->assertExactJson([]);
+    }
+
+    /**
+     * Paginée côté serveur depuis le 2026-09-28. Le tri, lui, porte sur des soldes
+     * CALCULÉS : il se fait en PHP, sur toute la liste filtrée, avant la découpe.
+     */
+    public function test_the_list_is_sorted_on_computed_balances_then_paginated(): void
+    {
+        foreach (range(1, 26) as $n) {
+            $this->agent(sprintf('Agent %02d', $n));
+        }
+        [, $token] = $this->connecter(Profil::Admin, ['view-leaves']);
+
+        $this->entete($token)->getJson('/api/v1/admin/leaves?sort=name')
+            ->assertOk()
+            ->assertJsonCount(25, 'drivers')
+            ->assertJsonPath('drivers.0.name', 'Agent 01')
+            ->assertJsonPath('pagination', ['current_page' => 1, 'last_page' => 2, 'per_page' => 25, 'total' => 26]);
+
+        $this->entete($token)->getJson('/api/v1/admin/leaves?sort=-name&page=2')
+            ->assertJsonCount(1, 'drivers')
+            ->assertJsonPath('drivers.0.name', 'Agent 01');
+
+        $this->entete($token)->getJson('/api/v1/admin/leaves?sort=user_id')
+            ->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_LIST_QUERY');
+        $this->entete($token)->getJson('/api/v1/admin/leaves?filter[password]=x')->assertStatus(400);
+    }
+
+    public function test_names_sort_without_regard_to_accents_or_case(): void
+    {
+        foreach (['Fifamè', 'éric', 'Awa'] as $name) {
+            $this->agent($name);
+        }
+        [, $token] = $this->connecter(Profil::Admin, ['view-leaves']);
+
+        $names = collect($this->entete($token)->getJson('/api/v1/admin/leaves?sort=name')->json('drivers'))->pluck('name')->all();
+
+        $this->assertSame(['Awa', 'éric', 'Fifamè'], $names);
+    }
+
+    public function test_the_default_sort_puts_the_largest_available_balance_first(): void
+    {
+        $small = $this->agent('Peu');
+        $large = $this->agent('Beaucoup');
+        LeaveRequest::factory()->create([
+            'driver_id' => $small->id, 'driver_contract_id' => $small->activeDriverContract->id,
+            'status' => 'completed', 'start_date' => now()->subMonth()->toDateString(),
+            'requested_days' => 3, 'effective_days' => 3,
+        ]);
+        [, $token] = $this->connecter(Profil::Admin, ['view-leaves']);
+
+        $this->entete($token)->getJson('/api/v1/admin/leaves')
+            ->assertJsonPath('drivers.0.id', $large->id);
+    }
+
+    /**
+     * Deux valeurs que le front calculait sur la liste entière, et qu'une page ne lui
+     * donne plus : les durées de contrat du filtre, et le total des demandes en attente.
+     * Elles portent sur TOUS les agents, quel que soit le filtre — un filtre est une
+     * loupe, pas un changement de l'état du service.
+     */
+    public function test_filter_options_and_pending_total_ignore_the_filter_and_the_page(): void
+    {
+        $awa = $this->agent('Awa');
+        $koffi = $this->agent('Koffi');
+        $koffi->activeDriverContract->update(['contract_months' => 36]);
+        foreach ([$awa, $koffi, $koffi] as $driver) {
+            LeaveRequest::factory()->pending()->create([
+                'driver_id' => $driver->id, 'driver_contract_id' => $driver->activeDriverContract->id, 'requested_days' => 1,
+            ]);
+        }
+        [, $token] = $this->connecter(Profil::Admin, ['view-leaves']);
+
+        $this->entete($token)->getJson('/api/v1/admin/leaves?filter[search]=Awa&per_page=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'drivers')
+            ->assertJsonPath('contract_months_options', [24, 36])
+            ->assertJsonPath('pending_requests_total', 3);
     }
 }
