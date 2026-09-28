@@ -35,7 +35,7 @@ final class PaymentController
     public function index(Request $request, ListPayments $list): JsonResponse
     {
         return $this->guard($request, 'la liste des paiements', 'La liste des paiements n\'a pas pu être chargée. Réessayez.', 'ADMIN_PAYMENTS_FAILED',
-            fn () => response()->json($list($request->only(['driver_id', 'status', 'payment_type', 'search', 'date_from', 'date_to']))));
+            fn () => response()->json($list($request->query())));
     }
 
     public function payableDrivers(Request $request, ListPayableDrivers $list): JsonResponse

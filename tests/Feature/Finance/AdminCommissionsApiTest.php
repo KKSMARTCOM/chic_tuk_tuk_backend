@@ -97,12 +97,35 @@ class AdminCommissionsApiTest extends TestCase
         $foreign = $this->commission($other, 500);
 
         $this->asBearer($this->login(['view-commissions']))
-            ->getJson('/api/v1/admin/commissions?'.http_build_query([
+            ->getJson('/api/v1/admin/commissions?'.http_build_query(['filter' => [
                 'driver_id' => $mine->id,
                 'search' => $foreign->booking->booking_number,
-            ]))
+            ]]))
             ->assertOk()
             ->assertJsonCount(0, 'commissions');
+    }
+
+    /** Paginée côté serveur depuis le 2026-09-28 : une commission par course terminée. */
+    public function test_the_list_is_paginated_and_sorted_by_the_server(): void
+    {
+        $driver = Driver::factory()->create();
+        foreach (range(1, 27) as $n) {
+            $this->commission($driver, 100 + $n);
+        }
+        $token = $this->login(['view-commissions']);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/commissions')
+            ->assertOk()
+            ->assertJsonCount(25, 'commissions')
+            ->assertJsonPath('pagination.total', 27)
+            ->assertJsonPath('stats.total_count', 27);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/commissions?sort=-amount')
+            ->assertJsonPath('commissions.0.amount', 127);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/commissions?sort=status')
+            ->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_LIST_QUERY');
     }
 
     public function test_the_detail_shows_the_driver_earning_of_the_booking(): void

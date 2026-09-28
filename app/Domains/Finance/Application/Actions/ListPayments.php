@@ -9,19 +9,28 @@ use App\Domains\Finance\Application\Data\AdminPaymentStatsData;
 use App\Models\Commission;
 use App\Models\Driver;
 use App\Models\Payment;
+use App\Shared\Data\PaginationData;
+use App\Shared\Http\ListQuery;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\QueryBuilder;
 
 /** La liste des paiements — ex-Admin\PaymentController::index(). */
 final class ListPayments
 {
-    /** @param  array<string, ?string>  $filters  driver_id, status, payment_type, search, date_from, date_to */
-    public function __invoke(array $filters = []): AdminPaymentPageData
+    /**
+     * @param  array<string, mixed>  $params  `filter[driver_id|status|payment_type|search|date_from|date_to]`,
+     *                                         `sort` (amount, payment_date, created_at), `page`, `per_page`
+     */
+    public function __invoke(array $params = []): AdminPaymentPageData
     {
-        $payments = $this->getAllPayments($filters);
-        $payments->load(['vehicleContract.vehicle', 'driverContract.vehicle']);
+        $page = ListQuery::paginate($this->query($params), $params);
+        $payments = collect($page->items());
 
         return new AdminPaymentPageData(
             payments: $payments->map(fn (Payment $payment) => AdminPaymentData::fromModel($payment))->all(),
+            pagination: PaginationData::fromPaginator($page),
             stats: AdminPaymentStatsData::fromStats($this->getPaymentStats()),
             drivers: Driver::with('user')->get()
                 ->sortBy(fn (Driver $driver) => $driver->user?->name)
@@ -32,43 +41,28 @@ final class ListPayments
     }
 
     /**
-     * Récupérer tous les paiements avec filtres
+     * Les paiements filtrés et triés — paginés côté serveur depuis le 2026-09-28 : les
+     * paiements journaliers s'accumulent sans fin, et tout renvoyer aurait fini par
+     * charger des milliers de lignes en un appel.
      */
-    private function getAllPayments($filters = [])
+    private function query(array $params): QueryBuilder
     {
-        $query = Payment::query()->with(['driver.user'])->latest('payment_date');
-
-        if (isset($filters['driver_id']) && ! empty($filters['driver_id'])) {
-            $query->where('driver_id', $filters['driver_id']);
-        }
-
-        if (isset($filters['status']) && ! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (isset($filters['payment_type']) && ! empty($filters['payment_type'])) {
-            $query->where('payment_type', $filters['payment_type']);
-        }
-
-        // Groupé (2026-09-26) : sans parenthèses, le `orWhere` sur la référence échappait
-        // à tous les autres filtres — agent, statut, type, dates.
-        if (isset($filters['search']) && ! empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('driver.user', fn ($u) => $u->where('name', 'ilike', '%'.$search.'%'))
-                    ->orWhere('reference_number', 'ilike', '%'.$search.'%');
-            });
-        }
-
-        if (isset($filters['date_from']) && ! empty($filters['date_from'])) {
-            $query->whereDate('payment_date', '>=', $filters['date_from']);
-        }
-
-        if (isset($filters['date_to']) && ! empty($filters['date_to'])) {
-            $query->whereDate('payment_date', '<=', $filters['date_to']);
-        }
-
-        return $query->latest()->get();
+        return ListQuery::build(Payment::query()->with(['driver.user', 'vehicleContract.vehicle', 'driverContract.vehicle']), $params, fn (QueryBuilder $query) => $query
+            ->allowedFilters([
+                AllowedFilter::exact('driver_id'),
+                AllowedFilter::exact('status'),
+                AllowedFilter::exact('payment_type'),
+                // Groupé (2026-09-26) : sans parenthèses, le `orWhere` sur la référence
+                // échappait à tous les autres filtres — agent, statut, type, dates.
+                AllowedFilter::callback('search', fn (Builder $q, $search) => $q->where(fn (Builder $inner) => $inner
+                    ->whereHas('driver.user', fn ($u) => $u->where('name', 'ilike', '%'.$search.'%'))
+                    ->orWhere('reference_number', 'ilike', '%'.$search.'%'))),
+                AllowedFilter::callback('date_from', fn (Builder $q, $date) => $q->whereDate('payment_date', '>=', $date)),
+                AllowedFilter::callback('date_to', fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date)),
+            ])
+            ->allowedSorts(['amount', 'payment_date', 'created_at'])
+            // Le tri du Blade : date du paiement, puis date d'enregistrement.
+            ->defaultSort('-payment_date', '-created_at'));
     }
 
     /**

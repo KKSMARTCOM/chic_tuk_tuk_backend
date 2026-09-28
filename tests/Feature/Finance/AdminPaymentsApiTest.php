@@ -145,7 +145,7 @@ class AdminPaymentsApiTest extends TestCase
         $this->assertSame(24, $rows[$pending->id]['contract_months']);
 
         $this->asBearer($this->login(['view-payments']))
-            ->getJson('/api/v1/admin/payments?status=pending')
+            ->getJson('/api/v1/admin/payments?filter[status]=pending')
             ->assertJsonCount(1, 'payments');
     }
 
@@ -158,9 +158,44 @@ class AdminPaymentsApiTest extends TestCase
         Payment::factory()->create(['driver_id' => $other->driver_id, 'payment_type' => 'commission', 'reference_number' => 'REF-42']);
 
         $this->asBearer($this->login(['view-payments']))
-            ->getJson('/api/v1/admin/payments?'.http_build_query(['driver_id' => $mine->driver_id, 'search' => 'REF-42']))
+            ->getJson('/api/v1/admin/payments?'.http_build_query(['filter' => ['driver_id' => $mine->driver_id, 'search' => 'REF-42']]))
             ->assertOk()
             ->assertJsonCount(0, 'payments');
+    }
+
+    /** Paginée côté serveur depuis le 2026-09-28 : les paiements journaliers s'accumulent sans fin. */
+    public function test_the_list_is_paginated_and_sorted_by_the_server(): void
+    {
+        $contract = $this->contractedDriver();
+        foreach (range(1, 30) as $day) {
+            Payment::factory()->create([
+                'driver_id' => $contract->driver_id,
+                'payment_type' => 'commission',
+                'amount' => 1000 + $day,
+                'payment_date' => sprintf('2026-08-%02d', $day),
+            ]);
+        }
+
+        $token = $this->login(['view-payments']);
+
+        // Par défaut : les plus récents d'abord, 25 par page, et les compteurs sur TOUT.
+        $this->asBearer($token)->getJson('/api/v1/admin/payments')
+            ->assertOk()
+            ->assertJsonCount(25, 'payments')
+            ->assertJsonPath('payments.0.payment_date', '2026-08-30')
+            ->assertJsonPath('pagination', ['current_page' => 1, 'last_page' => 2, 'per_page' => 25, 'total' => 30]);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/payments?page=2')
+            ->assertJsonCount(5, 'payments')
+            ->assertJsonPath('pagination.current_page', 2);
+
+        // Le tri porte sur toute la liste, pas sur la page.
+        $this->asBearer($token)->getJson('/api/v1/admin/payments?sort=amount')
+            ->assertJsonPath('payments.0.amount', 1001);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/payments?sort=driver_id')
+            ->assertStatus(400)
+            ->assertJsonPath('code', 'INVALID_LIST_QUERY');
     }
 
     public function test_the_detail_and_the_driver_file_summarise_commissions(): void

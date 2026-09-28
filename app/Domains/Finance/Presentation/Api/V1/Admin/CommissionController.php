@@ -19,10 +19,7 @@ final class CommissionController
     public function index(Request $request, ListCommissions $list): JsonResponse
     {
         try {
-            return response()->json($list([
-                'driver_id' => $request->query('driver_id'),
-                'search' => $request->query('search'),
-            ]));
+            return response()->json($list($request->query()));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {

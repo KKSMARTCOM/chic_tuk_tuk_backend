@@ -348,6 +348,7 @@ updated_at: string;
 };
 export type AdminCommissionPageData = {
 commissions: Array<App.Domains.Finance.Application.Data.AdminCommissionData>;
+pagination: App.Shared.Data.PaginationData;
 stats: App.Domains.Finance.Application.Data.AdminCommissionStatsData;
 };
 export type AdminCommissionStatsData = {
@@ -403,6 +404,7 @@ vehicle_number: string | null;
 };
 export type AdminPaymentPageData = {
 payments: Array<App.Domains.Finance.Application.Data.AdminPaymentData>;
+pagination: App.Shared.Data.PaginationData;
 stats: App.Domains.Finance.Application.Data.AdminPaymentStatsData;
 drivers: Array<App.Domains.Finance.Application.Data.AdminPaymentDriverOptionData>;
 };
@@ -1315,5 +1317,11 @@ export type LeaveStatus = 'pending' | 'ongoing' | 'completed' | 'rejected';
 }
 declare namespace App.Shared.Data {
 export type BaseData = {
+};
+export type PaginationData = {
+current_page: number;
+last_page: number;
+per_page: number;
+total: number;
 };
 }
