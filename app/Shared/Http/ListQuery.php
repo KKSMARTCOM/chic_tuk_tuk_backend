@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\Exceptions\InvalidQuery;
 use Spatie\QueryBuilder\QueryBuilder;
 
@@ -49,6 +50,58 @@ final class ListQuery
                 previous: $e,
             );
         }
+    }
+
+    /**
+     * Un filtre d'égalité, qui ignore la valeur vide.
+     *
+     * ⚠️ Le paquet applique `filter[x]=` tel quel : `where x = ''`, qui sur une colonne
+     * `uuid` (un agent, un propriétaire) est une erreur SQL, donc un 500.
+     */
+    public static function exact(string $name, ?string $column = null): AllowedFilter
+    {
+        return AllowedFilter::exact($name, $column)->ignore('');
+    }
+
+    /**
+     * Un filtre booléen : `1`, `0`, `true` ou `false` ; la valeur vide ne filtre rien.
+     *
+     * Pas de `->ignore('')` ici : le paquet compare les valeurs ignorées sans rigueur de
+     * type, et `false == ''` écarterait le filtre « inactifs ».
+     *
+     * @param  (Closure(Builder, bool): mixed)|null  $apply  par défaut `where($name, …)`
+     */
+    public static function boolean(string $name, ?Closure $apply = null): AllowedFilter
+    {
+        return AllowedFilter::callback($name, function (Builder $query, $value) use ($name, $apply) {
+            if ($value === '' || $value === null) {
+                return;
+            }
+
+            $flag = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+            $apply ? $apply($query, $flag) : $query->where($name, $flag);
+        });
+    }
+
+    /**
+     * La recherche libre, `filter[search]`.
+     *
+     * ⚠️ Le paquet découpe toute valeur de filtre sur la VIRGULE : « Cotonou, Akpakpa »
+     * arriverait en tableau de deux termes. On la recolle, pour chercher ce qui a été tapé.
+     *
+     * @param  Closure(Builder, string): mixed  $apply  reçoit le terme ; à grouper dans un
+     *                                                  `where(fn …)` s'il porte des `or`
+     */
+    public static function search(Closure $apply): AllowedFilter
+    {
+        return AllowedFilter::callback('search', function (Builder $query, $value) use ($apply) {
+            $term = is_array($value) ? implode(',', $value) : (string) $value;
+            if ($term === '') {
+                return;
+            }
+
+            $apply($query, $term);
+        });
     }
 
     /**

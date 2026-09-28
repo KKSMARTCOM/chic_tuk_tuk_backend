@@ -49,16 +49,16 @@ final class ListPayments
     {
         return ListQuery::build(Payment::query()->with(['driver.user', 'vehicleContract.vehicle', 'driverContract.vehicle']), $params, fn (QueryBuilder $query) => $query
             ->allowedFilters([
-                AllowedFilter::exact('driver_id'),
-                AllowedFilter::exact('status'),
-                AllowedFilter::exact('payment_type'),
+                ListQuery::exact('driver_id'),
+                ListQuery::exact('status'),
+                ListQuery::exact('payment_type'),
                 // Groupé (2026-09-26) : sans parenthèses, le `orWhere` sur la référence
                 // échappait à tous les autres filtres — agent, statut, type, dates.
-                AllowedFilter::callback('search', fn (Builder $q, $search) => $q->where(fn (Builder $inner) => $inner
+                ListQuery::search(fn (Builder $q, string $search) => $q->where(fn (Builder $inner) => $inner
                     ->whereHas('driver.user', fn ($u) => $u->where('name', 'ilike', '%'.$search.'%'))
                     ->orWhere('reference_number', 'ilike', '%'.$search.'%'))),
-                AllowedFilter::callback('date_from', fn (Builder $q, $date) => $q->whereDate('payment_date', '>=', $date)),
-                AllowedFilter::callback('date_to', fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date)),
+                AllowedFilter::callback('date_from', fn (Builder $q, $date) => $q->whereDate('payment_date', '>=', $date))->ignore(''),
+                AllowedFilter::callback('date_to', fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date))->ignore(''),
             ])
             ->allowedSorts(['amount', 'payment_date', 'created_at'])
             // Le tri du Blade : date du paiement, puis date d'enregistrement.

@@ -9,7 +9,6 @@ use App\Models\Commission;
 use App\Shared\Data\PaginationData;
 use App\Shared\Http\ListQuery;
 use Illuminate\Database\Eloquent\Builder;
-use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
 /** La liste des commissions — ex-Admin\CommissionController::index(). */
@@ -41,10 +40,10 @@ final class ListCommissions
     {
         return ListQuery::build(Commission::query()->with(['driver.user', 'booking']), $params, fn (QueryBuilder $query) => $query
             ->allowedFilters([
-                AllowedFilter::exact('driver_id'),
+                ListQuery::exact('driver_id'),
                 // Groupé (2026-09-26) : sans parenthèses, le `orWhereHas` échappait au filtre
                 // d'agent, et un numéro de course d'un autre agent remontait quand même.
-                AllowedFilter::callback('search', fn (Builder $q, $search) => $q->where(fn (Builder $inner) => $inner
+                ListQuery::search(fn (Builder $q, string $search) => $q->where(fn (Builder $inner) => $inner
                     ->whereHas('driver.user', fn ($u) => $u->where('name', 'ilike', '%'.$search.'%'))
                     ->orWhereHas('booking', fn ($b) => $b->where('booking_number', 'ilike', '%'.$search.'%')))),
             ])

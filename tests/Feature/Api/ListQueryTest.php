@@ -8,7 +8,6 @@ use App\Shared\Data\PaginationData;
 use App\Shared\Http\ApiException;
 use App\Shared\Http\ListQuery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 use Tests\TestCase;
 
@@ -23,7 +22,11 @@ class ListQueryTest extends TestCase
     private function build(array $params): QueryBuilder
     {
         return ListQuery::build(User::query(), $params, fn (QueryBuilder $query) => $query
-            ->allowedFilters([AllowedFilter::exact('profil')])
+            ->allowedFilters([
+                ListQuery::exact('profil'),
+                ListQuery::boolean('is_active'),
+                ListQuery::search(fn ($query, string $term) => $query->where('name', 'ilike', "%{$term}%")),
+            ])
             ->allowedSorts(['name', 'created_at'])
             ->defaultSort('-created_at'));
     }
@@ -85,6 +88,39 @@ class ListQueryTest extends TestCase
         $this->expectException(ApiException::class);
 
         $this->build(['filter' => ['password' => 'x']]);
+    }
+
+    /** Le paquet découpe toute valeur de filtre sur la virgule : la recherche doit arriver entière. */
+    public function test_a_search_keeps_its_commas(): void
+    {
+        User::factory()->create(['name' => 'Cotonou, Akpakpa']);
+        User::factory()->create(['name' => 'Cotonou']);
+
+        $page = ListQuery::paginate($this->build(['filter' => ['search' => 'Cotonou, Akpakpa']]), []);
+
+        $this->assertSame(['Cotonou, Akpakpa'], collect($page->items())->pluck('name')->all());
+    }
+
+    /** `filter[x]=` vaut « pas de filtre » — sur une colonne uuid, `= ''` serait une erreur SQL. */
+    public function test_an_empty_filter_value_filters_nothing(): void
+    {
+        User::factory()->count(2)->create();
+
+        $page = ListQuery::paginate($this->build(['filter' => ['profil' => '', 'is_active' => '', 'search' => '']]), []);
+
+        $this->assertSame(2, $page->total());
+    }
+
+    public function test_a_boolean_filter_reads_1_0_true_and_false(): void
+    {
+        User::factory()->create(['is_active' => true]);
+        User::factory()->create(['is_active' => false]);
+
+        foreach (['1' => 1, '0' => 1, 'true' => 1, 'false' => 1] as $value => $expected) {
+            $page = ListQuery::paginate($this->build(['filter' => ['is_active' => $value]]), []);
+            $this->assertSame($expected, $page->total(), "is_active={$value}");
+        }
+        $this->assertFalse(collect(ListQuery::paginate($this->build(['filter' => ['is_active' => 'false']]), [])->items())->first()->is_active);
     }
 
     public function test_the_pagination_data_carries_the_four_counters(): void
