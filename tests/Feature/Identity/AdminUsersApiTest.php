@@ -116,12 +116,17 @@ class AdminUsersApiTest extends TestCase
         }
 
         // 26 comptes avec celui qui se connecte.
-        $this->asBearer($token)->getJson('/api/v1/admin/users?sort=name')
+        $this->asBearer($token)->getJson('/api/v1/admin/users')
             ->assertOk()
             ->assertJsonCount(25, 'users')
-            ->assertJsonPath('users.0.name', 'Compte 01')
             ->assertJsonPath('pagination.total', 26)
             ->assertJsonPath('stats.total', 26);
+
+        // Le tri, sur les seuls comptes du test : celui qui se connecte porte un nom
+        // aléatoire, qui peut tomber n'importe où dans l'alphabet.
+        $this->asBearer($token)->getJson('/api/v1/admin/users?filter[search]=Compte&sort=-name')
+            ->assertJsonPath('users.0.name', 'Compte 25')
+            ->assertJsonPath('users.24.name', 'Compte 01');
 
         $this->asBearer($token)->getJson('/api/v1/admin/users?sort=password')->assertStatus(400);
     }
