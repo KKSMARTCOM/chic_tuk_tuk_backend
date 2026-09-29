@@ -112,7 +112,7 @@ avec le mainteneur.
 
 ## Stack technique
 
-- Laravel 11 (bootstrap/app.php, pas de Kernel.php), **API seule**
+- Laravel 12 depuis le 2026-09-29 (bootstrap/app.php, pas de Kernel.php), **API seule**
 - PostgreSQL
 - Laravel Sanctum : jetons Bearer uniquement (aucune session, aucun cookie)
 - Spatie Permission (rôles + permissions, guard `web`) et spatie/laravel-data
@@ -754,6 +754,23 @@ génération les écarte en le journalisant (« Contrat véhicule sans versement
 ⚠️ Plus d'accesseur `daily_tax` ni `daily_payment` sur `VehicleContract` : un accesseur
 du même nom qu'une colonne la masque.
 
+## Laravel 12 (montée du 2026-09-29)
+
+Montée depuis 11.54 sans changement de code : dépendances compatibles, suite complète verte,
+types générés identiques, mêmes routes. Elle efface les trois dernières alertes de
+`composer audit`, que Laravel 11 ne corrigera plus.
+
+⚠️ **`'serve' => false` sur le disque `local`** (`config/filesystems.php`) : Laravel 12 lit
+cette option, que Laravel 11 ignorait, et ouvrait avec elle `GET` et `PUT storage/{path}`
+— servir et RECEVOIR des fichiers privés par URL signée. `NoStorageRouteTest` garde la
+porte fermée. Toute option de configuration dormante mérite le même regard à la prochaine
+montée.
+
+⚠️ **Aucun test ne part sur le réseau** : `Tests\TestCase` appelle
+`Http::preventStrayRequests()`. Un appel HTTP sans `Http::fake()` lève. Découvert à la
+montée : cinq tests de réservation publique interrogeaient le vrai OpenRouteService, et
+l'un a échoué sur un délai d'attente — ce n'était pas Laravel 12.
+
 ## Le journal d'activité (2026-09-29)
 
 Qui a fait quoi : `spatie/laravel-activitylog`, table `activity_log` (migration fusionnée et
@@ -817,7 +834,7 @@ avant le tri d'affichage du plus récent au plus ancien.
 
 ## Scheduler (bootstrap/app.php → withSchedule)
 
-Laravel 11 sans Kernel.php : le scheduler est déclaré directement dans `bootstrap/app.php`, pas dans routes/console.php.
+Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `bootstrap/app.php`, pas dans routes/console.php.
 
 | Commande                         | Fréquence                     |
 | -------------------------------- | ----------------------------- |

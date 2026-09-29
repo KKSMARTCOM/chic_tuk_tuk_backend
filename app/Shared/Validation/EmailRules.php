@@ -9,8 +9,9 @@ namespace App\Shared\Validation;
  * « repliée » de l'adresse — entre guillemets (`"awa\r\n "@…`) ou dans un commentaire
  * (`awa(\r\n )@…`) : GHSA-5vg9-5847-vvmq. Enregistrée, une telle adresse injecterait des
  * en-têtes dans les e-mails qu'on lui envoie, dont celui de réinitialisation du mot de
- * passe. Laravel 11 ne recevra pas de correctif (corrigé en 12.60) : ce refus explicite le
- * neutralise en attendant la montée en version. Vérifié le 2026-09-29.
+ * passe. Corrigé dans Laravel 12.60 ; le projet y est passé le 2026-09-29, et ce refus
+ * explicite est GARDÉ : il ne coûte rien, et documente le piège pour qui réécrirait une
+ * règle e-mail à la main.
  */
 final class EmailRules
 {

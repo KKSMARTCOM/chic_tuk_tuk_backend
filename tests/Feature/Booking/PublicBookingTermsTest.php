@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -22,6 +23,19 @@ use Tests\TestCase;
 class PublicBookingTermsTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // OpenRouteService est simulé : sans cela, ces tests partaient sur le réseau et
+        // passaient ou non selon la connexion (vu le 2026-09-29).
+        Http::fake([
+            'api.openrouteservice.org/*' => Http::response([
+                'routes' => [['summary' => ['distance' => 12_000]]],
+            ], 200),
+        ]);
+    }
 
     private function reservation(array $extra = []): array
     {
