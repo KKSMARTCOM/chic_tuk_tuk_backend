@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Notifications : appareils, cloche, préférences.
@@ -81,7 +82,14 @@ final class NotificationController
     public function registerDevice(Request $request, DeviceTokenData $data, RegisterDevice $enregistrer): Response
     {
         try {
-            $enregistrer($this->utilisateur($request), $data->token);
+            $user = $this->utilisateur($request);
+            $session = $user->currentAccessToken();
+
+            $enregistrer(
+                $user,
+                $data->token,
+                $session instanceof PersonalAccessToken ? (int) $session->getKey() : null,
+            );
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

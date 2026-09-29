@@ -910,6 +910,25 @@ en isolant le `Notifier` — surtout par des assertions NÉGATIVES, un routage t
 casse rien de visible mais noie les destinataires — et `NotificationHooksTest` vérifie que
 les actions l'appellent réellement, ce que le premier ne dit pas.
 
+## Les appareils connectés (2026-09-29)
+
+`GET /auth/sessions` liste les sessions VALIDES du compte (ni expirées, ni inactives au-delà
+de la fenêtre glissante), `DELETE /auth/sessions/{id}` en coupe une, `POST /auth/logout-others`
+coupe toutes sauf la courante — ce que fait aussi le changement de mot de passe, par la même
+action `RevokeOtherDeviceSessions`. La session courante ne se révoque pas par
+`DELETE` (`409 SESSION_IS_CURRENT`) : pour elle, c'est `/auth/logout`. Celle d'un autre
+compte répond 404.
+
+La connexion retient `ip_address` et `user_agent` (brut, le front en tire le libellé) sur
+`personal_access_tokens` ; les jetons antérieurs n'en ont pas.
+
+⚠️ **`fcm_tokens.personal_access_token_id` part EN CASCADE avec le jeton.** Avant, un
+appareil déconnecté par révocation ou par changement de mot de passe continuait de recevoir
+les notifications, contenu compris : rien ne reliait l'appareil à sa session.
+`RegisterDevice` rattache la ligne à la session courante, et la rattache de nouveau quand
+un même téléphone se reconnecte. Pour que la cascade joue, toute révocation doit effacer
+le jeton EN BASE (`delete()`), jamais le marquer.
+
 ## ⚠️ Un compte désactivé perd l'accès à sa requête suivante
 
 Jusqu'au 2026-09-26, **seule la connexion vérifiait `is_active`** : un jeton déjà émis

@@ -36,7 +36,7 @@ final class AuthController
     public function login(LoginData $data, Request $request, AuthenticateUser $authenticate): JsonResponse
     {
         try {
-            $issued = $authenticate($data, (string) $request->ip());
+            $issued = $authenticate($data, (string) $request->ip(), $request->userAgent());
 
             return response()->json([
                 'token' => $issued->plainTextToken,

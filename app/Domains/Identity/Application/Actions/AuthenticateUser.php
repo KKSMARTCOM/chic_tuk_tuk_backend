@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 final class AuthenticateUser
 {
-    public function __invoke(LoginData $data, string $ip): IssuedToken
+    public function __invoke(LoginData $data, string $ip, ?string $userAgent = null): IssuedToken
     {
         $accounts = User::query()
             ->where('email', $data->email)
@@ -66,7 +66,7 @@ final class AuthenticateUser
 
         $this->resetCounters($user, $ip);
 
-        return new IssuedToken($user, $this->issueToken($user));
+        return new IssuedToken($user, $this->issueToken($user, $ip, $userAgent));
     }
 
     /**
@@ -120,13 +120,24 @@ final class AuthenticateUser
         });
     }
 
-    private function issueToken(User $user): string
+    /**
+     * L'appareil et l'adresse sont retenus pour que l'utilisateur reconnaisse ses
+     * sessions dans la liste des appareils connectés, et révoque la bonne.
+     */
+    private function issueToken(User $user, string $ip, ?string $userAgent): string
     {
-        return $user->createToken(
+        $issued = $user->createToken(
             name: (string) config('identity.token.name'),
             abilities: [$user->profil],
             expiresAt: now()->addDays((int) config('identity.token.absolute_days')),
-        )->plainTextToken;
+        );
+
+        $issued->accessToken->forceFill([
+            'ip_address' => $ip,
+            'user_agent' => $userAgent !== null ? mb_substr($userAgent, 0, 1000) : null,
+        ])->save();
+
+        return $issued->plainTextToken;
     }
 
     private function resetCounters(User $user, string $ip): void

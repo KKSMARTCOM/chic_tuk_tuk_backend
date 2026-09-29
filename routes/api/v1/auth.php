@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Identity\Presentation\Api\V1\AuthController;
+use App\Domains\Identity\Presentation\Api\V1\DeviceSessionController;
 use App\Domains\Identity\Presentation\Api\V1\PasswordController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,5 +50,13 @@ Route::prefix('auth')->name('auth.')->group(function () {
         // renverrait le même utilisateur sous un autre nom.
         Route::patch('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
         Route::post('/password', [PasswordController::class, 'change'])->name('password.change');
+
+        // Les appareils connectés. La session courante ne se révoque pas ici (409) : pour
+        // elle, c'est /logout.
+        Route::get('/sessions', [DeviceSessionController::class, 'index'])->name('sessions.index');
+        Route::delete('/sessions/{id}', [DeviceSessionController::class, 'destroy'])
+            ->whereNumber('id')
+            ->name('sessions.destroy');
+        Route::post('/logout-others', [DeviceSessionController::class, 'logoutOthers'])->name('logout-others');
     });
 });

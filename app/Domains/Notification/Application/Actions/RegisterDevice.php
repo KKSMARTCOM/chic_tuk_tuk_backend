@@ -14,14 +14,18 @@ use App\Models\User;
  * jeton. Une insertion violerait la contrainte ; une recherche par utilisateur créerait
  * une seconde ligne impossible. La ligne doit être RÉATTRIBUÉE, faute de quoi l'ancien
  * propriétaire continuerait de recevoir les notifications du nouveau.
+ *
+ * La ligne suit aussi la SESSION qui l'enregistre : révoquer cette session — depuis la
+ * liste des appareils, par un changement de mot de passe ou une déconnexion — efface la
+ * ligne en cascade, et l'appareil cesse d'être notifié.
  */
 final class RegisterDevice
 {
-    public function __invoke(User $user, string $token): void
+    public function __invoke(User $user, string $token, ?int $sessionId): void
     {
         FcmToken::updateOrCreate(
             ['token' => $token],
-            ['user_id' => $user->id],
+            ['user_id' => $user->id, 'personal_access_token_id' => $sessionId],
         );
     }
 }
