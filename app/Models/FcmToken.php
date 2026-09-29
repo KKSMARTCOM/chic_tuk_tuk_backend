@@ -24,6 +24,7 @@ class FcmToken extends Model
     protected $fillable = [
         'user_id',
         'token',
+        'personal_access_token_id',
     ];
 
     public function user()

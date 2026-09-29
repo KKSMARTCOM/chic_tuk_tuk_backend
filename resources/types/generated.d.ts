@@ -943,6 +943,14 @@ export type ChangePasswordData = {
 current_password: string;
 password: string;
 };
+export type DeviceSessionData = {
+id: number;
+user_agent: string | null;
+ip_address: string | null;
+created_at: string;
+last_used_at: string | null;
+is_current: boolean;
+};
 export type ForgotPasswordData = {
 email: string;
 };
