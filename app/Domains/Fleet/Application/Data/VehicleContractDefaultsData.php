@@ -9,7 +9,7 @@ use App\Shared\Data\BaseData;
  * propriétaire-véhicule : les durées proposées avec leur montant total, et les trois
  * charges mensuelles par défaut.
  *
- * Tiré de `VehicleContractConsts`, que le Blade lit aussi : une seule source. Ces valeurs
+ * Tiré des réglages de l'administration (`vehicle_contract_terms`). Ces valeurs
  * ne font que PRÉREMPLIR — l'administrateur peut les corriger, et l'API ne les impose
  * pas à l'enregistrement.
  */

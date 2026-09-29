@@ -150,9 +150,77 @@ class MonthlyPayoutRecapTest extends TestCase
             ->assertJsonPath('0.pending_amount', 20000)
             ->assertJsonPath('0.cancelled_amount', 5000)
             ->assertJsonPath('0.total_charges', 27500)
-            // fixed_amount = validé − charges. Transposé tel quel, et donc négatif
-            // quand les charges dépassent le validé.
-            ->assertJsonPath('0.fixed_amount', 72500);
+            // fixed_amount = validé − charges, quand rien n'est reporté.
+            ->assertJsonPath('0.fixed_amount', 72500)
+            ->assertJsonPath('0.deficit_carried_in', 0)
+            ->assertJsonPath('0.deficit_carried_out', 0);
+    }
+
+    /** Le récapitulatif d'un contrat, avec un paiement validé de `net` par mois donné. */
+    private function recapWithValidated(array $netByMonthsAgo): array
+    {
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create([
+            'start_date' => now()->subMonths(4)->startOfMonth(),
+        ]);
+
+        foreach ($netByMonthsAgo as $monthsAgo => $net) {
+            Payment::factory()->onDay(now()->subMonthsNoOverflow($monthsAgo)->startOfMonth()->toDateString())
+                ->status('completed')
+                ->create(['vehicle_contract_id' => $contract->id, 'net_amount' => $net]);
+        }
+
+        $rows = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
+            ->assertOk()->json();
+
+        return collect($rows)->keyBy('month')->all();
+    }
+
+    private function monthKey(int $monthsAgo): string
+    {
+        return now()->subMonthsNoOverflow($monthsAgo)->format('Y-m');
+    }
+
+    public function test_un_mois_deficitaire_s_affiche_a_zero_et_reporte_son_manque(): void
+    {
+        // Décidé le 2026-09-29 : le propriétaire ne voit plus de montant négatif. Le
+        // manque du mois est déduit du mois suivant, jusqu'à être couvert.
+        $recap = $this->recapWithValidated([2 => 10_000, 1 => 100_000]);
+
+        // Il y a deux mois : 10 000 validés, 27 500 de charges.
+        $this->assertEquals(0, $recap[$this->monthKey(2)]['fixed_amount']);
+        $this->assertEquals(17_500, $recap[$this->monthKey(2)]['deficit_carried_out']);
+
+        // Le mois suivant rembourse ce manque avant de dégager un montant fixe.
+        $this->assertEquals(17_500, $recap[$this->monthKey(1)]['deficit_carried_in']);
+        $this->assertEquals(100_000 - 27_500 - 17_500, $recap[$this->monthKey(1)]['fixed_amount']);
+        $this->assertEquals(0, $recap[$this->monthKey(1)]['deficit_carried_out']);
+    }
+
+    public function test_un_deficit_s_accumule_tant_qu_il_n_est_pas_couvert(): void
+    {
+        $recap = $this->recapWithValidated([3 => 20_000, 2 => 10_000, 1 => 100_000]);
+
+        $this->assertEquals(7_500, $recap[$this->monthKey(3)]['deficit_carried_out']);
+        // 10 000 − 27 500 − 7 500 reporté.
+        $this->assertEquals(7_500, $recap[$this->monthKey(2)]['deficit_carried_in']);
+        $this->assertEquals(25_000, $recap[$this->monthKey(2)]['deficit_carried_out']);
+        $this->assertEquals(0, $recap[$this->monthKey(2)]['fixed_amount']);
+        $this->assertEquals(100_000 - 27_500 - 25_000, $recap[$this->monthKey(1)]['fixed_amount']);
+    }
+
+    public function test_aucun_montant_fixe_n_est_jamais_negatif(): void
+    {
+        $recap = $this->recapWithValidated([1 => 0]);
+
+        foreach ($recap as $month) {
+            $this->assertGreaterThanOrEqual(0, $month['fixed_amount']);
+        }
+        // Le mois courant, sans paiement, hérite du manque du précédent.
+        $this->assertEquals(27_500, $recap[$this->monthKey(0)]['deficit_carried_in']);
+        $this->assertEquals(55_000, $recap[$this->monthKey(0)]['deficit_carried_out']);
     }
 
     public function test_les_jours_travailles_comptent_les_dates_distinctes(): void

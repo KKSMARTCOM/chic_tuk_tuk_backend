@@ -196,10 +196,9 @@ avec le mainteneur.
 
 - Colonnes : total_amount, monthly_payment, contract_months,
   unlimited_internet, spotify_premium, manager_remuneration,
+  daily_amount, daily_tax (figés à la création, voir « Les réglages »),
   status (active/completed/cancelled)
-- Accessors : total_paid, remaining_amount, surplus, progress_percentage
-- Constantes : App\Consts\VehicleContractConsts::TOTAL_AMOUNTS, MONTHLY_PAYMENTS,
-  DEFAULT_UNLIMITED_INTERNET, DEFAULT_SPOTIFY_PREMIUM, DEFAULT_MANAGER_REMUNERATION
+- Accessors : total_paid, remaining_amount, surplus, progress_percentage, daily_net_amount
 
 ### DriverContract
 
@@ -308,8 +307,8 @@ disparu avec lui. Trois formes :
 Ce que plusieurs actions partagent devient une action à part, injectée par constructeur
 (`ClaimVehicleForOwner`, `SaveVehicleAttributes`, `ClosePause`, `CancelPause`,
 `CreateAgentLeavePause`, `CheckPaymentData`, `CreateRenewalContract`,
-`ComputeDriverSubscriptionRevenue`…). Le prix vient des constantes de `Price`
-appliquées à la distance (`PriceCalculator`), et de rien d'autre.
+`ComputeDriverSubscriptionRevenue`…). Le prix vient des réglages `PricingSettings`
+appliqués à la distance (`PriceCalculator`), et de rien d'autre.
 
 ## API v1
 
@@ -441,8 +440,8 @@ et annulation de pause, par `VehicleService`, partagé avec le Blade. Décidé l
   n'exigeaient que `view-vehicles`, écritures comprises.
 
 `GET /admin/vehicle-contracts/defaults` sert les durées proposées, leur montant total et
-les trois charges par défaut, tirés de `VehicleContractConsts` — la seule source, que le
-Blade lit aussi. Le front ne les recopie plus.
+les trois charges par défaut, tirés des réglages (`vehicle_contract_terms`,
+`vehicle_contract_charge_defaults`). Le front ne les recopie plus.
 
 **Les contrats propriétaire-véhicule** (`/admin/vehicle-contracts*`, domaine `Fleet`, F3)
 — liste, fiche, création (depuis la fiche d'un véhicule), modification, suppression, par
@@ -719,10 +718,50 @@ le middleware se retire** : le local et les tests ne le subissent pas, mais la
 production doit impérativement avoir la variable. Si Cloudflare est injoignable, le
 choix retenu est de laisser passer la réservation plutôt que de la perdre.
 
-⚠️ Le formulaire Blade du landing recalcule la majoration horaire en JavaScript
-(`pages/index.blade.php`), en recopiant les constantes de `Price` : toute modification
-de la fenêtre horaire ou du montant doit être reportée dans les deux. L'API, elle,
-renvoie le prix déjà majoré (`PriceQuoteData`) pour que le front n'ait rien à recalculer.
+L'API renvoie le prix déjà majoré, avec le montant de la majoration et sa plage
+(`PriceQuoteData`) : le landing n'en recopie rien, et suit donc les réglages sans
+redéploiement.
+
+## Les réglages (2026-09-29)
+
+`/admin/settings/pricing` et `/admin/settings/vehicle-contracts` (GET, PUT), sous la
+seule permission `manage-business-settings`, portée par l'administrateur seul —
+`manage-settings`, que l'utilisateur porte aussi, n'est pas réutilisée. Ils remplacent les
+ex-`App\Consts\Price` et `VehicleContractConsts`, supprimées.
+
+- **Le prix des courses** (`pricing_settings`, une ligne) : prix de base, prix au km,
+  majoration horaire et sa plage sans majoration (bornes incluses). ⚠️ Le prix de base
+  est AUSSI le minimum d'une course : `BASE_PRICE` et `MINIMUM_PRICE` valaient tous deux
+  1 000 et ont fusionné — deux réglages distincts auraient permis qu'une course de 2 km
+  coûte moins qu'une d'1 km. Une réservation garde son prix.
+- **Les contrats véhicule** (`vehicle_contract_terms`, une ligne par durée ;
+  `vehicle_contract_charge_defaults`, une ligne). Le PUT reçoit la liste COMPLÈTE des
+  durées : une durée absente est supprimée.
+
+⚠️ **Un contrat véhicule FIGE `daily_amount` et `daily_tax` à sa création**
+(`ContractTerms::dailyAmountsFor`), et ne les relit jamais : `GenerateDailyContractPayments`
+et `CheckPaymentData` lisent le CONTRAT. Avant, ils relisaient les constantes à chaque
+passage — rendre les montants réglables sans les figer aurait changé les versements de
+tous les contrats en cours. Un contrat ne reprend les montants des réglages que si sa
+durée change. Supprimer une durée ne touche donc aucun contrat.
+
+⚠️ **Une durée doit exister dans les réglages** (422 sur `contract_months` sinon). La durée
+« autre », libre, n'avait aucun versement journalier : la génération créait chaque soir un
+paiement de 0 FCFA. Les contrats existants de cette sorte ont `daily_amount` à null, et la
+génération les écarte en le journalisant (« Contrat véhicule sans versement journalier »)
+— c'est au contrat d'être corrigé, en lui donnant une durée proposée.
+
+⚠️ Plus d'accesseur `daily_tax` ni `daily_payment` sur `VehicleContract` : un accesseur
+du même nom qu'une colonne la masque.
+
+## Le récapitulatif du propriétaire reporte le déficit (2026-09-29)
+
+`BuildMonthlyPayoutRecap` : le montant fixe d'un mois vaut `validé − charges − déficit
+reporté`, et n'est jamais négatif. Un mois déficitaire s'affiche à 0 et reporte son manque
+(`deficit_carried_out`) sur le mois suivant, qui le reçoit (`deficit_carried_in`), jusqu'à
+ce qu'il soit couvert. Avant, `validé − charges` s'affichait négatif au propriétaire dès
+qu'un mois était partiel ou en pause. Le report se calcule dans l'ordre CHRONOLOGIQUE,
+avant le tri d'affichage du plus récent au plus ancien.
 
 ## Commandes artisan
 

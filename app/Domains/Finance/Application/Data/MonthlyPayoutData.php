@@ -7,10 +7,10 @@ use App\Shared\Data\BaseData;
 /**
  * Un mois du récapitulatif que reçoit un propriétaire.
  *
- * `fixedAmount` vaut `validé − charges` et PEUT ÊTRE NÉGATIF quand les charges d'un
- * mois dépassent les paiements validés. C'est le comportement du chemin Blade, transposé
- * sans correction : le corriger au sein d'une migration rendrait impossible d'attribuer
- * un chiffre qui change à la migration plutôt qu'à la correction.
+ * `fixedAmount` vaut `validé − charges − déficit reporté`, et n'est JAMAIS négatif
+ * depuis le 2026-09-29 : un mois déficitaire s'affiche à 0 et reporte son manque
+ * (`deficitCarriedOut`) sur le mois suivant, qui le reçoit en `deficitCarriedIn`. Avant,
+ * le montant transposé du Blade s'affichait négatif au propriétaire.
  */
 final class MonthlyPayoutData extends BaseData
 {
@@ -22,6 +22,10 @@ final class MonthlyPayoutData extends BaseData
         public float $cancelledAmount,
         public float $totalCharges,
         public float $fixedAmount,
+        /** Le manque des mois précédents, déduit ce mois-ci. */
+        public float $deficitCarriedIn,
+        /** Le manque restant, reporté sur le mois suivant. */
+        public float $deficitCarriedOut,
         public int $workedDays,
         public int $agentLeaveDays,
         public int $immobilizationDays,

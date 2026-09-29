@@ -2,11 +2,13 @@
 
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
+use App\Domains\Booking\Presentation\Api\V1\Admin\PricingSettingsController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\CommissionController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
+use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractSettingsController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\RoleController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\UserController;
 use App\Domains\Workforce\Presentation\Api\V1\Admin\DriverContractController;
@@ -190,6 +192,17 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/vehicle-contracts/{contract}', [VehicleContractController::class, 'destroy'])
             ->middleware('permission:delete-contracts')->name('vehicle-contracts.destroy');
+
+        /*
+         * Les réglages (2026-09-29) : le prix des courses, et les durées et montants des
+         * contrats véhicule. Une seule permission, à l'administrateur seul.
+         */
+        Route::middleware('permission:manage-business-settings')->prefix('settings')->name('settings.')->group(function () {
+            Route::get('/pricing', [PricingSettingsController::class, 'show'])->name('pricing.show');
+            Route::put('/pricing', [PricingSettingsController::class, 'update'])->name('pricing.update');
+            Route::get('/vehicle-contracts', [VehicleContractSettingsController::class, 'show'])->name('vehicle-contracts.show');
+            Route::put('/vehicle-contracts', [VehicleContractSettingsController::class, 'update'])->name('vehicle-contracts.update');
+        });
 
         /*
          * Les contrats agents (F4) — mêmes quatre permissions que les contrats véhicule.

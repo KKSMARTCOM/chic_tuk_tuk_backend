@@ -145,6 +145,28 @@ class AdminOwnerCreateApiTest extends TestCase
         $this->assertSame('Clause particulière', $contract->notes);
     }
 
+    public function test_the_contract_freezes_its_daily_amounts_and_fills_empty_charges(): void
+    {
+        // Corrigé le 2026-09-29 : les charges laissées vides valaient 0 ici, et les valeurs
+        // par défaut depuis tous les autres écrans.
+        $this->asBearer($this->login(['create-owners']))->postJson('/api/v1/admin/owners', $this->payload([
+            'vehicle' => [
+                'mode' => 'new',
+                'vehicle_number' => 'BJ-1234-AB',
+                'vehicle_type' => 'tricycle',
+                'contract' => $this->contract([
+                    'unlimited_internet' => null, 'spotify_premium' => null, 'manager_remuneration' => null,
+                ]),
+            ],
+        ]))->assertCreated();
+
+        $contract = Vehicle::query()->where('vehicle_number', 'BJ-1234-AB')->firstOrFail()->activeVehicleContract;
+        $this->assertEquals(20_000, $contract->manager_remuneration);
+        $this->assertEquals(2_500, $contract->spotify_premium);
+        $this->assertEquals(5691, $contract->daily_amount);
+        $this->assertEquals(229, $contract->daily_tax);
+    }
+
     public function test_a_vehicle_requires_its_contract_at_creation(): void
     {
         $token = $this->login(['create-owners']);

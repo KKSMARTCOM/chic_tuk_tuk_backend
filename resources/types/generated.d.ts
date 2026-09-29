@@ -302,6 +302,13 @@ total_price: number;
 surcharge_amount: number;
 surcharge_free_window: string;
 };
+export type PricingSettingsData = {
+base_price: number;
+price_per_km: number;
+time_surcharge: number;
+surcharge_free_start_hour: number;
+surcharge_free_end_hour: number;
+};
 export type TerminateSubscriptionData = {
 cancellation_reason: string | null;
 };
@@ -440,6 +447,8 @@ pending_amount: number;
 cancelled_amount: number;
 total_charges: number;
 fixed_amount: number;
+deficit_carried_in: number;
+deficit_carried_out: number;
 worked_days: number;
 agent_leave_days: number;
 immobilization_days: number;
@@ -828,6 +837,12 @@ spotify_premium: number | null;
 manager_remuneration: number | null;
 notes: string | null;
 };
+export type UpdateVehicleContractSettingsData = {
+terms: Array<{ months: number; total_amount: number; daily_amount: number; daily_tax: number }>;
+unlimited_internet: number;
+spotify_premium: number;
+manager_remuneration: number;
+};
 export type VehicleContractDefaultsData = {
 durations: Array<App.Domains.Fleet.Application.Data.ContractDurationData>;
 unlimited_internet: number;
@@ -842,6 +857,18 @@ unlimited_internet: number | null;
 spotify_premium: number | null;
 manager_remuneration: number | null;
 notes: string | null;
+};
+export type VehicleContractSettingsData = {
+terms: Array<App.Domains.Fleet.Application.Data.VehicleContractTermData>;
+unlimited_internet: number;
+spotify_premium: number;
+manager_remuneration: number;
+};
+export type VehicleContractTermData = {
+months: number;
+total_amount: number;
+daily_amount: number;
+daily_tax: number;
 };
 export type VehiclePauseData = {
 id: string;

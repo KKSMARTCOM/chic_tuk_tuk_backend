@@ -91,8 +91,15 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'edit-contracts' => ['Modifier un contrat', 'Modifier un contrat véhicule ou agent'],
         'view-contracts' => ['Voir les contrats', 'Voir les contrats véhicule et agent'],
 
+
         // Tableau de bord
         'view-dashboard' => ['Voir le tableau de bord', 'Accès au tableau de bord'],
+
+        // Réglages
+        // Ajoutée le 2026-09-29, à l'administrateur seul : tarifs des courses, durées et
+        // montants des contrats véhicule. `manage-settings`, que porte aussi
+        // l'utilisateur, n'est pas réutilisée.
+        'manage-business-settings' => ['Régler les tarifs et les contrats', 'Régler le prix des courses et les montants des contrats véhicule'],
 
         // Agents
         'create-drivers' => ['Créer un chauffeur', 'Créer un chauffeur'],

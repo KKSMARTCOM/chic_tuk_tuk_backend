@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Consts\VehicleContractConsts;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -20,15 +19,19 @@ class VehicleContractFactory extends Factory
         return [
             'vehicle_id' => Vehicle::factory(),
             'owner_id' => User::factory(),
-            'total_amount' => VehicleContractConsts::TOTAL_AMOUNTS[24],
+            // Les montants du contrat de 24 mois, tels que la migration du 2026-09-29 amorce
+            // les réglages.
+            'total_amount' => 3_100_000,
             'monthly_payment' => 130_000,
             'contract_months' => 24,
             'start_date' => now()->subMonths(6)->startOfMonth(),
             'end_date' => null,
             'status' => 'active',
-            'unlimited_internet' => VehicleContractConsts::DEFAULT_UNLIMITED_INTERNET,
-            'spotify_premium' => VehicleContractConsts::DEFAULT_SPOTIFY_PREMIUM,
-            'manager_remuneration' => VehicleContractConsts::DEFAULT_MANAGER_REMUNERATION,
+            'daily_amount' => 6112,
+            'daily_tax' => 241,
+            'unlimited_internet' => 5_000,
+            'spotify_premium' => 2_500,
+            'manager_remuneration' => 20_000,
         ];
     }
 

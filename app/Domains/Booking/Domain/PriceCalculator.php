@@ -2,27 +2,41 @@
 
 namespace App\Domains\Booking\Domain;
 
-use App\Consts\Price;
+use App\Models\PricingSettings;
 use Carbon\Carbon;
 
 /**
- * Le prix d'une course à partir de sa distance et de son heure — les constantes de
- * `Price`, sans effet de bord.
+ * Le prix d'une course à partir de sa distance et de son heure.
+ *
+ * Tous les montants viennent des réglages de l'administration (`PricingSettings`,
+ * depuis le 2026-09-29 ; avant, des constantes de l'ex-`Price`).
  *
  * Déplacé de `App\Services\PricingService` le 2026-09-27, sans changement : la
  * distance, elle, vient d'OpenRouteService (`MeasureRouteDistance`).
  */
 final class PriceCalculator
 {
+    /** Lu une fois par instance : un devis consulte les réglages jusqu'à cinq fois. */
+    private ?PricingSettings $settings = null;
+
+    private function settings(): PricingSettings
+    {
+        return $this->settings ??= PricingSettings::current();
+    }
+
+    /**
+     * Le prix de base vaut pour une course de 1 km ou moins, et reste le minimum au-delà.
+     * Avant le 2026-09-29, deux constantes égales portaient ces deux rôles.
+     */
     public function getPrice(float $distance): int
     {
+        $settings = $this->settings();
+
         if ($distance <= 1) {
-            return Price::BASE_PRICE;
+            return $settings->base_price;
         }
 
-        $price = $distance * Price::PRICE_PER_KM;
-
-        return (int) max($price, Price::MINIMUM_PRICE);
+        return (int) max($distance * $settings->price_per_km, $settings->base_price);
     }
 
     /**
@@ -35,15 +49,16 @@ final class PriceCalculator
             return $price;
         }
 
-        return $this->isNormalPriceWindow($time) ? $price : $price + Price::TIME_SURCHARGE;
+        return $this->isNormalPriceWindow($time) ? $price : $price + $this->settings()->time_surcharge;
     }
 
     private function isNormalPriceWindow($time): bool
     {
         $minutes = $this->extractMinutesSinceMidnight($time);
 
-        $start = Price::NORMAL_WINDOW_START_HOUR * 60;
-        $end = Price::NORMAL_WINDOW_END_HOUR * 60;
+        $settings = $this->settings();
+        $start = $settings->surcharge_free_start_hour * 60;
+        $end = $settings->surcharge_free_end_hour * 60;
 
         return $minutes >= $start && $minutes <= $end;
     }

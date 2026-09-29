@@ -2,8 +2,8 @@
 
 namespace App\Domains\Fleet\Application\Actions;
 
-use App\Consts\VehicleContractConsts;
 use App\Domains\Fleet\Application\Data\CreateVehicleContractData;
+use App\Domains\Fleet\Domain\ContractTerms;
 use App\Domains\Fleet\Domain\VehicleContractRules;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -23,6 +23,8 @@ final class CreateVehicleContract
      * Corrigé le 2026-09-26 : un véhicule sans propriétaire faisait échouer l'insertion
      * (`owner_id` NOT NULL), et rien n'empêchait un second contrat actif. Les charges
      * laissées vides prennent les valeurs par défaut, comme depuis l'écran propriétaire.
+     *
+     * Le contrat fige le versement et la taxe journaliers de sa durée (2026-09-29).
      */
     private function createContract(array $data): VehicleContract
     {
@@ -39,10 +41,9 @@ final class CreateVehicleContract
                 'end_date' => $data['end_date'] ?? null,
                 'status' => 'active',
                 'notes' => $data['notes'] ?? null,
-                'contract_months' => $data['contract_months'] ?? null,
-                'unlimited_internet' => $data['unlimited_internet'] ?? VehicleContractConsts::DEFAULT_UNLIMITED_INTERNET,
-                'spotify_premium' => $data['spotify_premium'] ?? VehicleContractConsts::DEFAULT_SPOTIFY_PREMIUM,
-                'manager_remuneration' => $data['manager_remuneration'] ?? VehicleContractConsts::DEFAULT_MANAGER_REMUNERATION,
+                'contract_months' => $data['contract_months'],
+                ...ContractTerms::dailyAmountsFor((int) $data['contract_months']),
+                ...ContractTerms::chargesFrom($data),
             ]);
         });
     }

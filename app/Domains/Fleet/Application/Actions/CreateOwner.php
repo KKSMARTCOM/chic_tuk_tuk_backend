@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Application\Actions;
 
 use App\Domains\Fleet\Application\Data\CreateOwnerData;
+use App\Domains\Fleet\Domain\ContractTerms;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -61,17 +62,20 @@ final class CreateOwner
                 ($this->claimVehicle)($vehicle, $user, (bool) ($data['confirm_transfer'] ?? false));
             }
 
-            // 4. Créer le contrat proprio-véhicule si montant renseigné
+            // 4. Créer le contrat proprio-véhicule si montant renseigné.
+            // Corrigé le 2026-09-29 : les charges laissées vides valaient 0 ici, et les
+            // valeurs par défaut partout ailleurs.
             if ($vehicle && ! empty($data['contract_total_amount'])) {
+                $months = (int) ($data['contract_months'] ?? 24);
+
                 VehicleContract::create([
                     'vehicle_id' => $vehicle->id,
                     'owner_id' => $user->id,
                     'total_amount' => $data['contract_total_amount'],
-                    'contract_months' => $data['contract_months'] ?? 24,
+                    'contract_months' => $months,
+                    ...ContractTerms::dailyAmountsFor($months),
                     'monthly_payment' => $data['contract_monthly_payment'] ?? 0,
-                    'unlimited_internet' => $data['unlimited_internet'] ?? 0,
-                    'spotify_premium' => $data['spotify_premium'] ?? 0,
-                    'manager_remuneration' => $data['manager_remuneration'] ?? 0,
+                    ...ContractTerms::chargesFrom($data),
                     'start_date' => $data['contract_start_date'] ?? now(),
                     'notes' => $data['contract_notes'] ?? null,
                     'status' => 'active',

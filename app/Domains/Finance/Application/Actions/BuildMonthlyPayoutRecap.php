@@ -25,6 +25,13 @@ use Illuminate\Support\Collection;
  *   2. les mois futurs sont exclus ;
  *   3. pour le mois courant, la borne de comptage des jours est AUJOURD'HUI et non la
  *      fin du mois — sinon les jours de pause à venir seraient déjà décomptés.
+ *
+ * ⚠️ Et une règle décidée le 2026-09-29 : **le déficit se reporte**. Le code d'origine
+ * rendait `validé − charges` tel quel, donc négatif dès que les charges d'un mois
+ * dépassaient les paiements validés — le mois en cours, un premier mois partiel, un mois
+ * de pause. Désormais un mois déficitaire s'affiche à 0, et son manque est déduit du
+ * mois suivant, puis du suivant, jusqu'à être couvert. Le report se calcule donc dans
+ * l'ordre CHRONOLOGIQUE, avant le tri d'affichage.
  */
 final class BuildMonthlyPayoutRecap
 {
@@ -52,8 +59,11 @@ final class BuildMonthlyPayoutRecap
             ->whereIn('status', ['completed', 'ongoing'])
             ->get();
 
+        $carriedIn = 0.0;
+
         return $months
-            ->map(function (string $monthKey) use ($payments, $contract, $today, $vehiclePauses, $leaveRequests) {
+            ->values()
+            ->map(function (string $monthKey) use ($payments, $contract, $today, $vehiclePauses, $leaveRequests, &$carriedIn) {
                 $monthStart = Carbon::parse($monthKey.'-01')->startOfDay();
                 $monthEnd = $monthStart->copy()->endOfMonth();
 
@@ -74,6 +84,12 @@ final class BuildMonthlyPayoutRecap
 
                 $validated = (float) $monthPayments->where('status', 'completed')->sum('net_amount');
 
+                // `$months` est trié du plus ancien au plus récent : chaque mois reçoit
+                // le manque de celui qui le précède.
+                $balance = $validated - $contract->total_charges - $carriedIn;
+                $deficitCarriedIn = $carriedIn;
+                $carriedIn = max(0.0, -$balance);
+
                 return new MonthlyPayoutData(
                     month: $monthKey,
                     isCurrent: $monthStart->isSameMonth($today) && $monthStart->isSameYear($today),
@@ -81,7 +97,9 @@ final class BuildMonthlyPayoutRecap
                     pendingAmount: (float) $monthPayments->where('status', 'pending')->sum('net_amount'),
                     cancelledAmount: (float) $monthPayments->where('status', 'cancelled')->sum('net_amount'),
                     totalCharges: $contract->total_charges,
-                    fixedAmount: $validated - $contract->total_charges,
+                    fixedAmount: max(0.0, $balance),
+                    deficitCarriedIn: $deficitCarriedIn,
+                    deficitCarriedOut: $carriedIn,
                     workedDays: $workedDays,
                     agentLeaveDays: $this->businessDaysInMonth($leaveRequests, $monthStart, $effectiveMonthEnd),
                     immobilizationDays: $this->businessDaysInMonth($vehiclePauses, $monthStart, $effectiveMonthEnd),

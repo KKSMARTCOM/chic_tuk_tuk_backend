@@ -2,9 +2,10 @@
 
 namespace Tests\Feature\Fleet;
 
-use App\Consts\VehicleContractConsts;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\User;
+use App\Models\VehicleContractChargeDefaults;
+use App\Models\VehicleContractTerm;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -14,8 +15,8 @@ use Tests\TestCase;
 /**
  * Les valeurs par défaut d'un contrat propriétaire-véhicule, servies au front.
  *
- * Elles vivaient recopiées dans le front ; `VehicleContractConsts` en est désormais la
- * seule source, pour le Blade comme pour l'API.
+ * Elles vivaient recopiées dans le front, puis dans des constantes ; depuis le 2026-09-29
+ * elles viennent des réglages de l'administration.
  */
 class VehicleContractDefaultsApiTest extends TestCase
 {
@@ -42,19 +43,30 @@ class VehicleContractDefaultsApiTest extends TestCase
         return $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/v1/admin/vehicle-contracts/defaults');
     }
 
-    public function test_the_defaults_come_from_vehicle_contract_consts(): void
+    public function test_the_defaults_start_from_the_historical_amounts(): void
     {
         $response = $this->fetch($this->login(['create-owners']))->assertOk();
 
-        $expectedDurations = collect(VehicleContractConsts::TOTAL_AMOUNTS)
-            ->map(fn ($amount, $months) => ['months' => $months, 'total_amount' => $amount])
-            ->values()
-            ->all();
+        $this->assertEquals([
+            ['months' => 24, 'total_amount' => 3_100_000],
+            ['months' => 30, 'total_amount' => 3_604_872],
+            ['months' => 36, 'total_amount' => 4_049_100],
+        ], $response->json('durations'));
+        $this->assertEquals(5_000, $response->json('unlimited_internet'));
+        $this->assertEquals(2_500, $response->json('spotify_premium'));
+        $this->assertEquals(20_000, $response->json('manager_remuneration'));
+    }
 
-        $this->assertEquals($expectedDurations, $response->json('durations'));
-        $this->assertEquals(VehicleContractConsts::DEFAULT_UNLIMITED_INTERNET, $response->json('unlimited_internet'));
-        $this->assertEquals(VehicleContractConsts::DEFAULT_SPOTIFY_PREMIUM, $response->json('spotify_premium'));
-        $this->assertEquals(VehicleContractConsts::DEFAULT_MANAGER_REMUNERATION, $response->json('manager_remuneration'));
+    public function test_the_defaults_follow_the_settings(): void
+    {
+        VehicleContractTerm::query()->where('months', 30)->delete();
+        VehicleContractTerm::create(['months' => 48, 'total_amount' => 5_000_000, 'daily_amount' => 5000, 'daily_tax' => 200]);
+        VehicleContractChargeDefaults::query()->update(['spotify_premium' => 3_000]);
+
+        $response = $this->fetch($this->login(['create-owners']))->assertOk();
+
+        $this->assertEquals([24, 36, 48], collect($response->json('durations'))->pluck('months')->all());
+        $this->assertEquals(3_000, $response->json('spotify_premium'));
     }
 
     public function test_any_contract_writing_permission_opens_it(): void

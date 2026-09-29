@@ -2,7 +2,6 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
-use App\Consts\VehicleContractConsts;
 use App\Models\Commission;
 use App\Models\Driver;
 use App\Models\DriverContract;
@@ -107,11 +106,8 @@ final class CheckPaymentData
                     );
                 }
 
-                $contractMonths = (int) $vehicleContract->contract_months;
-
-                $taxe = VehicleContractConsts::TAXE[$contractMonths] ?? 0;
-
-                $data['net_amount'] = $data['amount'] - $taxe;
+                // La taxe journalière est celle que le contrat a figée à sa création.
+                $data['net_amount'] = $data['amount'] - (float) ($vehicleContract->daily_tax ?? 0);
             }
         }
     }
