@@ -3,6 +3,7 @@
 namespace App\Domains\Identity\Application\Data;
 
 use App\Shared\Data\BaseData;
+use App\Shared\Validation\EmailRules;
 
 final class ForgotPasswordData extends BaseData
 {
@@ -17,7 +18,7 @@ final class ForgotPasswordData extends BaseData
         // en test d'existence de compte, exactement ce que la réponse indifférenciée
         // cherche à éviter.
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string', ...EmailRules::rules()],
         ];
     }
 

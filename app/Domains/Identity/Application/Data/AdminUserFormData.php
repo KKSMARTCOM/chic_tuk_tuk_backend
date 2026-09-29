@@ -4,6 +4,7 @@ namespace App\Domains\Identity\Application\Data;
 
 use App\Domains\Identity\Application\Actions\AssignableRoles;
 use App\Shared\Data\BaseData;
+use App\Shared\Validation\EmailRules;
 use Illuminate\Validation\Rule;
 
 /**
@@ -39,7 +40,7 @@ final class AdminUserFormData extends BaseData
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', Rule::unique('users', 'email')->where('profil', 'admin')->ignore($userId)],
+            'email' => ['nullable', ...EmailRules::rules(), Rule::unique('users', 'email')->where('profil', 'admin')->ignore($userId)],
             'phone' => ['required', 'string', Rule::unique('users', 'phone')->where('profil', 'admin')->ignore($userId)],
             'role' => ['required', 'string', Rule::in(app(AssignableRoles::class)->names())],
             'adresse' => ['nullable', 'string', 'max:255'],

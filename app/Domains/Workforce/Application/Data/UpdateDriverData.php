@@ -3,6 +3,7 @@
 namespace App\Domains\Workforce\Application\Data;
 
 use App\Shared\Data\BaseData;
+use App\Shared\Validation\EmailRules;
 use Spatie\LaravelData\Support\Validation\ValidationContext;
 use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 
@@ -51,7 +52,7 @@ final class UpdateDriverData extends BaseData
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email'],
+            'email' => ['nullable', ...EmailRules::rules()],
             'phone' => ['required', 'string'],
             'is_active' => ['nullable', 'boolean'],
             'adresse' => ['nullable', 'string', 'max:255'],

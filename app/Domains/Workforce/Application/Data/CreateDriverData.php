@@ -3,6 +3,7 @@
 namespace App\Domains\Workforce\Application\Data;
 
 use App\Shared\Data\BaseData;
+use App\Shared\Validation\EmailRules;
 use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Support\Validation\ValidationContext;
 use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
@@ -54,7 +55,7 @@ final class CreateDriverData extends BaseData
 
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', Rule::unique('users', 'email')->where('profil', 'driver')],
+            'email' => ['nullable', ...EmailRules::rules(), Rule::unique('users', 'email')->where('profil', 'driver')],
             'phone' => ['required', 'string', Rule::unique('users', 'phone')->where('profil', 'driver')],
             'password' => ['required', 'string', 'min:8', 'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[@$!%*#?&]/'],
             'adresse' => ['nullable', 'string', 'max:255'],
