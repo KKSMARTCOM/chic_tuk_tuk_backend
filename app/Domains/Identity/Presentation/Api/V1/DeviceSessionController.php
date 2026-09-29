@@ -2,6 +2,7 @@
 
 namespace App\Domains\Identity\Presentation\Api\V1;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Identity\Application\Actions\ListDeviceSessions;
 use App\Domains\Identity\Application\Actions\RevokeDeviceSession;
 use App\Domains\Identity\Application\Actions\RevokeOtherDeviceSessions;
@@ -38,10 +39,11 @@ final class DeviceSessionController
         }
     }
 
-    public function destroy(Request $request, int $id, RevokeDeviceSession $revoke): Response
+    public function destroy(Request $request, int $id, RevokeDeviceSession $revoke, ActivityJournal $journal): Response
     {
         try {
-            $revoke($this->user($request), $id);
+            $userAgent = $revoke($this->user($request), $id);
+            $journal->sessionRevoked($this->user($request), $userAgent);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -52,10 +54,11 @@ final class DeviceSessionController
         }
     }
 
-    public function logoutOthers(Request $request, RevokeOtherDeviceSessions $revoke): Response
+    public function logoutOthers(Request $request, RevokeOtherDeviceSessions $revoke, ActivityJournal $journal): Response
     {
         try {
             $revoke($this->user($request));
+            $journal->otherSessionsRevoked($this->user($request));
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

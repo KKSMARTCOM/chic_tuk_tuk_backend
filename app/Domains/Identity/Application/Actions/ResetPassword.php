@@ -4,6 +4,7 @@ namespace App\Domains\Identity\Application\Actions;
 
 use App\Domains\Identity\Application\Data\ResetPasswordData;
 use App\Domains\Identity\Domain\PasswordReset\UserKeyedTokenRepository;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -13,7 +14,8 @@ final class ResetPassword
         private readonly UserKeyedTokenRepository $tokens,
     ) {}
 
-    public function __invoke(ResetPasswordData $data): void
+    /** Rend le compte réinitialisé, que le journal d'activité nomme. */
+    public function __invoke(ResetPasswordData $data): User
     {
         $user = $this->tokens->resolve($data->token);
 
@@ -37,5 +39,7 @@ final class ResetPassword
         $user->tokens()->delete();
 
         $this->tokens->consume($user);
+
+        return $user;
     }
 }

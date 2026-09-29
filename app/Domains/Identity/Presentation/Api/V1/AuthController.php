@@ -2,6 +2,7 @@
 
 namespace App\Domains\Identity\Presentation\Api\V1;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Identity\Application\Actions\AuthenticateUser;
 use App\Domains\Identity\Application\Actions\UpdateProfile;
 use App\Domains\Identity\Application\Data\LoginData;
@@ -33,16 +34,32 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class AuthController
 {
-    public function login(LoginData $data, Request $request, AuthenticateUser $authenticate): JsonResponse
+    public function login(LoginData $data, Request $request, AuthenticateUser $authenticate, ActivityJournal $journal): JsonResponse
     {
         try {
             $issued = $authenticate($data, (string) $request->ip(), $request->userAgent());
+            $journal->loggedIn($issued->user);
 
             return response()->json([
                 'token' => $issued->plainTextToken,
                 'user' => UserData::fromModel($issued->user),
             ]);
-        } catch (ValidationException|ApiException $e) {
+        } catch (ValidationException $e) {
+            $journal->loginFailed($data->email, 'bad_credentials');
+
+            throw $e;
+        } catch (ApiException $e) {
+            // Un 409 PROFIL_AMBIGUOUS n'est pas un refus : le mot de passe était bon, il
+            // manque le profil, et la connexion suivante sera tracée.
+            $reason = match ($e->errorCode) {
+                'ACCOUNT_LOCKED' => 'locked',
+                'ACCOUNT_DISABLED' => 'disabled',
+                default => null,
+            };
+            if ($reason) {
+                $journal->loginFailed($data->email, $reason);
+            }
+
             throw $e;
         } catch (\Throwable $e) {
             Log::error('Erreur lors de la connexion : '.$e->getMessage(), [
@@ -58,11 +75,12 @@ final class AuthController
         }
     }
 
-    public function logout(Request $request): Response
+    public function logout(Request $request, ActivityJournal $journal): Response
     {
         try {
             // Seul le jeton courant : les autres appareils restent connectés.
             $request->user()->currentAccessToken()->delete();
+            $journal->loggedOut($request->user());
 
             return response()->noContent();
         } catch (ValidationException|ApiException $e) {

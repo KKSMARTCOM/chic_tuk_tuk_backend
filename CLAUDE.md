@@ -754,6 +754,31 @@ génération les écarte en le journalisant (« Contrat véhicule sans versement
 ⚠️ Plus d'accesseur `daily_tax` ni `daily_payment` sur `VehicleContract` : un accesseur
 du même nom qu'une colonne la masque.
 
+## Le journal d'activité (2026-09-29)
+
+Qui a fait quoi : `spatie/laravel-activitylog`, table `activity_log` (migration fusionnée et
+passée en UUID — le paquet publie des morphs entiers). Lecture par
+`GET /admin/activity-log` (`view-activity-log`, l'administrateur seul), filtres `event`
+(un code, ou un préfixe de groupe comme `booking.`), `causer_id`, `subject_id`, `from`,
+`to`, `search`. Purge nocturne des lignes de plus de 12 mois (`activitylog:clean`, 02:00).
+
+**Tout passe par `App\Domains\Audit\Application\ActivityJournal`**, une méthode par
+événement, sur le modèle du `Notifier` ; le catalogue des codes est l'enum `ActivityEvent`.
+La phrase est écrite SANS son auteur, figé dans `properties.actor` au moment de l'action.
+
+⚠️ **On trace depuis les CONTRÔLEURS, pas depuis les actions**, pour un geste fait par
+quelqu'un : c'est le contrôleur qui connaît l'intention. L'affectation d'un agent passe par
+`AcceptBooking` comme une course prise par l'agent — tracée dans l'action, elle dirait
+« Koffi a accepté » quand Awa a affecté. Les tâches planifiées tracent depuis leur action,
+au nom du « Système ». Toujours APRÈS la réussite ; et le journal n'échoue jamais
+bruyamment (une trace manquée va au journal applicatif).
+
+Lot 1 tracé : connexions (réussies, refusées avec l'adresse saisie, verrouillées,
+désactivées), déconnexions, appareils, mots de passe ; toutes les écritures sur les
+réservations (admin, agent, en ligne, expiration) ; les réglages, avec les seules valeurs
+changées. **Restent** : la flotte et les paiements (lot 2), les agents, les pauses et les
+comptes (lot 3).
+
 ## Le récapitulatif du propriétaire reporte le déficit (2026-09-29)
 
 `BuildMonthlyPayoutRecap` : le montant fixe d'un mois vaut `validé − charges − déficit

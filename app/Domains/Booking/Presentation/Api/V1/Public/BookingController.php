@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Presentation\Api\V1\Public;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Booking\Application\Actions\CreatePublicBooking;
 use App\Domains\Booking\Application\Data\BookingConfirmationData;
 use App\Domains\Booking\Application\Data\CreatePublicBookingData;
@@ -16,7 +17,7 @@ final class BookingController extends Controller
      *
      * Endpoint anonyme : throttling posé sur la route, aucun prix accepté en entrée.
      */
-    public function store(CreatePublicBookingData $data, CreatePublicBooking $action)
+    public function store(CreatePublicBookingData $data, CreatePublicBooking $action, ActivityJournal $journal)
     {
         try {
             $booking = $action->execute($data);
@@ -32,6 +33,8 @@ final class BookingController extends Controller
                 'La réservation n\'a pas pu être enregistrée. Vérifiez votre trajet et réessayez.',
             );
         }
+
+        $journal->bookingCreatedOnline($booking);
 
         return BookingConfirmationData::from($booking)
             ->additional(['message' => 'Votre demande de réservation a bien été enregistrée.'])

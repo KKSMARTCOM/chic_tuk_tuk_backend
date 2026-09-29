@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Presentation\Api\V1\Driver;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Booking\Application\Actions\AcceptBooking;
 use App\Domains\Booking\Application\Actions\CancelBooking;
 use App\Domains\Booking\Application\Actions\CompleteBooking;
@@ -38,6 +39,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class BookingController
 {
+    /** Chaque geste de l'agent est tracé APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function available(Request $request, ListAvailableBookings $list): JsonResponse
     {
         return $this->lire($request, 'available', fn (Driver $driver) => $list($driver->id)
@@ -64,6 +68,7 @@ final class BookingController
             // AcceptBooking ne renvoie rien — comme take() avant elle. La course est
             // relue APRÈS l'action : la relire avant donnerait l'état d'avant.
             $accept($id, $driver->id);
+            $this->journal->bookingAccepted(Booking::findOrFail($id));
 
             return $this->courseAssignee($id);
         });
@@ -73,6 +78,7 @@ final class BookingController
     {
         return $this->ecrire($request, 'start', function (Driver $driver) use ($id, $start) {
             $start($id, $driver->id);
+            $this->journal->bookingStarted(Booking::findOrFail($id));
 
             return $this->courseAssignee($id);
         });
@@ -82,6 +88,7 @@ final class BookingController
     {
         return $this->ecrire($request, 'complete', function (Driver $driver) use ($id, $complete) {
             $complete($id, $driver->id);
+            $this->journal->bookingCompleted(Booking::findOrFail($id));
 
             return $this->courseAssignee($id);
         });
@@ -101,6 +108,7 @@ final class BookingController
     {
         return $this->ecrire($request, 'cancel', function (Driver $driver) use ($data, $id, $cancel) {
             $booking = $cancel($id, $driver->id, $data->cancellationReason);
+            $this->journal->bookingCancelled($booking, $data->cancellationReason);
 
             return AssignedBookingData::fromModel(
                 $booking->load(['user', 'parentBooking.user']),
@@ -112,6 +120,7 @@ final class BookingController
     {
         return $this->ecrire($request, 'revoke', function (Driver $driver) use ($id, $revoke) {
             $revoke($id, $driver->id);
+            $this->journal->subscriptionRevoked(Booking::findOrFail($id));
 
             return $this->courseAssignee($id);
         });

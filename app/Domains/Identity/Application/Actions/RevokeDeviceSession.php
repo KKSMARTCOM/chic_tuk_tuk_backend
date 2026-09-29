@@ -17,7 +17,8 @@ use Laravel\Sanctum\PersonalAccessToken;
  */
 final class RevokeDeviceSession
 {
-    public function __invoke(User $user, int $sessionId): void
+    /** Rend le user agent de la session coupée, que le journal d'activité garde. */
+    public function __invoke(User $user, int $sessionId): ?string
     {
         $token = $user->tokens()->whereKey($sessionId)->firstOrFail();
         $current = $user->currentAccessToken();
@@ -31,5 +32,7 @@ final class RevokeDeviceSession
         }
 
         $token->delete();
+
+        return $token->user_agent;
     }
 }

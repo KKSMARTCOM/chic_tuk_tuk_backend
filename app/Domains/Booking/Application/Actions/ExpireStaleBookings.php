@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Application\Actions;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Models\Booking;
 use Carbon\Carbon;
 
@@ -11,7 +12,10 @@ use Carbon\Carbon;
  */
 final class ExpireStaleBookings
 {
-    public function __construct(private readonly RecordMissedChild $recordMissedChild) {}
+    public function __construct(
+        private readonly RecordMissedChild $recordMissedChild,
+        private readonly ActivityJournal $journal,
+    ) {}
 
     public function __invoke(): int
     {
@@ -31,6 +35,7 @@ final class ExpireStaleBookings
                 'status' => 'expired',
                 'expired_at' => Carbon::now(),
             ]);
+            $this->journal->bookingExpired($booking);
         }
 
         return $expiredBookings->count();
