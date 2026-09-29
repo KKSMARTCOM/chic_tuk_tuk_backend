@@ -2,10 +2,10 @@
 
 namespace App\Domains\Booking\Application\Actions;
 
-use App\Consts\Price;
 use App\Domains\Booking\Application\Data\CalculatePriceData;
 use App\Domains\Booking\Application\Data\PriceQuoteData;
 use App\Domains\Booking\Domain\PriceCalculator;
+use App\Models\PricingSettings;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -48,6 +48,7 @@ final class QuotePrice
         $tripPrice = $goPrice + ($returnPrice ?? 0);
         $isRecurring = $data->days > 1;
         $totalPrice = $tripPrice * ($isRecurring ? $data->days : 1);
+        $settings = PricingSettings::current();
 
         return new PriceQuoteData(
             distanceKm: $distance,
@@ -57,8 +58,8 @@ final class QuotePrice
             tripPrice: $tripPrice,
             days: $data->days,
             totalPrice: $totalPrice,
-            surchargeAmount: Price::TIME_SURCHARGE,
-            surchargeFreeWindow: Price::NORMAL_WINDOW_START_HOUR.'h–'.Price::NORMAL_WINDOW_END_HOUR.'h',
+            surchargeAmount: $settings->time_surcharge,
+            surchargeFreeWindow: $settings->surchargeFreeWindow(),
         );
     }
 }

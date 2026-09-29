@@ -2,8 +2,8 @@
 
 namespace App\Domains\Fleet\Application\Actions;
 
-use App\Consts\VehicleContractConsts;
 use App\Domains\Fleet\Application\Data\UpdateOwnerData;
+use App\Domains\Fleet\Domain\ContractTerms;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -121,9 +121,7 @@ final class UpdateOwner
             'monthly_payment' => $data['contract_monthly_payment'] ?? 0,
             'start_date' => $data['contract_start_date'] ?? now()->toDateString(),
             'end_date' => $data['contract_end_date'] ?? null,
-            'unlimited_internet' => $data['unlimited_internet'] ?? VehicleContractConsts::DEFAULT_UNLIMITED_INTERNET,
-            'spotify_premium' => $data['spotify_premium'] ?? VehicleContractConsts::DEFAULT_SPOTIFY_PREMIUM,
-            'manager_remuneration' => $data['manager_remuneration'] ?? VehicleContractConsts::DEFAULT_MANAGER_REMUNERATION,
+            ...ContractTerms::chargesFrom($data),
         ];
 
         // Le formulaire d'édition Blade n'a pas de champ de notes : ne les toucher que
@@ -135,11 +133,17 @@ final class UpdateOwner
         $activeContract = $vehicle->activeVehicleContract;
 
         if (! empty($data['contract_id']) && $activeContract?->id === $data['contract_id']) {
-            // Contrat existant identifié → mise à jour
+            // Contrat existant identifié → mise à jour. Il ne reprend les montants
+            // journaliers des réglages que si sa durée change : sinon il garde les siens,
+            // même si sa durée n'est plus proposée.
+            if ($activeContract->contract_months !== $months) {
+                $contractData = [...$contractData, ...ContractTerms::dailyAmountsFor($months)];
+            }
+
             $activeContract->update($contractData);
         } elseif (! $activeContract) {
             // Aucun contrat actif → création
-            VehicleContract::create(array_merge($contractData, [
+            VehicleContract::create(array_merge($contractData, ContractTerms::dailyAmountsFor($months), [
                 'vehicle_id' => $vehicle->id,
                 'owner_id' => $ownerId,
                 'status' => 'active',

@@ -7,9 +7,9 @@ use App\Shared\Data\BaseData;
 /**
  * Le contrat propriétaire-véhicule saisi depuis l'écran d'un propriétaire.
  *
- * Le Blade proposait 24, 30 ou 36 mois, plus « autre » à l'édition : l'API reçoit
- * directement le nombre de mois. Les trois charges mensuelles, laissées vides, prennent
- * les valeurs par défaut de `VehicleContractConsts`.
+ * L'API reçoit directement le nombre de mois, qui doit être une durée proposée dans les
+ * réglages (`ContractTerms`). Les trois charges mensuelles, laissées vides, prennent
+ * les valeurs par défaut de ces mêmes réglages.
  */
 final class VehicleContractInputData extends BaseData
 {

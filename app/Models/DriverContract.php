@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Consts\VehicleContractConsts;
 use App\Traits\HasUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -151,19 +150,15 @@ class DriverContract extends Model
         return $this->addBusinessDays($planned, $this->used_leave_days);
     }
 
-    // Montant journalier approximatif payé par l'agent (basé sur le paiement mensuel du contrat véhicule)
+    // Versement et taxe journaliers de l'agent : ceux que le contrat véhicule a figés.
     public function getDailyPaymentAttribute(): float
     {
-        $contractMonths = (int) $this->vehicleContract?->contract_months;
-
-        return (float) (VehicleContractConsts::AMOUNTS[$contractMonths] ?? 0);
+        return (float) ($this->vehicleContract?->daily_amount ?? 0);
     }
 
     public function getDailyTaxAttribute(): float
     {
-        $contractMonths = (int) $this->vehicleContract?->contract_months;
-
-        return (float) (VehicleContractConsts::TAXE[$contractMonths] ?? 0);
+        return (float) ($this->vehicleContract?->daily_tax ?? 0);
     }
 
     public function getDailyNetAmountAttribute(): float

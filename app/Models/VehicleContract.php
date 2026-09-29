@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Consts\VehicleContractConsts;
 use App\Traits\HasUuid;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +24,9 @@ class VehicleContract extends Model
         'unlimited_internet',
         'spotify_premium',
         'manager_remuneration',
+        // Figés à la création depuis les réglages (2026-09-29), jamais relus ensuite.
+        'daily_amount',
+        'daily_tax',
     ];
 
     protected $casts = [
@@ -34,6 +36,8 @@ class VehicleContract extends Model
         'unlimited_internet' => 'decimal:2',
         'spotify_premium' => 'decimal:2',
         'manager_remuneration' => 'decimal:2',
+        'daily_amount' => 'decimal:2',
+        'daily_tax' => 'decimal:2',
         'start_date'      => 'date',
         'end_date'        => 'date',
     ];
@@ -115,20 +119,13 @@ class VehicleContract extends Model
         return max(0, $this->contract_months - $this->months_elapsed);
     }
 
-    // ── Montant journalier (déterminé par la durée du contrat, indépendant de l'agent) ──
-    public function getDailyPaymentAttribute(): float
-    {
-        return (float) (VehicleContractConsts::AMOUNTS[$this->contract_months] ?? 0);
-    }
-
-    public function getDailyTaxAttribute(): float
-    {
-        return (float) (VehicleContractConsts::TAXE[$this->contract_months] ?? 0);
-    }
-
+    // ── Montant journalier net, depuis les montants FIGÉS sur le contrat ──
+    // ⚠️ Plus d'accesseur `daily_tax` ni `daily_payment` : depuis le 2026-09-29 ce sont des
+    // colonnes (`daily_amount`, `daily_tax`), et un accesseur du même nom masquerait la
+    // colonne en relisant autre chose.
     public function getDailyNetAmountAttribute(): float
     {
-        return $this->daily_payment - $this->daily_tax;
+        return (float) ($this->daily_amount ?? 0) - (float) ($this->daily_tax ?? 0);
     }
 
     // ── Interprétation A : pauses cumulées de TOUS les agents ayant travaillé sur ce contrat ──

@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Application\Actions;
 
 use App\Domains\Fleet\Application\Data\UpdateVehicleContractData;
+use App\Domains\Fleet\Domain\ContractTerms;
 use App\Domains\Fleet\Domain\VehicleContractRules;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -46,6 +47,12 @@ final class UpdateVehicleContract
                 'spotify_premium' => $data['spotify_premium'] ?? $contract->spotify_premium,
                 'manager_remuneration' => $data['manager_remuneration'] ?? $contract->manager_remuneration,
             ];
+
+            // Les montants journaliers restent ceux du contrat, sauf changement de durée :
+            // ils suivent alors les réglages de la nouvelle.
+            if ((int) $updateData['contract_months'] !== (int) $contract->contract_months) {
+                $updateData = [...$updateData, ...ContractTerms::dailyAmountsFor((int) $updateData['contract_months'])];
+            }
 
             $vehicle = $contract->vehicle;
 

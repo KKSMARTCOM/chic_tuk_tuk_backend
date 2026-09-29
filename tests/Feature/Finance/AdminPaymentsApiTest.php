@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Finance;
 
-use App\Consts\VehicleContractConsts;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Booking;
 use App\Models\Commission;
@@ -93,8 +92,8 @@ class AdminPaymentsApiTest extends TestCase
             'driver_contract_id' => $contract->id,
             'vehicle_contract_id' => $contract->vehicle_contract_id,
             'payment_type' => 'contract',
-            'amount' => VehicleContractConsts::AMOUNTS[24],
-            'net_amount' => VehicleContractConsts::AMOUNTS[24] - VehicleContractConsts::TAXE[24],
+            'amount' => 6112,
+            'net_amount' => 6112 - 241,
             'payment_method' => 'other',
         ]);
     }
@@ -297,7 +296,7 @@ class AdminPaymentsApiTest extends TestCase
                 'amount' => 10_000,
             ]))
             ->assertCreated()
-            ->assertJsonPath('payment.net_amount', 10_000 - VehicleContractConsts::TAXE[24]);
+            ->assertJsonPath('payment.net_amount', 10_000 - 241);
 
         $this->asBearer($token)
             ->postJson('/api/v1/admin/payments', $this->payload([
@@ -329,7 +328,7 @@ class AdminPaymentsApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('payment.payment_type', 'contract')
             ->assertJsonPath('payment.status', 'pending')
-            ->assertJsonPath('payment.net_amount', 5000 - VehicleContractConsts::TAXE[24]);
+            ->assertJsonPath('payment.net_amount', 5000 - 241);
 
         $payment->refresh();
         $this->assertSame($contract->id, $payment->driver_contract_id);

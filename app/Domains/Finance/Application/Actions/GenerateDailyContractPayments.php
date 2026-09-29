@@ -2,7 +2,6 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
-use App\Consts\VehicleContractConsts;
 use App\Models\DriverContract;
 use App\Models\Payment;
 use Carbon\Carbon;
@@ -79,14 +78,24 @@ final class GenerateDailyContractPayments
             return false;
         }
 
-        // Montant journalier
-        $contractMonths = (int) $vehicleContract->contract_months;
+        // Montants journaliers FIGÉS sur le contrat à sa création (2026-09-29) : modifier
+        // les réglages ne change pas les versements d'un contrat en cours.
+        //
+        // Un contrat sans versement journalier — une durée hors des réglages, du temps où
+        // elle était libre — générait chaque soir un paiement de 0 FCFA. Il est écarté et
+        // signalé : c'est au contrat d'être corrigé.
+        if ($vehicleContract->daily_amount === null) {
+            Log::warning('Contrat véhicule sans versement journalier : aucun paiement généré', [
+                'vehicle_contract_id' => $vehicleContract->id,
+                'contract_months' => $vehicleContract->contract_months,
+            ]);
 
-        $dailyAmount = VehicleContractConsts::AMOUNTS[$contractMonths] ?? 0;
+            return false;
+        }
 
-        $taxe = VehicleContractConsts::TAXE[$contractMonths] ?? 0;
+        $dailyAmount = (float) $vehicleContract->daily_amount;
 
-        $netAmount = $dailyAmount - $taxe;
+        $netAmount = $dailyAmount - (float) ($vehicleContract->daily_tax ?? 0);
 
         DB::transaction(function () use ($contract, $vehicleContract, $dailyAmount, $today, $netAmount) {
             Payment::create([

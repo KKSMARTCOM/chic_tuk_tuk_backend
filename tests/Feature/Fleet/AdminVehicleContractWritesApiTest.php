@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Fleet;
 
-use App\Consts\VehicleContractConsts;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\DriverContract;
 use App\Models\Payment;
@@ -54,7 +53,7 @@ class AdminVehicleContractWritesApiTest extends TestCase
     {
         return array_merge([
             'contract_months' => 30,
-            'total_amount' => VehicleContractConsts::TOTAL_AMOUNTS[30],
+            'total_amount' => 3_604_872,
             'start_date' => '2026-10-01',
         ], $overrides);
     }
@@ -76,7 +75,7 @@ class AdminVehicleContractWritesApiTest extends TestCase
         // Défaut corrigé : la modale Blade ne demandait pas la durée, et le contrat
         // naissait sans `contract_months` — donc avec un montant journalier nul.
         $this->assertSame(30, $contract->contract_months);
-        $this->assertEquals(VehicleContractConsts::DEFAULT_MANAGER_REMUNERATION, $contract->manager_remuneration);
+        $this->assertEquals(20_000, $contract->manager_remuneration);
         $this->assertEquals(0, $contract->monthly_payment);
     }
 
