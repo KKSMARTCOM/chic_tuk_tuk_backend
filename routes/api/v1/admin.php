@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Audit\Presentation\Api\V1\Admin\ActivityLogController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\PricingSettingsController;
@@ -192,6 +193,11 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/vehicle-contracts/{contract}', [VehicleContractController::class, 'destroy'])
             ->middleware('permission:delete-contracts')->name('vehicle-contracts.destroy');
+
+        // Le journal d'activité (2026-09-29), en lecture seule, à l'administrateur seul.
+        Route::get('/activity-log', [ActivityLogController::class, 'index'])
+            ->middleware('permission:view-activity-log')
+            ->name('activity-log.index');
 
         /*
          * Les réglages (2026-09-29) : le prix des courses, et les durées et montants des

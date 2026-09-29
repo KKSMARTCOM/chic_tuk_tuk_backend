@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Booking\Application\Actions\UpdatePricingSettings;
 use App\Domains\Booking\Application\Data\PricingSettingsData;
 use App\Models\PricingSettings;
@@ -30,10 +31,14 @@ final class PricingSettingsController
         }
     }
 
-    public function update(Request $request, PricingSettingsData $data, UpdatePricingSettings $update): JsonResponse
+    public function update(Request $request, PricingSettingsData $data, UpdatePricingSettings $update, ActivityJournal $journal): JsonResponse
     {
         try {
-            return response()->json($update($data));
+            $before = PricingSettingsData::fromModel(PricingSettings::current())->toArray();
+            $after = $update($data);
+            $journal->pricingUpdated($before, $after->toArray());
+
+            return response()->json($after);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {

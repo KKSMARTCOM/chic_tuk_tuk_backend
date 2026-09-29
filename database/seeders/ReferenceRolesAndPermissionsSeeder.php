@@ -95,6 +95,11 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         // Tableau de bord
         'view-dashboard' => ['Voir le tableau de bord', 'Accès au tableau de bord'],
 
+        // Journal d'activité
+        // Ajoutée le 2026-09-29, à l'administrateur seul : qui a fait quoi, y compris les
+        // autres administrateurs.
+        'view-activity-log' => ['Voir le journal d\'activité', 'Voir qui a fait quoi dans l\'application'],
+
         // Réglages
         // Ajoutée le 2026-09-29, à l'administrateur seul : tarifs des courses, durées et
         // montants des contrats véhicule. `manage-settings`, que porte aussi

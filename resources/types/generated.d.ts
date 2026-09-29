@@ -1,3 +1,31 @@
+declare namespace App.Domains.Audit.Application.Data {
+export type ActivityEntryData = {
+id: number;
+event: string | null;
+event_label: string | null;
+actor: string | null;
+causer_id: string | null;
+description: string;
+subject_type: string | null;
+subject_id: string | null;
+ip: string | null;
+changes: Record<string, { from: unknown; to: unknown }> | null;
+created_at: string;
+};
+export type ActivityEventOptionData = {
+value: string;
+label: string;
+group: string;
+};
+export type ActivityLogPageData = {
+entries: Array<App.Domains.Audit.Application.Data.ActivityEntryData>;
+pagination: App.Shared.Data.PaginationData;
+events: Array<App.Domains.Audit.Application.Data.ActivityEventOptionData>;
+};
+}
+declare namespace App.Domains.Audit.Domain {
+export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
+}
 declare namespace App.Domains.Booking.Application.Data {
 export type AdminBookingDetailData = {
 id: string;

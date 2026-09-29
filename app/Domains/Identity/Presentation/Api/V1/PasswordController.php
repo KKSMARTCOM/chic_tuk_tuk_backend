@@ -2,6 +2,7 @@
 
 namespace App\Domains\Identity\Presentation\Api\V1;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Identity\Application\Actions\ChangePassword;
 use App\Domains\Identity\Application\Actions\ResetPassword;
 use App\Domains\Identity\Application\Actions\SendPasswordResetLinks;
@@ -21,10 +22,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class PasswordController
 {
-    public function change(ChangePasswordData $data, Request $request, ChangePassword $change): Response
+    public function change(ChangePasswordData $data, Request $request, ChangePassword $change, ActivityJournal $journal): Response
     {
         try {
             $change($request->user(), $data);
+            $journal->passwordChanged($request->user());
 
             return response()->noContent();
         } catch (ValidationException|ApiException $e) {
@@ -69,10 +71,10 @@ final class PasswordController
         ]);
     }
 
-    public function reset(ResetPasswordData $data, ResetPassword $reset): Response
+    public function reset(ResetPasswordData $data, ResetPassword $reset, ActivityJournal $journal): Response
     {
         try {
-            $reset($data);
+            $journal->passwordReset($reset($data));
 
             return response()->noContent();
         } catch (ValidationException|ApiException $e) {

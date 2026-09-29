@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Booking\Application\Actions\AssignDriverToBooking;
 use App\Domains\Booking\Application\Actions\ChangeBookingStatus;
 use App\Domains\Booking\Application\Actions\CreateAdminBooking;
@@ -44,6 +45,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class BookingController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListAdminBookings $list): JsonResponse
     {
         try {
@@ -132,6 +136,7 @@ final class BookingController
     {
         try {
             $booking = $create($data);
+            $this->journal->bookingCreated($booking);
 
             return response()->json(
                 AdminBookingDetailData::fromModel(
@@ -150,11 +155,11 @@ final class BookingController
     public function assignDriver(Request $request, string $bookingId, AssignDriverData $data, AssignDriverToBooking $assign): JsonResponse
     {
         try {
-            $booking = Booking::findOrFail($bookingId);
+            $booking = $assign(Booking::findOrFail($bookingId), $data->driverId)
+                ->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+            $this->journal->driverAssigned($booking, $booking->driver);
 
-            return response()->json(AdminBookingDetailData::fromModel(
-                $assign($booking, $data->driverId)->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
-            ));
+            return response()->json(AdminBookingDetailData::fromModel($booking));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -166,11 +171,13 @@ final class BookingController
     public function removeDriver(Request $request, string $bookingId, RemoveDriverFromBooking $remove): JsonResponse
     {
         try {
-            $booking = Booking::findOrFail($bookingId);
+            $booking = Booking::with('driver.user')->findOrFail($bookingId);
+            $driver = $booking->driver;
 
-            return response()->json(AdminBookingDetailData::fromModel(
-                $remove($booking)->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
-            ));
+            $booking = $remove($booking)->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+            $this->journal->driverRemoved($booking, $driver);
+
+            return response()->json(AdminBookingDetailData::fromModel($booking));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -189,11 +196,11 @@ final class BookingController
     public function update(Request $request, string $bookingId, UpdateAdminBookingData $data, UpdateAdminBooking $update): JsonResponse
     {
         try {
-            $booking = Booking::findOrFail($bookingId);
+            $booking = $update(Booking::findOrFail($bookingId), $data)
+                ->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+            $this->journal->bookingUpdated($booking);
 
-            return response()->json(AdminBookingDetailData::fromModel(
-                $update($booking, $data)->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
-            ));
+            return response()->json(AdminBookingDetailData::fromModel($booking));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -206,11 +213,13 @@ final class BookingController
     {
         try {
             $booking = Booking::findOrFail($bookingId);
+            $from = $booking->status;
 
-            return response()->json(AdminBookingDetailData::fromModel(
-                $change($booking, $data->status, $data->cancellationReason)
-                    ->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
-            ));
+            $booking = $change($booking, $data->status, $data->cancellationReason)
+                ->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+            $this->journal->bookingStatusChanged($booking, $from, $booking->status);
+
+            return response()->json(AdminBookingDetailData::fromModel($booking));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -232,10 +241,11 @@ final class BookingController
         try {
             $booking = Booking::findOrFail($bookingId);
 
-            return response()->json(AdminBookingDetailData::fromModel(
-                $transfer($booking->id, $data->driverId)
-                    ->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
-            ));
+            $booking = $transfer($booking->id, $data->driverId)
+                ->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+            $this->journal->subscriptionTransferred($booking, Driver::with('user')->find($data->driverId));
+
+            return response()->json(AdminBookingDetailData::fromModel($booking));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -255,12 +265,11 @@ final class BookingController
         TerminateSubscription $terminate,
     ): JsonResponse {
         try {
-            $booking = Booking::findOrFail($bookingId);
+            $booking = $terminate(Booking::findOrFail($bookingId), $data->cancellationReason)
+                ->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+            $this->journal->subscriptionTerminated($booking, $data->cancellationReason);
 
-            return response()->json(AdminBookingDetailData::fromModel(
-                $terminate($booking, $data->cancellationReason)
-                    ->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
-            ));
+            return response()->json(AdminBookingDetailData::fromModel($booking));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -279,11 +288,11 @@ final class BookingController
     public function reopen(Request $request, string $bookingId, ReopenCompletedBooking $reopen): JsonResponse
     {
         try {
-            $booking = Booking::findOrFail($bookingId);
+            $booking = $reopen(Booking::findOrFail($bookingId))
+                ->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+            $this->journal->bookingReopened($booking);
 
-            return response()->json(AdminBookingDetailData::fromModel(
-                $reopen($booking)->load(['user', 'driver.user', 'parentBooking', 'childBookings'])
-            ));
+            return response()->json(AdminBookingDetailData::fromModel($booking));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -295,7 +304,9 @@ final class BookingController
     public function destroy(Request $request, string $bookingId, DeleteAdminBooking $delete): Response|JsonResponse
     {
         try {
-            $delete(Booking::findOrFail($bookingId));
+            $booking = Booking::findOrFail($bookingId);
+            $delete($booking);
+            $this->journal->bookingDeleted($booking->id, $booking->booking_number);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

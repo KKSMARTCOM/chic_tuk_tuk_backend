@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\ShowVehicleContractSettings;
 use App\Domains\Fleet\Application\Actions\UpdateVehicleContractSettings;
 use App\Domains\Fleet\Application\Data\UpdateVehicleContractSettingsData;
@@ -30,10 +31,19 @@ final class VehicleContractSettingsController
         }
     }
 
-    public function update(Request $request, UpdateVehicleContractSettingsData $data, UpdateVehicleContractSettings $update): JsonResponse
-    {
+    public function update(
+        Request $request,
+        UpdateVehicleContractSettingsData $data,
+        UpdateVehicleContractSettings $update,
+        ShowVehicleContractSettings $show,
+        ActivityJournal $journal,
+    ): JsonResponse {
         try {
-            return response()->json($update($data));
+            $before = $show()->toArray();
+            $after = $update($data);
+            $journal->contractTermsUpdated($before, $after->toArray());
+
+            return response()->json($after);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
