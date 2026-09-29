@@ -777,8 +777,14 @@ Lot 1 tracé : connexions (réussies, refusées avec l'adresse saisie, verrouill
 désactivées), déconnexions, appareils, mots de passe ; toutes les écritures sur les
 réservations (admin, agent, en ligne, expiration) ; les réglages, avec les seules valeurs
 changées. Lot 2 : comptes propriétaires, véhicules et leurs pauses, contrats véhicule,
-paiements, commissions. **Reste** le lot 3 : les agents, leurs contrats et leurs pauses,
-les comptes administrateurs et les rôles.
+paiements, commissions. Lot 3 : comptes agents et administrateurs, rôles, disponibilité
+et contrats des agents, pauses (demandées par l'agent, validées, refusées, terminées,
+saisies, corrigées, supprimées) et leur démarrage planifié. **Tout geste d'écriture de
+l'API est désormais tracé** : un nouvel endpoint d'écriture appelle `ActivityJournal`.
+
+⚠️ **Un compte AGENT a pour objet l'agent (`driver`), pas son compte utilisateur** : la
+fiche est adressée par l'agent. Les méthodes `account*` du journal prennent l'objet en
+second argument pour ce cas.
 
 ⚠️ **Un groupe d'événements = un PRÉFIXE de code** (`booking.`, `vehicle.`, `payment.`) :
 l'écran filtre un groupe entier par lui. Un nouvel événement prend le préfixe de son

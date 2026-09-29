@@ -37,12 +37,31 @@ enum ActivityEvent: string
     case SubscriptionTransferred = 'booking.subscription_transferred';
     case SubscriptionTerminated = 'booking.subscription_terminated';
 
-    // Comptes (propriétaires ici ; agents et administrateurs au lot 3)
+    // Comptes (propriétaires, agents, administrateurs) et rôles
     case AccountCreated = 'account.created';
     case AccountUpdated = 'account.updated';
     case AccountStatusChanged = 'account.status_changed';
     case AccountPasswordSet = 'account.password_set';
     case AccountDeleted = 'account.deleted';
+    case RoleCreated = 'account.role_created';
+    case RoleUpdated = 'account.role_updated';
+    case RoleDeleted = 'account.role_deleted';
+
+    // Agents : disponibilité et contrats
+    case DriverAvailabilityChanged = 'driver.availability_changed';
+    case DriverContractUpdated = 'driver.contract_updated';
+    case DriverContractEnded = 'driver.contract_ended';
+    case DriverContractDeleted = 'driver.contract_deleted';
+
+    // Pauses des agents
+    case LeaveRequested = 'leave.requested';
+    case LeaveApproved = 'leave.approved';
+    case LeaveRejected = 'leave.rejected';
+    case LeaveEnded = 'leave.ended';
+    case LeaveAdded = 'leave.added';
+    case LeaveCorrected = 'leave.corrected';
+    case LeaveDeleted = 'leave.deleted';
+    case LeavesStarted = 'leave.started';
 
     // Flotte : véhicules, pauses véhicule, contrats véhicule
     case VehicleCreated = 'vehicle.created';
@@ -99,6 +118,21 @@ enum ActivityEvent: string
             self::AccountStatusChanged => 'Compte activé ou désactivé',
             self::AccountPasswordSet => 'Mot de passe défini par un admin',
             self::AccountDeleted => 'Compte supprimé',
+            self::RoleCreated => 'Rôle créé',
+            self::RoleUpdated => 'Rôle modifié',
+            self::RoleDeleted => 'Rôle supprimé',
+            self::DriverAvailabilityChanged => 'Disponibilité d\'un agent',
+            self::DriverContractUpdated => 'Contrat agent modifié',
+            self::DriverContractEnded => 'Contrat agent terminé',
+            self::DriverContractDeleted => 'Contrat agent supprimé',
+            self::LeaveRequested => 'Pause demandée',
+            self::LeaveApproved => 'Pause validée',
+            self::LeaveRejected => 'Pause refusée',
+            self::LeaveEnded => 'Pause terminée',
+            self::LeaveAdded => 'Pause saisie par un admin',
+            self::LeaveCorrected => 'Pause corrigée',
+            self::LeaveDeleted => 'Pause supprimée',
+            self::LeavesStarted => 'Pauses démarrées',
             self::VehicleCreated => 'Véhicule ajouté',
             self::VehicleUpdated => 'Véhicule modifié',
             self::VehicleStatusChanged => 'Véhicule activé ou désactivé',
@@ -132,7 +166,9 @@ enum ActivityEvent: string
     {
         return match (strtok($this->value, '.')) {
             'auth' => 'Connexions',
-            'account' => 'Comptes',
+            'account' => 'Comptes et rôles',
+            'driver' => 'Agents',
+            'leave' => 'Pauses',
             'booking' => 'Réservations',
             'vehicle' => 'Flotte',
             'payment' => 'Paiements',

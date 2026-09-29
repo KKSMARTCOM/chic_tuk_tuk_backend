@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Workforce\Application\Actions\AddHistoricalLeave;
 use App\Domains\Workforce\Application\Actions\AddOngoingLeave;
 use App\Domains\Workforce\Application\Actions\ApproveLeaveRequest;
@@ -37,6 +38,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class LeaveController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListDriverLeaveSummaries $list): JsonResponse
     {
         try {
@@ -89,7 +93,10 @@ final class LeaveController
         try {
             $demande = LeaveRequest::findOrFail($id);
 
-            return response()->json(LeaveRequestData::fromModel($approuver($demande)));
+            $pause = $approuver($demande);
+            $this->journal->leaveApproved($pause->load('driver.user'));
+
+            return response()->json(LeaveRequestData::fromModel($pause));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -103,7 +110,10 @@ final class LeaveController
         try {
             $demande = LeaveRequest::findOrFail($id);
 
-            return response()->json(LeaveRequestData::fromModel($refuser($demande, $data->rejectionReason)));
+            $pause = $refuser($demande, $data->rejectionReason);
+            $this->journal->leaveRejected($pause->load('driver.user'), $data->rejectionReason);
+
+            return response()->json(LeaveRequestData::fromModel($pause));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -117,7 +127,10 @@ final class LeaveController
         try {
             $pause = LeaveRequest::findOrFail($id);
 
-            return response()->json(LeaveRequestData::fromModel($cloturer($pause, $data->endDate)));
+            $pause = $cloturer($pause, $data->endDate);
+            $this->journal->leaveEnded($pause->load('driver.user'));
+
+            return response()->json(LeaveRequestData::fromModel($pause));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -131,6 +144,7 @@ final class LeaveController
         try {
             $agent = Driver::findOrFail($driverId);
             $pause = $poser($agent, $data->startDate, $data->requestedDays, (string) $request->user()->id);
+            $this->journal->leaveAdded($pause->load('driver.user'), historical: false);
 
             return response()->json(LeaveRequestData::fromModel($pause), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -146,6 +160,7 @@ final class LeaveController
         try {
             $agent = Driver::findOrFail($driverId);
             $pause = $saisir($agent, $data->startDate, $data->requestedDays, (string) $request->user()->id);
+            $this->journal->leaveAdded($pause->load('driver.user'), historical: true);
 
             return response()->json(LeaveRequestData::fromModel($pause), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -161,9 +176,10 @@ final class LeaveController
         try {
             $pause = LeaveRequest::findOrFail($id);
 
-            return response()->json(
-                LeaveRequestData::fromModel($corriger($pause, $data->startDate, $data->requestedDays))
-            );
+            $pause = $corriger($pause, $data->startDate, $data->requestedDays);
+            $this->journal->leaveCorrected($pause->load('driver.user'));
+
+            return response()->json(LeaveRequestData::fromModel($pause));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -177,9 +193,10 @@ final class LeaveController
         try {
             $pause = LeaveRequest::findOrFail($id);
 
-            return response()->json(
-                LeaveRequestData::fromModel($corriger($pause, $data->startDate, $data->requestedDays))
-            );
+            $pause = $corriger($pause, $data->startDate, $data->requestedDays);
+            $this->journal->leaveCorrected($pause->load('driver.user'));
+
+            return response()->json(LeaveRequestData::fromModel($pause));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -191,7 +208,10 @@ final class LeaveController
     public function destroy(Request $request, string $id, DeleteLeave $supprimer): Response|JsonResponse
     {
         try {
-            $supprimer(LeaveRequest::findOrFail($id));
+            $pause = LeaveRequest::with('driver.user')->findOrFail($id);
+            $label = $this->journal->leaveLabel($pause);
+            $supprimer($pause);
+            $this->journal->leaveDeleted($pause->id, $label);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
