@@ -33,7 +33,11 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // ⚠️ Laravel 12 lit cette option, que Laravel 11 ignorait : à `true`, elle ouvre
+            // `GET` ET `PUT storage/{path}`, qui servent et reçoivent les fichiers privés par
+            // URL signée temporaire. L'API n'en a aucun usage — coupé à la montée du
+            // 2026-09-29, pour ne pas exposer une route que personne n'a voulue.
+            'serve' => false,
             'throw' => false,
         ],
 

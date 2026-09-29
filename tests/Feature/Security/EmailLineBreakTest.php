@@ -15,9 +15,9 @@ use Tests\TestCase;
  *
  * La règle `email` de Laravel 11 en laisse passer (GHSA-5vg9-5847-vvmq) : une adresse
  * « a@b.bj\r\nBcc: … » enregistrée injecterait des en-têtes dans les e-mails qu'on lui
- * envoie, dont celui de réinitialisation du mot de passe. Laravel 11 ne recevra pas de
- * correctif ; `App\Shared\Validation\EmailRules` le neutralise en attendant la montée en
- * version.
+ * envoie, dont celui de réinitialisation du mot de passe. Corrigé dans Laravel 12.60,
+ * où le projet est passé le 2026-09-29 ; `App\Shared\Validation\EmailRules` reste en
+ * place, et ce test garde les deux.
  */
 class EmailLineBreakTest extends TestCase
 {

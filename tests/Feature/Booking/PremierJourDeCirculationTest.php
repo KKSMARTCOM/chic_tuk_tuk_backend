@@ -3,6 +3,7 @@
 namespace Tests\Feature\Booking;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -50,6 +51,14 @@ class PremierJourDeCirculationTest extends TestCase
         parent::setUp();
         // Turnstile se retire sans secret : on isole les règles métier.
         config(['services.turnstile.secret' => null]);
+
+        // OpenRouteService est simulé : sans cela, ces tests partaient sur le réseau et
+        // passaient ou non selon la connexion (vu le 2026-09-29).
+        Http::fake([
+            'api.openrouteservice.org/*' => Http::response([
+                'routes' => [['summary' => ['distance' => 12_000]]],
+            ], 200),
+        ]);
     }
 
     public function test_un_samedi_est_refuse_sur_un_abonnement_lun_ven_avec_un_message_utile(): void
