@@ -2,6 +2,7 @@
 
 namespace App\Domains\Identity\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Identity\Application\Actions\CreateRole;
 use App\Domains\Identity\Application\Actions\DeleteRole;
 use App\Domains\Identity\Application\Actions\FindRole;
@@ -26,6 +27,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class RoleController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListRoles $list): JsonResponse
     {
         try {
@@ -66,6 +70,7 @@ final class RoleController
     {
         try {
             $role = $create($request->user(), $data);
+            $this->journal->roleCreated($role);
 
             return response()->json(AdminRoleDetailData::fromModel($role->load('permissions')), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -85,6 +90,7 @@ final class RoleController
     ): JsonResponse {
         try {
             $role = $update($request->user(), $find($roleId), $data);
+            $this->journal->roleUpdated($role);
 
             return response()->json(AdminRoleDetailData::fromModel($role));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -98,7 +104,10 @@ final class RoleController
     public function destroy(Request $request, string $roleId, FindRole $find, DeleteRole $delete): Response|JsonResponse
     {
         try {
-            $delete($request->user(), $find($roleId));
+            $role = $find($roleId);
+            $name = $this->journal->roleName($role);
+            $delete($request->user(), $role);
+            $this->journal->roleDeleted($role->id, $name);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

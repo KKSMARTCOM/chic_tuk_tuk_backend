@@ -776,8 +776,27 @@ bruyamment (une trace manquée va au journal applicatif).
 Lot 1 tracé : connexions (réussies, refusées avec l'adresse saisie, verrouillées,
 désactivées), déconnexions, appareils, mots de passe ; toutes les écritures sur les
 réservations (admin, agent, en ligne, expiration) ; les réglages, avec les seules valeurs
-changées. **Restent** : la flotte et les paiements (lot 2), les agents, les pauses et les
-comptes (lot 3).
+changées. Lot 2 : comptes propriétaires, véhicules et leurs pauses, contrats véhicule,
+paiements, commissions. Lot 3 : comptes agents et administrateurs, rôles, disponibilité
+et contrats des agents, pauses (demandées par l'agent, validées, refusées, terminées,
+saisies, corrigées, supprimées) et leur démarrage planifié. **Tout geste d'écriture de
+l'API est désormais tracé** : un nouvel endpoint d'écriture appelle `ActivityJournal`.
+
+⚠️ **Un compte AGENT a pour objet l'agent (`driver`), pas son compte utilisateur** : la
+fiche est adressée par l'agent. Les méthodes `account*` du journal prennent l'objet en
+second argument pour ce cas.
+
+⚠️ **Un groupe d'événements = un PRÉFIXE de code** (`booking.`, `vehicle.`, `payment.`) :
+l'écran filtre un groupe entier par lui. Un nouvel événement prend le préfixe de son
+groupe — les contrats véhicule sont `vehicle.contract_*`, les commissions
+`payment.commission_*`.
+
+⚠️ **La génération du soir écrit UNE ligne par passage** (« a généré 12 paiements
+journaliers »), jamais une par paiement : un par contrat actif et par jour ouvré noierait
+le journal. Même règle pour toute tâche planifiée à venir qui produit en masse.
+
+Les traces de compte portent `properties.profil`, exposé en `subject_profil` : un compte
+propriétaire et un compte agent ne mènent pas à la même fiche.
 
 ## Le récapitulatif du propriétaire reporte le déficit (2026-09-29)
 

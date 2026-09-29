@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\CreateOwner;
 use App\Domains\Fleet\Application\Actions\DeleteOwner;
 use App\Domains\Fleet\Application\Actions\FindOwner;
@@ -32,6 +33,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class OwnerController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListOwners $list): JsonResponse
     {
         try {
@@ -72,6 +76,7 @@ final class OwnerController
     {
         try {
             $owner = $create($data);
+            $this->journal->accountCreated($owner);
 
             return response()->json($show($owner->id), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -91,7 +96,9 @@ final class OwnerController
         ShowOwnerDetail $show,
     ): JsonResponse {
         try {
-            $update($findOwner($ownerId), $data);
+            $owner = $findOwner($ownerId);
+            $update($owner, $data);
+            $this->journal->accountUpdated($owner->refresh());
 
             return response()->json($show($ownerId));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -110,7 +117,9 @@ final class OwnerController
         SetOwnerStatus $setStatus,
     ): JsonResponse {
         try {
-            $setStatus($findOwner($ownerId), $data->isActive);
+            $owner = $findOwner($ownerId);
+            $setStatus($owner, $data->isActive);
+            $this->journal->accountStatusChanged($owner, $data->isActive);
 
             return response()->json(['message' => 'Statut du compte mis à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -129,7 +138,9 @@ final class OwnerController
         UpdateOwnerPassword $update,
     ): JsonResponse {
         try {
-            $update($findOwner($ownerId), $data);
+            $owner = $findOwner($ownerId);
+            $update($owner, $data);
+            $this->journal->accountPasswordSet($owner);
 
             return response()->json(['message' => 'Mot de passe mis à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -143,7 +154,10 @@ final class OwnerController
     public function destroy(Request $request, string $ownerId, FindOwner $findOwner, DeleteOwner $delete): Response|JsonResponse
     {
         try {
-            $delete($findOwner($ownerId));
+            $owner = $findOwner($ownerId);
+            $label = $this->journal->accountLabel($owner);
+            $delete($owner);
+            $this->journal->accountDeleted($owner->id, $label);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

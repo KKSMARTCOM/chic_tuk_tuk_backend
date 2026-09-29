@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Workforce\Application\Actions\DeleteDriverContract;
 use App\Domains\Workforce\Application\Actions\EndDriverContract;
 use App\Domains\Workforce\Application\Actions\ListAssignableVehicles;
@@ -27,6 +28,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class DriverContractController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListDriverContracts $list): JsonResponse
     {
         try {
@@ -71,7 +75,9 @@ final class DriverContractController
         ShowDriverContractDetail $show,
     ): JsonResponse {
         try {
-            $update(DriverContract::findOrFail($contractId), $data);
+            $contract = DriverContract::findOrFail($contractId);
+            $update($contract, $data);
+            $this->journal->driverContractUpdated($contract->refresh()->load('driver.user'));
 
             return response()->json($show($contractId));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -90,7 +96,9 @@ final class DriverContractController
         ShowDriverContractDetail $show,
     ): JsonResponse {
         try {
-            $end(DriverContract::findOrFail($contractId), $data);
+            $contract = DriverContract::findOrFail($contractId);
+            $end($contract, $data);
+            $this->journal->driverContractEnded($contract->refresh()->load('driver.user'), $data->endReason);
 
             return response()->json($show($contractId));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -104,7 +112,9 @@ final class DriverContractController
     public function destroy(Request $request, string $contractId, DeleteDriverContract $delete): Response|JsonResponse
     {
         try {
-            $delete(DriverContract::findOrFail($contractId));
+            $contract = DriverContract::with('driver.user')->findOrFail($contractId);
+            $delete($contract);
+            $this->journal->driverContractDeleted($contract->id, $contract->driver);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

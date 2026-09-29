@@ -217,7 +217,7 @@ class VehicleContractSettingsTest extends TestCase
         $driverContract = DriverContract::factory()->forVehicleContract($vehicleContract)->create();
         VehicleContractTerm::query()->where('months', 24)->update(['daily_amount' => 9999, 'daily_tax' => 999]);
 
-        (new GenerateDailyContractPayments)(Carbon::parse('2026-09-28'));
+        app(GenerateDailyContractPayments::class)(Carbon::parse('2026-09-28'));
 
         $payment = Payment::query()->where('driver_contract_id', $driverContract->id)->firstOrFail();
         $this->assertEquals(6112, $payment->amount);
@@ -232,7 +232,7 @@ class VehicleContractSettingsTest extends TestCase
         ]);
         $driverContract = DriverContract::factory()->forVehicleContract($vehicleContract)->create();
 
-        $result = (new GenerateDailyContractPayments)(Carbon::parse('2026-09-28'));
+        $result = app(GenerateDailyContractPayments::class)(Carbon::parse('2026-09-28'));
 
         $this->assertSame(0, Payment::query()->where('driver_contract_id', $driverContract->id)->count());
         $this->assertSame(0, $result['generated']);

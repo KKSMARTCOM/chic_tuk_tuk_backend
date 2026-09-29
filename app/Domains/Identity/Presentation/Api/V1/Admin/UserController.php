@@ -2,6 +2,7 @@
 
 namespace App\Domains\Identity\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Identity\Application\Actions\CreateAdminUser;
 use App\Domains\Identity\Application\Actions\DeleteAdminUser;
 use App\Domains\Identity\Application\Actions\FindAdminUser;
@@ -30,6 +31,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class UserController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListAdminUsers $list): JsonResponse
     {
         try {
@@ -46,6 +50,7 @@ final class UserController
     {
         try {
             $user = $create($request->user(), $data);
+            $this->journal->accountCreated($user);
 
             return response()->json(AdminUserListItemData::fromModel($user->load('roles')), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -65,6 +70,7 @@ final class UserController
     ): JsonResponse {
         try {
             $user = $update($request->user(), $find($userId), $data);
+            $this->journal->accountUpdated($user);
 
             return response()->json(AdminUserListItemData::fromModel($user->load('roles')));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -83,7 +89,9 @@ final class UserController
         SetAdminUserStatus $setStatus,
     ): JsonResponse {
         try {
-            $setStatus($request->user(), $find($userId), $data->isActive);
+            $target = $find($userId);
+            $setStatus($request->user(), $target, $data->isActive);
+            $this->journal->accountStatusChanged($target, $data->isActive);
 
             return response()->json(['message' => 'Statut du compte mis à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -102,7 +110,9 @@ final class UserController
         UpdateAdminUserPassword $update,
     ): JsonResponse {
         try {
-            $update($request->user(), $find($userId), $data);
+            $target = $find($userId);
+            $update($request->user(), $target, $data);
+            $this->journal->accountPasswordSet($target);
 
             return response()->json(['message' => 'Mot de passe mis à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -116,7 +126,10 @@ final class UserController
     public function destroy(Request $request, string $userId, FindAdminUser $find, DeleteAdminUser $delete): Response|JsonResponse
     {
         try {
-            $delete($request->user(), $find($userId));
+            $target = $find($userId);
+            $label = $this->journal->accountLabel($target);
+            $delete($request->user(), $target);
+            $this->journal->accountDeleted($target->id, $label);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

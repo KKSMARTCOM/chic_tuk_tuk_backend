@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\CancelVehiclePause;
 use App\Domains\Fleet\Application\Actions\CreateVehicle;
 use App\Domains\Fleet\Application\Actions\DeleteVehicle;
@@ -33,6 +34,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class VehicleController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListVehicles $list): JsonResponse
     {
         try {
@@ -61,6 +65,7 @@ final class VehicleController
     {
         try {
             $vehicle = $create($data);
+            $this->journal->vehicleCreated($vehicle);
 
             return response()->json($show($vehicle->id), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -79,7 +84,9 @@ final class VehicleController
         ShowVehicleDetail $show,
     ): JsonResponse {
         try {
-            $update(Vehicle::findOrFail($vehicleId), $data);
+            $vehicle = Vehicle::findOrFail($vehicleId);
+            $update($vehicle, $data);
+            $this->journal->vehicleUpdated($vehicle->refresh());
 
             return response()->json($show($vehicleId));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -97,7 +104,9 @@ final class VehicleController
         SetVehicleStatus $setStatus,
     ): JsonResponse {
         try {
-            $setStatus(Vehicle::findOrFail($vehicleId), $data->isActive);
+            $vehicle = Vehicle::findOrFail($vehicleId);
+            $setStatus($vehicle, $data->isActive);
+            $this->journal->vehicleStatusChanged($vehicle, $data->isActive);
 
             return response()->json(['message' => 'Statut du véhicule mis à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -111,7 +120,9 @@ final class VehicleController
     public function destroy(Request $request, string $vehicleId, DeleteVehicle $delete): Response|JsonResponse
     {
         try {
-            $delete(Vehicle::findOrFail($vehicleId));
+            $vehicle = Vehicle::findOrFail($vehicleId);
+            $delete($vehicle);
+            $this->journal->vehicleDeleted($vehicle->id, $vehicle->vehicle_number);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -130,7 +141,7 @@ final class VehicleController
         ShowVehicleDetail $show,
     ): JsonResponse {
         try {
-            $pause(Vehicle::findOrFail($vehicleId), $data);
+            $this->journal->vehiclePaused($pause(Vehicle::findOrFail($vehicleId), $data)->load('vehicle'));
 
             return response()->json($show($vehicleId), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -150,6 +161,7 @@ final class VehicleController
     ): JsonResponse {
         try {
             $pause = $end(VehiclePause::findOrFail($pauseId), $data->endDate);
+            $this->journal->vehiclePauseEnded($pause->load('vehicle'));
 
             return response()->json($show($pause->vehicle_id));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -163,7 +175,11 @@ final class VehicleController
     public function cancelPause(Request $request, string $pauseId, CancelVehiclePause $cancel): Response|JsonResponse
     {
         try {
-            $cancel(VehiclePause::findOrFail($pauseId));
+            $pause = VehiclePause::with('vehicle')->findOrFail($pauseId);
+            $cancel($pause);
+            if ($pause->vehicle) {
+                $this->journal->vehiclePauseCancelled($pause->vehicle);
+            }
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

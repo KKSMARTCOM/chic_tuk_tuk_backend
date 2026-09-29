@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Actions\CancelCommission;
 use App\Domains\Finance\Application\Actions\ListCommissions;
 use App\Domains\Finance\Application\Data\AdminCommissionData;
@@ -16,6 +17,9 @@ use Illuminate\Validation\ValidationException;
 /** Les commissions, vues de l'administration — ex-Admin\CommissionController (P1). */
 final class CommissionController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListCommissions $list): JsonResponse
     {
         try {
@@ -45,7 +49,10 @@ final class CommissionController
     public function cancel(Request $request, string $commissionId, CancelCommission $cancel): JsonResponse
     {
         try {
-            return response()->json($cancel($commissionId));
+            $cancelled = $cancel($commissionId);
+            $this->journal->commissionCancelled(Commission::with(['driver.user', 'booking'])->findOrFail($commissionId));
+
+            return response()->json($cancelled);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {

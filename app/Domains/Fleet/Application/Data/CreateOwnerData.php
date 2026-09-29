@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Application\Data;
 
 use App\Shared\Data\BaseData;
+use App\Shared\Validation\EmailRules;
 use Illuminate\Validation\Rule;
 
 /**
@@ -35,7 +36,7 @@ final class CreateOwnerData extends BaseData
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', Rule::unique('users', 'email')->where('profil', 'owner')],
+            'email' => ['nullable', ...EmailRules::rules(), Rule::unique('users', 'email')->where('profil', 'owner')],
             'phone' => ['required', 'string', Rule::unique('users', 'phone')->where('profil', 'owner')],
             'password' => ['required', 'string', 'min:8', 'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[@$!%*#?&]/'],
             'adresse' => ['nullable', 'string', 'max:255'],

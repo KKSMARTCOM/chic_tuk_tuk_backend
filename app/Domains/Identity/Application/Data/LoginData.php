@@ -4,6 +4,7 @@ namespace App\Domains\Identity\Application\Data;
 
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Shared\Data\BaseData;
+use App\Shared\Validation\EmailRules;
 use Illuminate\Validation\Rule;
 
 final class LoginData extends BaseData
@@ -22,7 +23,7 @@ final class LoginData extends BaseData
     public static function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string', ...EmailRules::rules()],
             'password' => ['required', 'string'],
             'profil' => ['nullable', Rule::enum(Profil::class)],
         ];

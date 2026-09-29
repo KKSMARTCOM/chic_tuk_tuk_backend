@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Presentation\Api\V1\Driver;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Workforce\Application\Actions\ListDriverLeaves;
 use App\Domains\Workforce\Application\Actions\RequestLeave;
 use App\Domains\Workforce\Application\Data\DriverLeavesData;
@@ -24,6 +25,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class LeaveController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListDriverLeaves $lister): JsonResponse
     {
         try {
@@ -49,6 +53,7 @@ final class LeaveController
     {
         try {
             $demande = $demander($this->agent($request), $data->startDate, $data->requestedDays);
+            $this->journal->leaveRequested($demande);
 
             return response()->json(LeaveRequestData::fromModel($demande), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

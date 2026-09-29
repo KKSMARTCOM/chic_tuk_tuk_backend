@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Application\Data;
 
 use App\Shared\Data\BaseData;
+use App\Shared\Validation\EmailRules;
 use Illuminate\Validation\Rule;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 
@@ -37,7 +38,7 @@ final class UpdateOwnerData extends BaseData
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', Rule::unique('users', 'email')->where('profil', 'owner')->ignore($ownerId)],
+            'email' => ['nullable', ...EmailRules::rules(), Rule::unique('users', 'email')->where('profil', 'owner')->ignore($ownerId)],
             'phone' => ['required', 'string', Rule::unique('users', 'phone')->where('profil', 'owner')->ignore($ownerId)],
             'adresse' => ['nullable', 'string', 'max:255'],
             'is_active' => ['required', 'boolean'],

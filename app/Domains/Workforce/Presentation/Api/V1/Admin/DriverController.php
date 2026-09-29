@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Workforce\Application\Actions\CreateDriver;
 use App\Domains\Workforce\Application\Actions\DeleteDriver;
 use App\Domains\Workforce\Application\Actions\ListDrivers;
@@ -35,6 +36,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class DriverController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListDrivers $list): JsonResponse
     {
         try {
@@ -89,6 +93,7 @@ final class DriverController
     {
         try {
             $user = $create($data);
+            $this->journal->accountCreated($user, $user->driver);
 
             return response()->json($show($user->driver->id), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -107,7 +112,12 @@ final class DriverController
         ShowDriverDetail $show,
     ): JsonResponse {
         try {
-            $update(Driver::findOrFail($driverId), $data);
+            $driver = Driver::findOrFail($driverId);
+            $update($driver, $data);
+            $driver->refresh()->load('user');
+            if ($driver->user) {
+                $this->journal->accountUpdated($driver->user, $driver);
+            }
 
             return response()->json($show($driverId));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -125,7 +135,9 @@ final class DriverController
         ToggleDriverAvailability $toggle,
     ): JsonResponse {
         try {
-            $toggle(Driver::findOrFail($driverId), $data->isAvailable);
+            $driver = Driver::with('user')->findOrFail($driverId);
+            $toggle($driver, $data->isAvailable);
+            $this->journal->driverAvailabilityChanged($driver, $data->isAvailable);
 
             return response()->json(['message' => 'Disponibilité mise à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -143,7 +155,11 @@ final class DriverController
         ToggleDriverStatus $toggle,
     ): JsonResponse {
         try {
-            $toggle(Driver::findOrFail($driverId), $data->isActive);
+            $driver = Driver::with('user')->findOrFail($driverId);
+            $toggle($driver, $data->isActive);
+            if ($driver->user) {
+                $this->journal->accountStatusChanged($driver->user, $data->isActive, $driver);
+            }
 
             return response()->json(['message' => 'Statut du compte mis à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -161,7 +177,11 @@ final class DriverController
         UpdateDriverPassword $update,
     ): JsonResponse {
         try {
-            $update(Driver::findOrFail($driverId), $data);
+            $driver = Driver::with('user')->findOrFail($driverId);
+            $update($driver, $data);
+            if ($driver->user) {
+                $this->journal->accountPasswordSet($driver->user, $driver);
+            }
 
             return response()->json(['message' => 'Mot de passe mis à jour avec succès.']);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -175,7 +195,10 @@ final class DriverController
     public function destroy(Request $request, string $driverId, DeleteDriver $delete): Response
     {
         try {
-            $delete(Driver::findOrFail($driverId));
+            $driver = Driver::with('user')->findOrFail($driverId);
+            $label = $driver->user ? $this->journal->accountLabel($driver->user) : 'd\'un agent';
+            $delete($driver);
+            $this->journal->accountDeleted($driver->id, $label);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

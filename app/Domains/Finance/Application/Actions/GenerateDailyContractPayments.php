@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Models\DriverContract;
 use App\Models\Payment;
 use Carbon\Carbon;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Log;
  */
 final class GenerateDailyContractPayments
 {
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     /**
      * Génère les paiements journaliers sur contrat pour tous les agents actifs.
      * Retourne un tableau de résultats pour le logging dans la commande.
@@ -45,6 +48,12 @@ final class GenerateDailyContractPayments
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+
+        // Une ligne par passage, seulement s'il a produit quelque chose : un week-end
+        // ou un soir sans contrat n'a rien à raconter.
+        if ($result['generated'] > 0) {
+            $this->journal->dailyPaymentsGenerated($result['generated']);
         }
 
         return $result;
