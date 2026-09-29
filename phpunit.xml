@@ -36,5 +36,7 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- Les tests ne subissent pas l'anti-robot, quel que soit le .env local ; TurnstileTest le réactive au cas par cas. -->
+        <env name="TURNSTILE_SECRET" value=""/>
     </php>
 </phpunit>

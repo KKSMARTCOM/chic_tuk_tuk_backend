@@ -74,6 +74,7 @@ class Booking extends Model
         'pickup_time' => 'string',
         'started_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'terms_accepted_at' => 'datetime',
         'completed_at' => 'datetime',
         'next_recurring_date' => 'datetime',
         'base_price' => 'decimal:2',

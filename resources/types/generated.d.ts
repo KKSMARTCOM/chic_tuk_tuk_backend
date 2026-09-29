@@ -52,6 +52,8 @@ cancelled_at: string | null;
 cancellation_reason: string | null;
 created_at: string;
 updated_at: string;
+terms_accepted_at: string | null;
+terms_version: string | null;
 can_be_cancelled: boolean;
 allowed_statuses: Array<App.Domains.Booking.Domain.Enums.BookingStatus>;
 can_assign_driver: boolean;
@@ -267,6 +269,7 @@ return_time: string | null;
 week_days: App.Domains.Booking.Domain.Enums.WeekDays | null;
 special_requests: string | null;
 promo_code: string | null;
+terms_accepted: boolean;
 };
 export type DriverDashboardData = {
 total_trips: number;

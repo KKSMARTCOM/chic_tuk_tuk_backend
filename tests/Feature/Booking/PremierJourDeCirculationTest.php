@@ -29,6 +29,8 @@ class PremierJourDeCirculationTest extends TestCase
             'to_lat' => 6.37, 'to_lng' => 2.35,
             'pickup_time' => '08:00',
             'phone' => '+22997000000',
+            // Obligatoire depuis le 2026-09-29 : voir PublicBookingTermsTest.
+            'terms_accepted' => true,
         ], $extra);
     }
 

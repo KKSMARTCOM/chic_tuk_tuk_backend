@@ -124,6 +124,14 @@ final class AdminBookingDetailData extends BaseData
         public string $updatedAt,
 
         /**
+         * L'acceptation des CGU (2026-09-29), et la version acceptée. Sur un retour ou un
+         * jour d'abonnement, celle de la réservation d'origine. Nulles pour une course
+         * saisie par l'administration : aucune case n'a été cochée.
+         */
+        public ?string $termsAcceptedAt,
+        public ?string $termsVersion,
+
+        /**
          * La course peut-elle encore être annulée ?
          *
          * Calculé par le serveur et jamais par le front : c'est `Booking::canBeCancelled()`,
@@ -236,6 +244,9 @@ final class AdminBookingDetailData extends BaseData
             createdAt: $booking->created_at->toIso8601String(),
             updatedAt: $booking->updated_at->toIso8601String(),
 
+            termsAcceptedAt: self::instant(self::termsSource($booking)->terms_accepted_at),
+            termsVersion: self::termsSource($booking)->terms_version,
+
             canBeCancelled: (bool) $booking->canBeCancelled(),
 
             allowedStatuses: BookingLifecycle::allowedStatusesFrom($booking->status),
@@ -247,5 +258,13 @@ final class AdminBookingDetailData extends BaseData
             canTransferSubscription: BookingLifecycle::canTransferSubscription($booking),
             canTerminateSubscription: BookingLifecycle::canTerminateSubscription($booking),
         );
+    }
+
+    /** Où lire l'acceptation des CGU : la réservation, sinon celle dont elle découle. */
+    private static function termsSource(Booking $booking): Booking
+    {
+        return $booking->terms_accepted_at === null && $booking->parentBooking
+            ? $booking->parentBooking
+            : $booking;
     }
 }

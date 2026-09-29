@@ -35,6 +35,8 @@ class CreatePublicBookingData extends BaseData
         public ?WeekDays $weekDays = null,
         public ?string $specialRequests = null,
         public ?string $promoCode = null,
+        /** La case « J'ai lu les CGU » ; `accepted` la rend obligatoire (2026-09-29). */
+        public bool $termsAccepted = false,
     ) {}
 
     public static function rules(ValidationContext $context): array
@@ -56,6 +58,7 @@ class CreatePublicBookingData extends BaseData
             'week_days' => ['nullable', Rule::enum(WeekDays::class)],
             'special_requests' => ['nullable', 'string', 'max:500'],
             'promo_code' => ['nullable', 'string', 'max:50'],
+            'terms_accepted' => ['accepted'],
         ];
     }
 
@@ -76,6 +79,8 @@ class CreatePublicBookingData extends BaseData
             'phone.min' => 'Le numéro de téléphone est trop court.',
             'return_time.required_if' => 'L\'heure de retour est requise pour les trajets aller-retour.',
             'return_time.after' => 'L\'heure de retour doit être postérieure à l\'heure de prise en charge.',
+            'terms_accepted.accepted' => 'Veuillez accepter les conditions générales d\'utilisation.',
+            'terms_accepted.required' => 'Veuillez accepter les conditions générales d\'utilisation.',
         ];
     }
 
