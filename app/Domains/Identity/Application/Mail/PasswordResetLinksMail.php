@@ -30,6 +30,11 @@ class PasswordResetLinksMail extends Mailable
 
     public function content(): Content
     {
-        return new Content(view: 'emails.password-reset-links');
+        // La version texte accompagne le HTML : certaines messageries n'affichent qu'elle,
+        // et son absence fait monter le score de spam.
+        return new Content(
+            view: 'emails.password-reset-links',
+            text: 'emails.password-reset-links-text',
+        );
     }
 }
