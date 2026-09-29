@@ -8,6 +8,7 @@ causer_id: string | null;
 description: string;
 subject_type: string | null;
 subject_id: string | null;
+subject_profil: string | null;
 ip: string | null;
 changes: Record<string, { from: unknown; to: unknown }> | null;
 created_at: string;
@@ -24,7 +25,7 @@ events: Array<App.Domains.Audit.Application.Data.ActivityEventOptionData>;
 };
 }
 declare namespace App.Domains.Audit.Domain {
-export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
+export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_deleted' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.commission_cancelled' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
 }
 declare namespace App.Domains.Booking.Application.Data {
 export type AdminBookingDetailData = {

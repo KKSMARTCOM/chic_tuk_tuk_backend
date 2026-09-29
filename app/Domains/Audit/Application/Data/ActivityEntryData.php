@@ -29,6 +29,11 @@ final class ActivityEntryData extends BaseData
         public string $description,
         public ?string $subjectType,
         public ?string $subjectId,
+        /**
+         * Le profil d'un COMPTE tracé (`owner`, `driver`…), pour que le front mène à la
+         * bonne fiche : un compte propriétaire et un compte agent n'ont pas le même écran.
+         */
+        public ?string $subjectProfil,
         public ?string $ip,
         /** @var array<string, array{from: mixed, to: mixed}>|null */
         #[LiteralTypeScriptType('Record<string, { from: unknown; to: unknown }> | null')]
@@ -49,6 +54,7 @@ final class ActivityEntryData extends BaseData
             description: $activity->description,
             subjectType: $activity->subject_type,
             subjectId: $activity->subject_id,
+            subjectProfil: $properties->get('profil'),
             ip: $properties->get('ip'),
             changes: $properties->get('changes'),
             createdAt: $activity->created_at->toIso8601String(),

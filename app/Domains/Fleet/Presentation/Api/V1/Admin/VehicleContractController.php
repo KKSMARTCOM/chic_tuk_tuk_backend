@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\CreateVehicleContract;
 use App\Domains\Fleet\Application\Actions\DeleteVehicleContract;
 use App\Domains\Fleet\Application\Actions\ListVehicleContracts;
@@ -27,6 +28,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class VehicleContractController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListVehicleContracts $list): JsonResponse
     {
         try {
@@ -59,6 +63,7 @@ final class VehicleContractController
     ): JsonResponse {
         try {
             $contract = $create($data);
+            $this->journal->vehicleContractCreated($contract->load('vehicle'));
 
             return response()->json($show($contract->id), 201);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -77,7 +82,8 @@ final class VehicleContractController
         ShowVehicleContractDetail $show,
     ): JsonResponse {
         try {
-            $update(VehicleContract::findOrFail($contractId), $data);
+            $contract = $update(VehicleContract::findOrFail($contractId), $data);
+            $this->journal->vehicleContractUpdated($contract->load('vehicle'));
 
             return response()->json($show($contractId));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -91,7 +97,9 @@ final class VehicleContractController
     public function destroy(Request $request, string $contractId, DeleteVehicleContract $delete): Response|JsonResponse
     {
         try {
-            $delete(VehicleContract::findOrFail($contractId));
+            $contract = VehicleContract::with('vehicle')->findOrFail($contractId);
+            $delete($contract);
+            $this->journal->vehicleContractDeleted($contract->id, $contract->vehicle);
 
             return response()->noContent();
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

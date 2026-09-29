@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Actions\CancelPayment;
 use App\Domains\Finance\Application\Actions\CreatePayment;
 use App\Domains\Finance\Application\Actions\DeletePayment;
@@ -32,6 +33,9 @@ use Illuminate\Validation\ValidationException;
  */
 final class PaymentController
 {
+    /** Chaque écriture est tracée APRÈS sa réussite : voir `ActivityJournal`. */
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function index(Request $request, ListPayments $list): JsonResponse
     {
         return $this->guard($request, 'la liste des paiements', 'La liste des paiements n\'a pas pu être chargée. Réessayez.', 'ADMIN_PAYMENTS_FAILED',
@@ -63,7 +67,12 @@ final class PaymentController
     public function store(Request $request, CreatePaymentData $data, ShowPaymentDetail $show, CreatePayment $create): JsonResponse
     {
         return $this->guard($request, 'la création du paiement', 'Ce paiement n\'a pas pu être enregistré.', 'PAYMENT_CREATE_FAILED',
-            fn () => response()->json($show($create($data->toServicePayload())->id), 201));
+            function () use ($data, $show, $create) {
+                $payment = $create($data->toServicePayload());
+                $this->journal->paymentCreated($payment->load('driver.user'));
+
+                return response()->json($show($payment->id), 201);
+            });
     }
 
     public function update(Request $request, string $paymentId, UpdatePaymentData $data, ShowPaymentDetail $show, UpdatePayment $updatePayment): JsonResponse
@@ -71,6 +80,7 @@ final class PaymentController
         return $this->guard($request, 'la modification du paiement', 'Ce paiement n\'a pas pu être modifié.', 'PAYMENT_UPDATE_FAILED',
             function () use ($paymentId, $data, $show, $updatePayment) {
                 $updatePayment(Payment::findOrFail($paymentId), $data->toServicePayload());
+                $this->journal->paymentUpdated(Payment::with('driver.user')->findOrFail($paymentId));
 
                 return response()->json($show($paymentId));
             });
@@ -81,6 +91,7 @@ final class PaymentController
         return $this->guard($request, 'la validation du paiement', 'Ce paiement n\'a pas pu être validé.', 'PAYMENT_VALIDATE_FAILED',
             function () use ($paymentId, $show, $validate) {
                 $validate(Payment::findOrFail($paymentId));
+                $this->journal->paymentValidated(Payment::with('driver.user')->findOrFail($paymentId));
 
                 return response()->json($show($paymentId));
             });
@@ -91,6 +102,7 @@ final class PaymentController
         return $this->guard($request, 'l\'annulation du paiement', 'Ce paiement n\'a pas pu être annulé.', 'PAYMENT_CANCEL_FAILED',
             function () use ($paymentId, $show, $cancelPayment) {
                 $cancelPayment(Payment::findOrFail($paymentId));
+                $this->journal->paymentCancelled(Payment::with('driver.user')->findOrFail($paymentId));
 
                 return response()->json($show($paymentId));
             });
@@ -100,7 +112,10 @@ final class PaymentController
     {
         return $this->guard($request, 'la suppression du paiement', 'Ce paiement n\'a pas pu être supprimé.', 'PAYMENT_DELETE_FAILED',
             function () use ($paymentId, $deletePayment) {
-                $deletePayment(Payment::findOrFail($paymentId));
+                $payment = Payment::with('driver.user')->findOrFail($paymentId);
+                $label = $this->journal->paymentLabel($payment);
+                $deletePayment($payment);
+                $this->journal->paymentDeleted($payment->id, $label);
 
                 return response()->noContent();
             });

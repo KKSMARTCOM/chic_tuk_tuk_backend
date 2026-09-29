@@ -4,9 +4,16 @@ namespace App\Domains\Audit\Application;
 
 use App\Domains\Audit\Domain\ActivityEvent;
 use App\Domains\Booking\Domain\Enums\BookingStatus;
+use App\Domains\Fleet\Domain\Enums\VehiclePauseReason;
+use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Booking;
+use App\Models\Commission;
 use App\Models\Driver;
+use App\Models\Payment;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Models\VehicleContract;
+use App\Models\VehiclePause;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -234,6 +241,205 @@ final class ActivityJournal
         );
     }
 
+    // ----- Comptes -----------------------------------------------------------------------
+    //
+    // Communs aux propriétaires, agents et administrateurs : « le compte propriétaire de
+    // Rachid Bello ». Le libellé du profil vient de `Profil::label()`.
+
+    public function accountCreated(User $account): void
+    {
+        $this->record(ActivityEvent::AccountCreated, $account, "a créé le compte {$this->accountLabel($account)}", ['profil' => $account->profil]);
+    }
+
+    public function accountUpdated(User $account): void
+    {
+        $this->record(ActivityEvent::AccountUpdated, $account, "a modifié le compte {$this->accountLabel($account)}", ['profil' => $account->profil]);
+    }
+
+    public function accountStatusChanged(User $account, bool $active): void
+    {
+        $verb = $active ? 'a réactivé' : 'a désactivé';
+
+        $this->record(
+            ActivityEvent::AccountStatusChanged,
+            $account,
+            "{$verb} le compte {$this->accountLabel($account)}",
+            ['active' => $active, 'profil' => $account->profil],
+        );
+    }
+
+    public function accountPasswordSet(User $account): void
+    {
+        $this->record(
+            ActivityEvent::AccountPasswordSet,
+            $account,
+            "a défini un nouveau mot de passe pour le compte {$this->accountLabel($account)}",
+            ['profil' => $account->profil],
+        );
+    }
+
+    /** Le libellé est calculé AVANT la suppression : le compte n'existe plus ensuite. */
+    public function accountDeleted(string $accountId, string $accountLabel): void
+    {
+        $this->record(
+            ActivityEvent::AccountDeleted,
+            null,
+            "a supprimé le compte {$accountLabel}",
+            ['account_id' => $accountId],
+        );
+    }
+
+    public function accountLabel(User $account): string
+    {
+        $profil = Profil::tryFrom((string) $account->profil)?->label();
+
+        return trim(($profil ? mb_strtolower($profil).' de ' : 'de ').($account->name ?? $account->email ?? 'sans nom'));
+    }
+
+    // ----- Flotte ------------------------------------------------------------------------
+
+    public function vehicleCreated(Vehicle $vehicle): void
+    {
+        $this->record(ActivityEvent::VehicleCreated, $vehicle, "a ajouté le véhicule {$vehicle->vehicle_number}");
+    }
+
+    public function vehicleUpdated(Vehicle $vehicle): void
+    {
+        $this->record(ActivityEvent::VehicleUpdated, $vehicle, "a modifié le véhicule {$vehicle->vehicle_number}");
+    }
+
+    public function vehicleStatusChanged(Vehicle $vehicle, bool $active): void
+    {
+        $verb = $active ? 'a réactivé' : 'a désactivé';
+
+        $this->record(ActivityEvent::VehicleStatusChanged, $vehicle, "{$verb} le véhicule {$vehicle->vehicle_number}", ['active' => $active]);
+    }
+
+    public function vehicleDeleted(string $vehicleId, string $vehicleNumber): void
+    {
+        $this->record(
+            ActivityEvent::VehicleDeleted,
+            null,
+            "a supprimé le véhicule {$vehicleNumber}",
+            ['vehicle_id' => $vehicleId, 'vehicle_number' => $vehicleNumber],
+        );
+    }
+
+    public function vehiclePaused(VehiclePause $pause): void
+    {
+        $reason = VehiclePauseReason::tryFrom((string) $pause->reason_type)?->label();
+
+        $this->record(
+            ActivityEvent::VehiclePaused,
+            $pause->vehicle,
+            "a mis en pause le véhicule {$pause->vehicle?->vehicle_number}".($reason ? " ({$reason})" : ''),
+            ['pause_id' => $pause->id],
+        );
+    }
+
+    public function vehiclePauseEnded(VehiclePause $pause): void
+    {
+        $this->record(
+            ActivityEvent::VehiclePauseEnded,
+            $pause->vehicle,
+            "a mis fin à la pause du véhicule {$pause->vehicle?->vehicle_number}",
+            ['pause_id' => $pause->id],
+        );
+    }
+
+    public function vehiclePauseCancelled(Vehicle $vehicle): void
+    {
+        $this->record(ActivityEvent::VehiclePauseCancelled, $vehicle, "a annulé une pause du véhicule {$vehicle->vehicle_number}");
+    }
+
+    public function vehicleContractCreated(VehicleContract $contract): void
+    {
+        $this->record(
+            ActivityEvent::VehicleContractCreated,
+            $contract->vehicle,
+            "a créé le contrat de {$contract->contract_months} mois du véhicule {$contract->vehicle?->vehicle_number}",
+            ['contract_id' => $contract->id],
+        );
+    }
+
+    public function vehicleContractUpdated(VehicleContract $contract): void
+    {
+        $this->record(
+            ActivityEvent::VehicleContractUpdated,
+            $contract->vehicle,
+            "a modifié le contrat du véhicule {$contract->vehicle?->vehicle_number}",
+            ['contract_id' => $contract->id],
+        );
+    }
+
+    public function vehicleContractDeleted(string $contractId, ?Vehicle $vehicle): void
+    {
+        $this->record(
+            ActivityEvent::VehicleContractDeleted,
+            $vehicle,
+            "a supprimé un contrat du véhicule {$vehicle?->vehicle_number}",
+            ['contract_id' => $contractId],
+        );
+    }
+
+    // ----- Paiements et commissions ------------------------------------------------------
+
+    public function paymentCreated(Payment $payment): void
+    {
+        $this->record(ActivityEvent::PaymentCreated, $payment, "a enregistré {$this->paymentLabel($payment)}");
+    }
+
+    public function paymentUpdated(Payment $payment): void
+    {
+        $this->record(ActivityEvent::PaymentUpdated, $payment, "a modifié {$this->paymentLabel($payment)}");
+    }
+
+    public function paymentValidated(Payment $payment): void
+    {
+        $this->record(ActivityEvent::PaymentValidated, $payment, "a validé {$this->paymentLabel($payment)}");
+    }
+
+    public function paymentCancelled(Payment $payment): void
+    {
+        $this->record(ActivityEvent::PaymentCancelled, $payment, "a annulé {$this->paymentLabel($payment)}");
+    }
+
+    /** Le libellé est calculé AVANT la suppression. */
+    public function paymentDeleted(string $paymentId, string $paymentLabel): void
+    {
+        $this->record(ActivityEvent::PaymentDeleted, null, "a supprimé {$paymentLabel}", ['payment_id' => $paymentId]);
+    }
+
+    /**
+     * Tâche planifiée : UNE ligne par passage, pas une par paiement — la génération du soir
+     * en crée une par contrat actif et par jour ouvré, qui noieraient le journal.
+     */
+    public function dailyPaymentsGenerated(int $count): void
+    {
+        $this->record(
+            ActivityEvent::DailyPaymentsGenerated,
+            null,
+            $count === 1 ? 'a généré 1 paiement journalier' : "a généré {$count} paiements journaliers",
+            ['count' => $count],
+            actor: self::SYSTEM,
+        );
+    }
+
+    public function commissionCancelled(Commission $commission): void
+    {
+        $this->record(
+            ActivityEvent::CommissionCancelled,
+            $commission,
+            "a annulé la commission de {$this->money($commission->amount)} de {$this->driverName($commission->driver)}"
+                .($commission->booking ? " (course {$commission->booking->booking_number})" : ''),
+        );
+    }
+
+    public function paymentLabel(Payment $payment): string
+    {
+        return "le paiement de {$this->money($payment->amount)} de {$this->driverName($payment->driver)}";
+    }
+
     // ----- Réglages ----------------------------------------------------------------------
 
     /**
@@ -314,6 +520,11 @@ final class ActivityJournal
         }
 
         return $changes ? ['changes' => $changes] : [];
+    }
+
+    private function money(mixed $amount): string
+    {
+        return number_format((float) $amount, 0, ',', ' ').' FCFA';
     }
 
     private function driverName(?Driver $driver): string
