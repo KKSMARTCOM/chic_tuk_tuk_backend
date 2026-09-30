@@ -13,6 +13,7 @@ use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
 use App\Models\Payment;
+use App\Models\RemunerationStatement;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -605,6 +606,11 @@ final class ActivityJournal
     {
         $this->record(ActivityEvent::ContractTermsUpdated, null, 'a modifié les réglages des contrats véhicule', $this->changes($before, $after));
     }
+
+    // ----- Fiches de rémunération --------------------------------------------------------
+
+    /** L'envoi d'une fiche validée au propriétaire. Remplie à la tâche 19. */
+    public function remunerationStatementSent(RemunerationStatement $statement): void {}
 
     // ----- Plomberie ---------------------------------------------------------------------
 
