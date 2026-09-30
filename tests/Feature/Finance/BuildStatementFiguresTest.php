@@ -168,6 +168,17 @@ class BuildStatementFiguresTest extends TestCase
         );
     }
 
+    public function test_a_payment_without_month_is_left_out_as_by_the_calculator(): void
+    {
+        // Un paiement saisi à la main peut n'avoir aucun `payment_month` : le calculateur du
+        // mois l'écarte, la fiche aussi — sans planter.
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-07-01']);
+        $this->paidOn($contract, ['2026-07-06'], 5871);
+        Payment::factory()->create(['vehicle_contract_id' => $contract->id, 'payment_month' => null, 'payment_date' => '2026-07-07', 'status' => 'completed', 'net_amount' => 9_999]);
+
+        $this->assertEquals(5871, app(BuildStatementFigures::class)($contract, '2026-07')->revenue);
+    }
+
     public function test_figures_survive_the_json_snapshot(): void
     {
         $f = app(BuildStatementFigures::class)($this->assogba(), '2026-07');

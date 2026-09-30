@@ -35,6 +35,8 @@ final class BuildStatementFigures
             ->where('vehicle_contract_id', $contract->id)
             ->where('status', 'completed')
             ->whereNull('remuneration_statement_id')
+            // Comme `ContractMonthCalculator` : un paiement sans mois n'appartient à aucun.
+            ->whereNotNull('payment_month')
             ->get();
         $revenuePayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey);
         $recoveredPayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') < $monthKey
