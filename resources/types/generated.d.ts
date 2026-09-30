@@ -880,6 +880,7 @@ manager_remuneration: number;
 total_days: number;
 invested_amount: number | null;
 pauses: App.Domains.Fleet.Application.Data.OwnerContractPauseSummaryData;
+latest_statement: App.Domains.Finance.Application.Data.StatementFiguresData | null;
 };
 export type OwnerContractPauseSummaryData = {
 pause_allowance: number;

@@ -2,7 +2,9 @@
 
 namespace App\Domains\Fleet\Application\Data;
 
+use App\Domains\Finance\Application\Data\StatementFiguresData;
 use App\Domains\Finance\Domain\ContractMonthCalculator;
+use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\VehicleContract;
 use App\Models\VehicleContractTerm;
 use App\Shared\Data\BaseData;
@@ -38,6 +40,12 @@ final class OwnerContractDetailData extends BaseData
         public int $totalDays,
         public ?float $investedAmount,
         public OwnerContractPauseSummaryData $pauses,
+        /**
+         * Les chiffres FIGÉS de la dernière fiche de rémunération validée : les cumuls
+         * « réalisés » de l'aperçu. `null` sans fiche validée — le front ne recalcule
+         * jamais un cumul.
+         */
+        public ?StatementFiguresData $latestStatement,
     ) {}
 
     public static function fromModel(VehicleContract $contract): self
@@ -48,6 +56,7 @@ final class OwnerContractDetailData extends BaseData
         // Lu dans les réglages, jamais copié sur le contrat : une durée qui n'est plus
         // proposée n'en a pas.
         $invested = VehicleContractTerm::query()->where('months', $months)->value('invested_amount');
+        $latest = $contract->remunerationStatements()->where('status', 'validated')->orderByDesc('month')->first();
 
         return new self(
             contractMonths: $months,
@@ -68,6 +77,7 @@ final class OwnerContractDetailData extends BaseData
             totalDays: $months * 22,
             investedAmount: $invested !== null ? (float) $invested : null,
             pauses: OwnerContractPauseSummaryData::fromContract($contract, $calculator),
+            latestStatement: $latest ? StatementFiguresData::fromFigures(StatementFigures::fromArray($latest->figures ?? [])) : null,
         );
     }
 }
