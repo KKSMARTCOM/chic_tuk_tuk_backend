@@ -471,6 +471,11 @@ reference_number: string | null;
 export type MonthlyPayoutData = {
 month: string;
 is_current: boolean;
+is_worked: boolean;
+business_days: number;
+counted_days: number;
+agent_leave_days: number;
+immobilization_days: number;
 validated_amount: number;
 pending_amount: number;
 cancelled_amount: number;
@@ -478,9 +483,6 @@ total_charges: number;
 fixed_amount: number;
 deficit_carried_in: number;
 deficit_carried_out: number;
-worked_days: number;
-agent_leave_days: number;
-immobilization_days: number;
 };
 export type UpdatePaymentData = {
 amount: number;
@@ -767,8 +769,6 @@ end_date: string;
 export type OwnerContractDetailData = {
 contract_months: number;
 start_date: string;
-planned_end_date: string | null;
-extended_end_date: string | null;
 total_amount: number;
 total_paid: number;
 remaining_amount: number;
@@ -780,16 +780,16 @@ total_charges: number;
 unlimited_internet: number;
 spotify_premium: number;
 manager_remuneration: number;
-total_contract_days: number;
-total_pause_days_taken: number;
-remaining_contract_days: number;
-pause_usage_percentage: number;
+total_days: number;
+invested_amount: number | null;
+pauses: App.Domains.Fleet.Application.Data.OwnerContractPauseSummaryData;
 };
 export type OwnerContractPauseSummaryData = {
-total_contract_days: number;
-total_pause_days_taken: number;
-remaining_contract_days: number;
-pause_usage_percentage: number;
+pause_allowance: number;
+pause_days_taken: number;
+pause_days_available: number;
+pause_days_remaining: number;
+pause_overrun: number;
 };
 export type OwnerContractSummaryData = {
 contract_months: number;
@@ -867,7 +867,7 @@ manager_remuneration: number | null;
 notes: string | null;
 };
 export type UpdateVehicleContractSettingsData = {
-terms: Array<{ months: number; total_amount: number; daily_amount: number; daily_tax: number }>;
+terms: Array<{ months: number; total_amount: number; daily_amount: number; daily_tax: number; invested_amount?: number | null }>;
 unlimited_internet: number;
 spotify_premium: number;
 manager_remuneration: number;
@@ -898,6 +898,7 @@ months: number;
 total_amount: number;
 daily_amount: number;
 daily_tax: number;
+invested_amount: number | null;
 };
 export type VehiclePauseData = {
 id: string;

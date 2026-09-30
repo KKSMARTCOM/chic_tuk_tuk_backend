@@ -87,6 +87,20 @@ final class GenerateDailyContractPayments
             return false;
         }
 
+        // Aucun paiement un jour de pause ou d'immobilisation (2026-09-30) : la génération
+        // l'ignorait, et créait des paiements jamais dus, qu'il fallait annuler à la main.
+        // Toute pause véhicule qui couvre ce jour, quel que soit son motif. Les pauses
+        // d'agent sans pause véhicule sont les pauses HISTORIQUES, toujours passées :
+        // elles ne concernent pas la génération du jour.
+        $stopped = $vehicleContract->pauses()
+            ->whereDate('start_date', '<=', $today)
+            ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $today))
+            ->exists();
+
+        if ($stopped) {
+            return false;
+        }
+
         // Montants journaliers FIGÉS sur le contrat à sa création (2026-09-29) : modifier
         // les réglages ne change pas les versements d'un contrat en cours.
         //

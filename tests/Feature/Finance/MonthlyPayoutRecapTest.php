@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -18,6 +19,20 @@ use Tests\TestCase;
 class MonthlyPayoutRecapTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Un mercredi en milieu de mois : le mois courant est travaillé. Figée parce que
+        // les mois non travaillés rendent le résultat dépendant du jour du test.
+        Carbon::setTestNow('2026-07-15 09:00:00');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
 
     private function loginOwner(): array
     {
@@ -67,7 +82,7 @@ class MonthlyPayoutRecapTest extends TestCase
     {
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        VehicleContract::factory()->forVehicle($vehicle)->create();
+        VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => now()->startOfMonth()]);
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
@@ -82,7 +97,7 @@ class MonthlyPayoutRecapTest extends TestCase
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
         $contract = VehicleContract::factory()->forVehicle($vehicle)->create([
-            'start_date' => now()->subMonths(3)->startOfMonth(),
+            'start_date' => now()->subMonths(2)->startOfMonth(),
         ]);
 
         $ilYaDeuxMois = now()->subMonths(2)->startOfMonth();
@@ -133,7 +148,9 @@ class MonthlyPayoutRecapTest extends TestCase
     {
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        $contract = VehicleContract::factory()->forVehicle($vehicle)->create();
+        // Démarré ce mois-ci : sinon les mois précédents, travaillés au calendrier et sans
+        // recette, reporteraient leur déficit.
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => now()->startOfMonth()]);
 
         $jour = now()->startOfMonth()->toDateString();
         Payment::factory()->onDay($jour)->status('completed')
@@ -162,7 +179,7 @@ class MonthlyPayoutRecapTest extends TestCase
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
         $contract = VehicleContract::factory()->forVehicle($vehicle)->create([
-            'start_date' => now()->subMonths(4)->startOfMonth(),
+            'start_date' => now()->subMonthsNoOverflow(max(array_keys($netByMonthsAgo)))->startOfMonth(),
         ]);
 
         foreach ($netByMonthsAgo as $monthsAgo => $net) {
@@ -223,25 +240,20 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->assertEquals(55_000, $recap[$this->monthKey(0)]['deficit_carried_out']);
     }
 
-    public function test_les_jours_travailles_comptent_les_dates_distinctes(): void
+    public function test_counted_days_come_from_the_calendar_not_from_payments(): void
     {
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        $contract = VehicleContract::factory()->forVehicle($vehicle)->create();
-
-        $premier = now()->startOfMonth();
-        // Deux paiements le même jour ne comptent qu'un jour travaillé.
-        Payment::factory()->onDay($premier->toDateString())
-            ->create(['vehicle_contract_id' => $contract->id]);
-        Payment::factory()->onDay($premier->toDateString())
-            ->create(['vehicle_contract_id' => $contract->id]);
-        Payment::factory()->onDay($premier->copy()->addDay()->toDateString())
-            ->create(['vehicle_contract_id' => $contract->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-07-01']);
+        // Un seul paiement : le calendrier compte quand même les 11 jours ouvrés du 1er au 15.
+        Payment::factory()->onDay('2026-07-01')->create(['vehicle_contract_id' => $contract->id]);
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
             ->assertOk()
-            ->assertJsonPath('0.worked_days', 2);
+            ->assertJsonPath('0.business_days', 11)
+            ->assertJsonPath('0.counted_days', 11)
+            ->assertJsonMissingPath('0.worked_days');
     }
 
     public function test_une_immobilisation_a_cheval_n_est_comptee_que_pour_sa_part_du_mois(): void
@@ -269,7 +281,7 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->assertSame(2, $mars['immobilization_days']);
     }
 
-    public function test_un_conge_d_agent_a_cheval_est_compte_comme_tel(): void
+    public function test_an_agent_pause_straddling_months_is_counted_as_a_pause(): void
     {
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
@@ -293,9 +305,54 @@ class MonthlyPayoutRecapTest extends TestCase
             ->firstWhere('month', '2026-03');
 
         // Mêmes bornes que l'immobilisation ci-dessus, même comptage en jours ouvrés,
-        // mais une ligne distincte : congé d'agent et immobilisation ne se confondent
-        // pas, malgré la route Blade qui les appelait toutes deux « leaves ».
+        // mais une ligne distincte : pause d'agent et immobilisation ne se confondent
+        // pas, malgré la route Blade qui les appelait toutes deux « leaves ». Pause
+        // saisie sans pause véhicule : c'est le cas d'une pause historique (spec §3.2).
         $this->assertSame(2, $mars['agent_leave_days']);
         $this->assertSame(0, $mars['immobilization_days']);
+    }
+
+    public function test_an_agent_pause_is_not_also_counted_as_immobilization(): void
+    {
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-07-01']);
+        $driverContract = DriverContract::factory()->forVehicleContract($contract)->create();
+        // La pause d'agent ET sa pause véhicule automatique, sur les mêmes jours : c'est
+        // ce que la base contient d'ordinaire, et ce que l'ancien calcul comptait deux fois.
+        LeaveRequest::factory()->create([
+            'driver_contract_id' => $driverContract->id,
+            'start_date' => '2026-07-06', 'end_date' => '2026-07-07', 'status' => 'completed',
+        ]);
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-07-06', 'end_date' => '2026-07-07',
+            'reason_type' => 'agent_leave', 'is_auto' => true,
+            'driver_contract_id' => $driverContract->id,
+        ]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
+            ->assertOk()
+            ->assertJsonPath('0.agent_leave_days', 2)
+            ->assertJsonPath('0.immobilization_days', 0);
+    }
+
+    public function test_a_month_without_counted_day_has_no_charge(): void
+    {
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-06-01']);
+        // Juin entier immobilisé : mois non travaillé, aucune charge, aucun déficit reporté.
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-06-01', 'end_date' => '2026-06-30', 'reason_type' => 'agent_change',
+        ]);
+
+        $june = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
+            ->assertOk()->json())->firstWhere('month', '2026-06');
+
+        $this->assertFalse($june['is_worked']);
+        $this->assertEquals(0, $june['total_charges']);
+        $this->assertEquals(0, $june['deficit_carried_out']);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Application\Data;
 
+use App\Domains\Finance\Domain\ContractMonthCalculator;
 use App\Models\VehicleContract;
 use App\Shared\Data\BaseData;
 
@@ -23,10 +24,13 @@ final class OwnerContractSummaryData extends BaseData
 
     public static function fromModel(VehicleContract $contract): self
     {
+        // Mois TRAVAILLÉS (2026-09-30) : un mois sans jour comptabilisé allonge le contrat.
+        $worked = ContractMonthCalculator::for($contract)->workedMonths();
+
         return new self(
             contractMonths: (int) $contract->contract_months,
-            monthsElapsed: $contract->months_elapsed,
-            monthsRemaining: $contract->months_remaining,
+            monthsElapsed: $worked,
+            monthsRemaining: max(0, (int) $contract->contract_months - $worked),
             progressPercentage: $contract->progress_percentage,
             remainingAmount: $contract->remaining_amount,
         );

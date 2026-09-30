@@ -56,9 +56,9 @@ class VehicleContractSettingsTest extends TestCase
     {
         return array_merge([
             'terms' => [
-                ['months' => 24, 'total_amount' => 3_100_000, 'daily_amount' => 6112, 'daily_tax' => 241],
-                ['months' => 30, 'total_amount' => 3_604_872, 'daily_amount' => 5691, 'daily_tax' => 229],
-                ['months' => 36, 'total_amount' => 4_049_100, 'daily_amount' => 5251, 'daily_tax' => 211],
+                ['months' => 24, 'total_amount' => 3_100_000, 'daily_amount' => 6112, 'daily_tax' => 241, 'invested_amount' => 1_799_500],
+                ['months' => 30, 'total_amount' => 3_604_872, 'daily_amount' => 5691, 'daily_tax' => 229, 'invested_amount' => 1_799_500],
+                ['months' => 36, 'total_amount' => 4_049_100, 'daily_amount' => 5251, 'daily_tax' => 211, 'invested_amount' => 1_799_500],
             ],
             'unlimited_internet' => 5_000,
             'spotify_premium' => 2_500,
@@ -86,7 +86,7 @@ class VehicleContractSettingsTest extends TestCase
         $this->asBearer($this->login(['manage-business-settings']))
             ->getJson('/api/v1/admin/settings/vehicle-contracts')
             ->assertOk()
-            ->assertJsonPath('terms.0', ['months' => 24, 'total_amount' => 3_100_000, 'daily_amount' => 6112, 'daily_tax' => 241])
+            ->assertJsonPath('terms.0', ['months' => 24, 'total_amount' => 3_100_000, 'daily_amount' => 6112, 'daily_tax' => 241, 'invested_amount' => 1_799_500])
             ->assertJsonPath('terms.2.months', 36)
             ->assertJsonPath('manager_remuneration', 20_000);
     }
@@ -116,6 +116,27 @@ class VehicleContractSettingsTest extends TestCase
         $this->assertEquals([24, 36, 48], collect($response->json('terms'))->pluck('months')->all());
         $response->assertJsonPath('terms.0.daily_amount', 6300)->assertJsonPath('spotify_premium', 3_000);
         $this->assertDatabaseMissing('vehicle_contract_terms', ['months' => 30]);
+    }
+
+    public function test_the_invested_amount_is_saved_and_optional(): void
+    {
+        $token = $this->login(['manage-business-settings']);
+
+        $this->asBearer($token)
+            ->putJson('/api/v1/admin/settings/vehicle-contracts', $this->settings(['terms' => [
+                ['months' => 24, 'total_amount' => 3_100_000, 'daily_amount' => 6112, 'daily_tax' => 241, 'invested_amount' => 1_850_000],
+                ['months' => 30, 'total_amount' => 3_604_872, 'daily_amount' => 5691, 'daily_tax' => 229],
+            ]]))
+            ->assertOk()
+            ->assertJsonPath('terms.0.invested_amount', 1_850_000)
+            ->assertJsonPath('terms.1.invested_amount', null);
+
+        $this->asBearer($token)
+            ->putJson('/api/v1/admin/settings/vehicle-contracts', $this->settings(['terms' => [
+                ['months' => 24, 'total_amount' => 3_100_000, 'daily_amount' => 6112, 'daily_tax' => 241, 'invested_amount' => -1],
+            ]]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['terms.0.invested_amount']);
     }
 
     public function test_invalid_settings_are_refused_field_by_field(): void
