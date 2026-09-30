@@ -817,14 +817,34 @@ le journal. Même règle pour toute tâche planifiée à venir qui produit en ma
 Les traces de compte portent `properties.profil`, exposé en `subject_profil` : un compte
 propriétaire et un compte agent ne mènent pas à la même fiche.
 
-## Le récapitulatif du propriétaire reporte le déficit (2026-09-29)
+## Le récapitulatif du propriétaire, fusionné avec les fiches (2026-09-30)
 
-`BuildMonthlyPayoutRecap` : le montant fixe d'un mois vaut `validé − charges − déficit
-reporté`, et n'est jamais négatif. Un mois déficitaire s'affiche à 0 et reporte son manque
-(`deficit_carried_out`) sur le mois suivant, qui le reçoit (`deficit_carried_in`), jusqu'à
-ce qu'il soit couvert. Avant, `validé − charges` s'affichait négatif au propriétaire dès
-qu'un mois était partiel ou en pause. Le report se calcule dans l'ordre CHRONOLOGIQUE,
-avant le tri d'affichage du plus récent au plus ancien.
+`GET /owner/vehicles/{id}/payments` → `BuildMonthlyPayoutRecap`, un `MonthlyPayoutData` par
+mois, avec un `status` :
+
+| Mois | `status` | Chiffres |
+| --- | --- | --- |
+| fiche validée | `validated` | les chiffres FIGÉS de la fiche, `has_pdf` |
+| mois en cours | `current` | `BuildStatementFigures` sans fiche, `is_estimate` |
+| mois clos ≥ `first_month`, sans fiche validée | `review_pending` | les jours seulement ; montants à `null` |
+| mois clos < `first_month` | `before_statements` | les jours et les recettes validées ; solde à `null` |
+
+⚠️ Un mois clos sans fiche validée n'annonce AUCUN solde : la relecture peut le changer.
+Le report automatique du déficit (2026-09-29) a disparu — le compte de charges des fiches le
+remplace (`ChargeLedger`).
+
+Les fiches, côté propriétaire (`StatementController`, Finance/Owner, sous
+`view-own-payments`) : `GET /owner/vehicles/{id}/statements` (les validées) et
+`GET /owner/statements/{id}/pdf`. ⚠️ La portée passe par le VÉHICULE du propriétaire : la
+fiche d'autrui, un brouillon ou une fiche annulée répondent **404**, jamais 403. Tant que la
+tâche en file n'a pas rangé le PDF : **409 `STATEMENT_NOT_READY`**.
+
+L'état d'un véhicule pour son propriétaire (`VehicleOwnerState`) : `active`, `paused`, ou
+`immobilized` — une pause en cours de motif `agent_change`, le véhicule attend un nouvel
+agent. `OwnerContractSummaryData` porte les cumuls des historiques (payé, en attente,
+charges prélevées par les fiches validées, progression vers le revenu cible, solde de
+pauses) ; `OwnerContractDetailData::latestStatement`, les chiffres figés de la dernière
+fiche validée — l'aperçu n'en recalcule aucun.
 
 ## Commandes artisan
 
