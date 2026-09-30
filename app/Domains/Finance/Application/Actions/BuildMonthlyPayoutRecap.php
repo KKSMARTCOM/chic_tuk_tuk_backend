@@ -3,139 +3,60 @@
 namespace App\Domains\Finance\Application\Actions;
 
 use App\Domains\Finance\Application\Data\MonthlyPayoutData;
-use App\Models\LeaveRequest;
+use App\Domains\Finance\Domain\ContractMonthCalculator;
 use App\Models\VehicleContract;
-use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 /**
  * Le récapitulatif mensuel d'un contrat véhicule.
  *
- * Transposition à l'identique de ce qu'OwnerVehicleController::buildMonthlyRecap
- * calculait sur le chemin Blade. Ce contrôleur a été supprimé à la bascule du
- * 2026-09-18 ; les chiffres ont été confrontés un à un entre les deux écrans, sur un
- * véhicule réel de staging, avant de le retirer.
+ * Depuis le 2026-09-30, les jours viennent de `ContractMonthCalculator` : au calendrier,
+ * chaque jour classé une fois — l'ancien calcul additionnait les pauses d'agent et leurs
+ * pauses véhicule automatiques, et comptait donc ces jours deux fois. Les mois vont du
+ * début du contrat au mois courant, mois non travaillés compris.
  *
- * Rangée dans Finance parce qu'elle répond à une question d'argent ; elle lit du Fleet
- * (pauses véhicule) et du Workforce (pauses d'agent) pour y répondre.
+ * Règles gardées du code d'origine : le mois courant figure toujours, les mois futurs sont
+ * exclus, et le mois courant s'arrête à aujourd'hui.
  *
- * Trois règles portées par le code d'origine, à ne pas perdre :
- *
- *   1. le mois courant figure TOUJOURS, même sans paiement déjà généré ;
- *   2. les mois futurs sont exclus ;
- *   3. pour le mois courant, la borne de comptage des jours est AUJOURD'HUI et non la
- *      fin du mois — sinon les jours de pause à venir seraient déjà décomptés.
- *
- * ⚠️ Et une règle décidée le 2026-09-29 : **le déficit se reporte**. Le code d'origine
- * rendait `validé − charges` tel quel, donc négatif dès que les charges d'un mois
- * dépassaient les paiements validés — le mois en cours, un premier mois partiel, un mois
- * de pause. Désormais un mois déficitaire s'affiche à 0, et son manque est déduit du
- * mois suivant, puis du suivant, jusqu'à être couvert. Le report se calcule donc dans
- * l'ordre CHRONOLOGIQUE, avant le tri d'affichage.
+ * ⚠️ Le déficit se reporte (2026-09-29), dans l'ordre CHRONOLOGIQUE, avant le tri
+ * d'affichage — mais seulement sur les mois TRAVAILLÉS : un mois sans jour comptabilisé
+ * n'a aucune charge. Le lot 2 remplace ce report par le compte de charges.
  */
 final class BuildMonthlyPayoutRecap
 {
     /** @return Collection<int, MonthlyPayoutData> */
     public function __invoke(VehicleContract $contract): Collection
     {
-        $contract->load('payments');
-
-        $payments = $contract->payments;
-        $today = Carbon::today();
-
-        $months = $payments
-            ->map(fn ($payment) => Carbon::parse($payment->payment_month)->format('Y-m'))
-            ->unique()
-            ->sort();
-
-        $currentMonthKey = $today->format('Y-m');
-        if (! $months->contains($currentMonthKey)) {
-            $months = $months->push($currentMonthKey);
-        }
-
-        $vehiclePauses = $contract->pauses()->get();
-        $driverContractIds = $contract->driverContracts()->pluck('id');
-        $leaveRequests = LeaveRequest::whereIn('driver_contract_id', $driverContractIds)
-            ->whereIn('status', ['completed', 'ongoing'])
-            ->get();
-
+        $calculator = ContractMonthCalculator::for($contract);
         $carriedIn = 0.0;
 
-        return $months
-            ->values()
-            ->map(function (string $monthKey) use ($payments, $contract, $today, $vehiclePauses, $leaveRequests, &$carriedIn) {
-                $monthStart = Carbon::parse($monthKey.'-01')->startOfDay();
-                $monthEnd = $monthStart->copy()->endOfMonth();
+        return collect($calculator->monthKeys())
+            ->map(function (string $monthKey) use ($calculator, $contract, &$carriedIn) {
+                $figures = $calculator->month($monthKey);
+                $charges = $figures->isWorked ? $contract->total_charges : 0.0;
 
-                if ($monthStart->gt($today)) {
-                    return null;
-                }
-
-                $effectiveMonthEnd = min($monthEnd, $today);
-
-                $monthPayments = $payments->filter(
-                    fn ($payment) => Carbon::parse($payment->payment_month)->format('Y-m') === $monthKey,
-                );
-
-                $workedDays = $monthPayments->pluck('payment_date')
-                    ->map(fn ($date) => Carbon::parse($date)->format('Y-m-d'))
-                    ->unique()
-                    ->count();
-
-                $validated = (float) $monthPayments->where('status', 'completed')->sum('net_amount');
-
-                // `$months` est trié du plus ancien au plus récent : chaque mois reçoit
-                // le manque de celui qui le précède.
-                $balance = $validated - $contract->total_charges - $carriedIn;
+                $balance = $figures->validatedAmount - $charges - $carriedIn;
                 $deficitCarriedIn = $carriedIn;
                 $carriedIn = max(0.0, -$balance);
 
                 return new MonthlyPayoutData(
                     month: $monthKey,
-                    isCurrent: $monthStart->isSameMonth($today) && $monthStart->isSameYear($today),
-                    validatedAmount: $validated,
-                    pendingAmount: (float) $monthPayments->where('status', 'pending')->sum('net_amount'),
-                    cancelledAmount: (float) $monthPayments->where('status', 'cancelled')->sum('net_amount'),
-                    totalCharges: $contract->total_charges,
+                    isCurrent: $figures->isCurrent,
+                    isWorked: $figures->isWorked,
+                    businessDays: $figures->businessDays,
+                    countedDays: $figures->countedDays,
+                    agentLeaveDays: $figures->pauseDays,
+                    immobilizationDays: $figures->immobilizationDays,
+                    validatedAmount: $figures->validatedAmount,
+                    pendingAmount: $figures->pendingAmount,
+                    cancelledAmount: $figures->cancelledAmount,
+                    totalCharges: $charges,
                     fixedAmount: max(0.0, $balance),
                     deficitCarriedIn: $deficitCarriedIn,
                     deficitCarriedOut: $carriedIn,
-                    workedDays: $workedDays,
-                    agentLeaveDays: $this->businessDaysInMonth($leaveRequests, $monthStart, $effectiveMonthEnd),
-                    immobilizationDays: $this->businessDaysInMonth($vehiclePauses, $monthStart, $effectiveMonthEnd),
                 );
             })
-            ->filter()
             ->sortByDesc('month')
             ->values();
-    }
-
-    /**
-     * Les jours ouvrés de ces intervalles qui tombent dans le mois.
-     *
-     * Pauses d'agent et pauses véhicule portent les mêmes colonnes `start_date` et
-     * `end_date` et se comptent de la même façon ; le code d'origine écrivait deux fois
-     * la même boucle, elle est factorisée ici sans changer son résultat.
-     *
-     * Une fin de période absente vaut « aujourd'hui » : c'est ce que fait le code
-     * d'origine, et c'est ce qui rend une pause en cours comptable.
-     *
-     * @param  Collection<int, object>  $intervals
-     */
-    private function businessDaysInMonth(Collection $intervals, Carbon $monthStart, Carbon $effectiveMonthEnd): int
-    {
-        return (int) $intervals->sum(function ($interval) use ($monthStart, $effectiveMonthEnd) {
-            $start = $interval->start_date;
-            $end = $interval->end_date ?? Carbon::today();
-
-            $overlapStart = $start->greaterThan($monthStart) ? $start : $monthStart;
-            $overlapEnd = $end->lessThan($effectiveMonthEnd) ? $end : $effectiveMonthEnd;
-
-            if ($overlapStart->gt($overlapEnd)) {
-                return 0;
-            }
-
-            return LeaveRequest::countBusinessDays($overlapStart, $overlapEnd);
-        });
     }
 }
