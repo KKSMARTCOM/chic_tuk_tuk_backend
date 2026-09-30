@@ -6,6 +6,7 @@ use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\PricingSettingsController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\CommissionController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
+use App\Domains\Finance\Presentation\Api\V1\Admin\RemunerationStatementController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
@@ -274,6 +275,27 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
             ->middleware('permission:delete-payments')->name('payments.destroy');
+
+        /*
+         * Les fiches de rémunération (spec 2026-09-30). Relire et ajuster se délègue ;
+         * valider, envoyer et annuler restent à l'administrateur.
+         */
+        Route::post('/remuneration-statements/generate', [RemunerationStatementController::class, 'generate'])
+            ->middleware('permission:edit-remuneration-statements')->name('remuneration-statements.generate');
+
+        Route::middleware('permission:view-remuneration-statements')->group(function () {
+            Route::get('/remuneration-statements', [RemunerationStatementController::class, 'index'])->name('remuneration-statements.index');
+            Route::get('/remuneration-statements/{id}', [RemunerationStatementController::class, 'show'])->name('remuneration-statements.show');
+            Route::get('/remuneration-statements/{id}/pdf', [RemunerationStatementController::class, 'pdf'])->name('remuneration-statements.pdf');
+        });
+
+        Route::patch('/remuneration-statements/{id}', [RemunerationStatementController::class, 'update'])
+            ->middleware('permission:edit-remuneration-statements')->name('remuneration-statements.update');
+
+        Route::middleware('permission:validate-remuneration-statements')->group(function () {
+            Route::post('/remuneration-statements/{id}/validate', [RemunerationStatementController::class, 'validateStatement'])->name('remuneration-statements.validate');
+            Route::post('/remuneration-statements/{id}/cancel', [RemunerationStatementController::class, 'cancel'])->name('remuneration-statements.cancel');
+        });
 
         /*
          * Les réservations.

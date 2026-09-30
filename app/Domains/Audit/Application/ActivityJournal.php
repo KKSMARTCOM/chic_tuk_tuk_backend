@@ -611,8 +611,9 @@ final class ActivityJournal
     // ----- Fiches de rémunération --------------------------------------------------------
 
     /**
-     * Tâche planifiée du 1er du mois : UNE ligne par passage, et aucune quand elle n'a rien
-     * créé — une relance sans doublon n'a rien à dire.
+     * UNE ligne par passage, et aucune quand il n'a rien créé — une relance sans doublon
+     * n'a rien à dire. Au nom du « Système » pour la tâche du 1er du mois, de
+     * l'administrateur pour une génération à la demande.
      */
     public function remunerationStatementsGenerated(string $monthKey, int $count): void
     {
@@ -623,7 +624,6 @@ final class ActivityJournal
             null,
             "a créé {$count} brouillon(s) de fiches de rémunération pour {$month}",
             ['month' => $monthKey, 'count' => $count],
-            actor: self::SYSTEM,
         );
     }
 

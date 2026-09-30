@@ -100,6 +100,12 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         // autres administrateurs.
         'view-activity-log' => ['Voir le journal d\'activité', 'Voir qui a fait quoi dans l\'application'],
 
+        // Fiches de rémunération (2026-09-30). Relire et ajuster se délègue ; valider et
+        // envoyer reste à l'administrateur seul.
+        'view-remuneration-statements' => ['Voir les fiches de rémunération', 'Consulter les fiches de rémunération des propriétaires'],
+        'edit-remuneration-statements' => ['Préparer les fiches de rémunération', 'Générer les brouillons, ajuster les prélèvements et la note'],
+        'validate-remuneration-statements' => ['Valider les fiches de rémunération', 'Valider, envoyer et annuler une fiche de rémunération'],
+
         // Réglages
         // Ajoutée le 2026-09-29, à l'administrateur seul : tarifs des courses, durées et
         // montants des contrats véhicule. `manage-settings`, que porte aussi
