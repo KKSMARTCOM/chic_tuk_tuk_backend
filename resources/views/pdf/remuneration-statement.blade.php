@@ -9,7 +9,10 @@
   @font-face { font-family: 'Montserrat'; font-weight: 700; src: url('{{ $fonts }}/Montserrat-Bold.ttf'); }
   @page { margin: 28px 36px 90px 110px; }
   body { font-family: 'Montserrat', sans-serif; font-size: 11px; color: #111; }
+  /* L'image fait 243 × 2500 : à 70 px de large, une copie couvre 720 px de haut, et la page
+     A4 en mesure 1 123. Deux copies empilées, pour ne pas étirer les lettres. */
   .watermark { position: fixed; left: -100px; top: -28px; width: 70px; }
+  .watermark-next { top: 692px; }
   .draft { position: fixed; top: 380px; left: 40px; font-size: 90px; color: #f3caca; transform: rotate(-30deg); font-weight: 700; }
   h1 { font-size: 17px; font-weight: 700; margin: 18px 0 14px; }
   h2 { font-size: 12px; font-weight: 700; margin: 16px 0 8px; }
@@ -25,6 +28,7 @@
 </style></head>
 <body>
   <img class="watermark" src="{{ $watermark }}" alt="">
+  <img class="watermark watermark-next" src="{{ $watermark }}" alt="">
   @if ($draft)<div class="draft">BROUILLON</div>@endif
 
   <img src="{{ $logo }}" alt="KOKA" style="height: 56px">

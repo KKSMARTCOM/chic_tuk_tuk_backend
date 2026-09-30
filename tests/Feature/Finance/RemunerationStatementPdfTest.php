@@ -86,4 +86,13 @@ class RemunerationStatementPdfTest extends TestCase
         $this->assertStringContainsString('BROUILLON — non signé', $draft);
         $this->assertStringContainsString(base64_encode('cachet'), $validated);
     }
+
+    public function test_the_watermark_strip_runs_the_whole_page(): void
+    {
+        // L'image fait 243 × 2500 : à 70 px de large, une copie couvre 720 px, et une page A4
+        // en mesure 1 123 à 96 ppp. Deux copies empilées, sans étirer les lettres.
+        $html = app(RemunerationStatementPdf::class)->html($this->figures(), 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
+
+        $this->assertSame(2, substr_count($html, 'class="watermark'));
+    }
 }
