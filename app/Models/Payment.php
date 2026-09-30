@@ -23,6 +23,7 @@ class Payment extends Model
         'payment_date',
         'notes',
         'reference_number',
+        'remuneration_statement_id',
     ];
 
     protected $casts = [
@@ -45,5 +46,10 @@ class Payment extends Model
     public function driverContract()
     {
         return $this->belongsTo(DriverContract::class);
+    }
+
+    public function remunerationStatement()
+    {
+        return $this->belongsTo(RemunerationStatement::class);
     }
 }

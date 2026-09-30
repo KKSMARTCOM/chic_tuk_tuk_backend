@@ -32,6 +32,10 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Cachet, signature et fiches validées : jamais dans l'image (spec §7)
+storage/app/private/*
+!storage/app/private/.gitignore
+
 # Logs
 storage/logs/*
 *.log

@@ -5,6 +5,7 @@ namespace App\Domains\Notification\Application;
 use App\Models\Booking;
 use App\Models\LeaveRequest;
 use App\Models\Payment;
+use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
@@ -310,6 +311,47 @@ final class Notifier
             'warning',
             null,
         );
+    }
+
+    // ----- Fiches de rémunération -------------------------------------------
+
+    public function remunerationStatementIssued(RemunerationStatement $statement): void
+    {
+        $vehicle = $statement->contract?->vehicle;
+
+        $this->vers(
+            $vehicle?->owner,
+            'Fiche de rémunération '.$this->monthWithArticle($statement->month),
+            // `immatriculation()` ouvre une phrase (« Le véhicule … ») : ici le véhicule vient
+            // en milieu de phrase.
+            'Votre fiche de rémunération '.$statement->number.' pour '
+                .($vehicle?->vehicle_number ? 'le véhicule '.$vehicle->vehicle_number : 'votre véhicule')
+                .' est disponible : solde dû '.$this->montant($statement->balance_due).'.',
+            'success',
+            $vehicle ? "/owner/vehicles/{$vehicle->id}/payments" : null,
+        );
+    }
+
+    public function remunerationStatementCancelled(RemunerationStatement $statement): void
+    {
+        $vehicle = $statement->contract?->vehicle;
+
+        $this->vers(
+            $vehicle?->owner,
+            'Fiche de rémunération annulée',
+            'Votre fiche de rémunération '.$this->monthWithArticle($statement->month)
+                .' a été annulée, une version corrigée va suivre.',
+            'warning',
+            $vehicle ? "/owner/vehicles/{$vehicle->id}/payments" : null,
+        );
+    }
+
+    /** « d'octobre 2026 », « d'août 2026 », mais « de juillet 2026 ». */
+    private function monthWithArticle(\Carbon\CarbonInterface $month): string
+    {
+        $label = $month->locale('fr')->translatedFormat('F Y');
+
+        return (in_array(mb_substr($label, 0, 1), ['a', 'e', 'i', 'o', 'u', 'é'], true) ? 'd\'' : 'de ').$label;
     }
 
     // ----- Acheminement ------------------------------------------------------

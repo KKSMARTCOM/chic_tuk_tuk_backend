@@ -25,7 +25,7 @@ events: Array<App.Domains.Audit.Application.Data.ActivityEventOptionData>;
 };
 }
 declare namespace App.Domains.Audit.Domain {
-export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_deleted' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.commission_cancelled' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
+export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_deleted' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.cancelled' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
 }
 declare namespace App.Domains.Booking.Application.Data {
 export type AdminBookingDetailData = {
@@ -459,6 +459,24 @@ pending_payments_count: number;
 cancelled_payments_amount: number;
 cancelled_payments_count: number;
 };
+export type AdminRemunerationStatementListItemData = {
+id: string;
+number: string | null;
+status: App.Domains.Finance.Domain.Enums.RemunerationStatementStatus;
+status_label: string;
+month: string;
+owner_name: string;
+vehicle_number: string;
+balance_due: number;
+anomaly_count: number;
+};
+export type AdminRemunerationStatementPageData = {
+statements: Array<App.Domains.Finance.Application.Data.AdminRemunerationStatementListItemData>;
+pagination: App.Shared.Data.PaginationData;
+};
+export type CancelRemunerationStatementData = {
+reason: string;
+};
 export type CreatePaymentData = {
 driver_id: string;
 payment_type: 'commission' | 'contract' | 'subscription_revenue';
@@ -467,6 +485,10 @@ payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
 payment_date: string;
 notes: string | null;
 reference_number: string | null;
+};
+export type GenerateRemunerationStatementsData = {
+month: string;
+vehicle_contract_id: string | null;
 };
 export type MonthlyPayoutData = {
 month: string;
@@ -484,6 +506,59 @@ fixed_amount: number;
 deficit_carried_in: number;
 deficit_carried_out: number;
 };
+export type RemunerationStatementDetailData = {
+id: string;
+number: string | null;
+status: App.Domains.Finance.Domain.Enums.RemunerationStatementStatus;
+status_label: string;
+month: string;
+note: string | null;
+is_first_statement: boolean;
+can_validate: boolean;
+blocking: Array<string>;
+figures: App.Domains.Finance.Application.Data.StatementFiguresData;
+opening: App.Domains.Finance.Application.Data.RemunerationStatementOpeningData;
+validated_at: string | null;
+validated_by_name: string | null;
+sent_at: string | null;
+cancelled_at: string | null;
+cancel_reason: string | null;
+replaces_id: string | null;
+replaced_by_id: string | null;
+has_pdf: boolean;
+};
+export type RemunerationStatementOpeningData = {
+internet: number;
+spotify: number;
+manager: number;
+};
+export type StatementFiguresData = {
+month: string;
+owner_name: string;
+vehicle_number: string;
+contract_months: number;
+start_date: string;
+business_days: number;
+pause_days: number;
+immobilization_days: number;
+counted_days: number;
+daily_amount: number;
+revenue: number;
+recovered: number;
+pending_count: number;
+pending_amount: number;
+charges: Array<{ key: "internet" | "spotify" | "manager"; label: string; due: number; outstanding: number; proposed: number; deducted: number }>;
+deducted_total: number;
+balance_due: number;
+cumulative_revenue: number;
+cumulative_charges: number;
+cumulative_net: number;
+worked_months: number;
+pause_days_taken: number;
+pause_allowance: number;
+is_first_statement: boolean;
+anomalies: Array<string>;
+};
 export type UpdatePaymentData = {
 amount: number;
 payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
@@ -491,11 +566,21 @@ payment_date: string;
 notes: string | null;
 reference_number: string | null;
 };
+export type UpdateRemunerationStatementData = {
+deducted_internet: number | null;
+deducted_spotify: number | null;
+deducted_manager: number | null;
+opening_internet: number | null;
+opening_spotify: number | null;
+opening_manager: number | null;
+note: string | null;
+};
 }
 declare namespace App.Domains.Finance.Domain.Enums {
 export type CommissionStatus = 'active' | 'cancelled';
 export type PaymentStatus = 'pending' | 'completed' | 'cancelled' | 'failed';
 export type PaymentType = 'commission' | 'contract' | 'bonus' | 'other' | 'subscription_revenue';
+export type RemunerationStatementStatus = 'draft' | 'validated' | 'cancelled';
 }
 declare namespace App.Domains.Fleet.Application.Data {
 export type ActivePauseData = {

@@ -82,6 +82,17 @@ final class ContractMonthCalculator
         return collect($this->monthKeys())->sum(fn ($key) => $this->month($key)->pauseDays);
     }
 
+    /** Les mois travaillés jusqu'à ce mois inclus — le « 02 | 30 » de la fiche. */
+    public function workedMonthsUntil(string $monthKey): int
+    {
+        return collect($this->monthKeys())->filter(fn ($key) => $key <= $monthKey && $this->month($key)->isWorked)->count();
+    }
+
+    public function pauseDaysTakenUntil(string $monthKey): int
+    {
+        return collect($this->monthKeys())->filter(fn ($key) => $key <= $monthKey)->sum(fn ($key) => $this->month($key)->pauseDays);
+    }
+
     /** Le dernier jour compté : aujourd'hui, ou la fin du contrat si elle est passée. */
     private function bound(): Carbon
     {

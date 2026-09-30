@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Audit;
 
+use App\Domains\Audit\Application\ActivityJournal;
+use App\Domains\Audit\Domain\ActivityEvent;
 use App\Domains\Finance\Application\Actions\GenerateDailyContractPayments;
+use App\Domains\Finance\Application\Actions\GenerateRemunerationStatements;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\Payment;
+use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -187,5 +191,68 @@ class ActivityJournalFleetFinanceTest extends TestCase
             'event',
         );
         $this->assertSame(['vehicle.contract_created'], $events);
+    }
+
+    // ----- Fiches de rémunération --------------------------------------------------------
+
+    private function statement(): RemunerationStatement
+    {
+        $vehicle = Vehicle::factory()->create(['owner_id' => $this->owner('Eude Assogba')->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create();
+
+        return RemunerationStatement::factory()->for($contract, 'contract')->validated()
+            ->create(['month' => '2026-10-01', 'number' => 'FR-2026-10-001']);
+    }
+
+    public function test_valider_une_fiche_de_remuneration_dit_son_numero_et_le_proprietaire(): void
+    {
+        app(ActivityJournal::class)->remunerationStatementValidated($this->statement());
+
+        $entry = $this->last('remuneration_statement.validated');
+        $this->assertSame('a validé la fiche de rémunération FR-2026-10-001 de Eude Assogba', $entry->description);
+        $this->assertSame('remuneration_statement', $entry->subject_type);
+    }
+
+    public function test_l_envoi_d_une_fiche_est_au_nom_du_systeme(): void
+    {
+        app(ActivityJournal::class)->remunerationStatementSent($this->statement());
+
+        $entry = $this->last('remuneration_statement.sent');
+        $this->assertSame('a envoyé la fiche de rémunération FR-2026-10-001 à Eude Assogba', $entry->description);
+        $this->assertSame('remuneration_statement', $entry->subject_type);
+        $this->assertSame('Système', $entry->properties['actor']);
+    }
+
+    public function test_l_annulation_d_une_fiche_dit_son_motif(): void
+    {
+        app(ActivityJournal::class)->remunerationStatementCancelled($this->statement(), 'Erreur sur les charges');
+
+        $entry = $this->last('remuneration_statement.cancelled');
+        $this->assertSame('a annulé la fiche de rémunération FR-2026-10-001 de Eude Assogba : Erreur sur les charges', $entry->description);
+        $this->assertSame('remuneration_statement', $entry->subject_type);
+    }
+
+    public function test_la_generation_des_brouillons_ecrit_une_ligne_au_nom_du_systeme(): void
+    {
+        Carbon::setTestNow('2026-11-01 02:00:00');
+        config(['remuneration.first_month' => '2026-10']);
+        VehicleContract::factory()->count(3)->create(['start_date' => '2026-05-01']);
+
+        app(GenerateRemunerationStatements::class)('2026-10');
+        app(GenerateRemunerationStatements::class)('2026-10');
+        Carbon::setTestNow();
+
+        // La seconde passe ne crée rien : elle n'écrit rien.
+        $entries = Activity::query()->where('event', 'remuneration_statement.generated')->get();
+        $this->assertCount(1, $entries);
+        $this->assertSame('a créé 3 brouillon(s) de fiches de rémunération pour octobre 2026', $entries->first()->description);
+        $this->assertNull($entries->first()->subject_type);
+        $this->assertSame('Système', $entries->first()->properties['actor']);
+    }
+
+    public function test_les_fiches_forment_leur_propre_groupe(): void
+    {
+        $this->assertSame('Fiches de rémunération', ActivityEvent::RemunerationStatementValidated->group());
+        $this->assertSame('Fiche de rémunération validée', ActivityEvent::RemunerationStatementValidated->label());
     }
 }

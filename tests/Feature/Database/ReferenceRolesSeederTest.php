@@ -263,4 +263,20 @@ class ReferenceRolesSeederTest extends TestCase
         $this->assertSame($premier, $empreinte(), 'trois exécutions doivent donner le même état');
         $this->assertSame(5, Role::query()->count());
     }
+
+    public function test_les_fiches_de_remuneration_vont_a_l_administrateur_seul(): void
+    {
+        $this->semer();
+
+        $permissions = ['view-remuneration-statements', 'edit-remuneration-statements', 'validate-remuneration-statements'];
+        $admin = Role::query()->where('name', 'admin')->firstOrFail();
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        // Relire et ajuster se délègue depuis l'écran des rôles, sur décision : le seeder
+        // n'en donne rien à l'utilisateur.
+        foreach ($permissions as $permission) {
+            $this->assertTrue($admin->hasPermissionTo($permission), "admin doit porter {$permission}");
+            $this->assertFalse($user->hasPermissionTo($permission), "utilisateur ne doit pas porter {$permission}");
+        }
+    }
 }
