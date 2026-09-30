@@ -3,6 +3,7 @@
 namespace Tests\Feature\Fleet;
 
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -171,5 +172,34 @@ class OwnerVehicleShowTest extends TestCase
             ->getJson("/api/v1/owner/vehicles/{$vehicle->id}")
             ->assertOk()
             ->assertJsonPath('contract', null);
+    }
+
+    public function test_the_overview_carries_the_latest_validated_sheet_and_nothing_without_one(): void
+    {
+        // Les cumuls « réalisés » de l'aperçu viennent de la dernière fiche validée, figée :
+        // le front ne recalcule jamais un cumul.
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create();
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}")
+            ->assertOk()
+            ->assertJsonPath('contract.latest_statement', null);
+
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-09-01', 'figures' => ['month' => '2026-09', 'cumulative_revenue' => 50_000, 'cumulative_net' => 30_000],
+        ]);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-10-01', 'figures' => ['month' => '2026-10', 'cumulative_revenue' => 92_854, 'cumulative_net' => 65_354],
+        ]);
+        RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-11-01']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}")
+            ->assertOk()
+            ->assertJsonPath('contract.latest_statement.month', '2026-10')
+            ->assertJsonPath('contract.latest_statement.cumulative_revenue', 92_854)
+            ->assertJsonPath('contract.latest_statement.cumulative_net', 65_354);
     }
 }

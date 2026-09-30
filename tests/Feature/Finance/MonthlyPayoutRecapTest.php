@@ -6,6 +6,7 @@ use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
 use App\Models\Payment;
+use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -144,102 +145,6 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->assertNotContains(now()->addMonth()->format('Y-m'), $mois);
     }
 
-    public function test_separe_les_montants_par_statut_et_deduit_les_charges(): void
-    {
-        [$owner, $token] = $this->loginOwner();
-        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        // Démarré ce mois-ci : sinon les mois précédents, travaillés au calendrier et sans
-        // recette, reporteraient leur déficit.
-        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => now()->startOfMonth()]);
-
-        $jour = now()->startOfMonth()->toDateString();
-        Payment::factory()->onDay($jour)->status('completed')
-            ->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 100000]);
-        Payment::factory()->onDay($jour)->status('pending')
-            ->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 20000]);
-        Payment::factory()->onDay($jour)->status('cancelled')
-            ->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5000]);
-
-        $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
-            ->assertOk()
-            ->assertJsonPath('0.validated_amount', 100000)
-            ->assertJsonPath('0.pending_amount', 20000)
-            ->assertJsonPath('0.cancelled_amount', 5000)
-            ->assertJsonPath('0.total_charges', 27500)
-            // fixed_amount = validé − charges, quand rien n'est reporté.
-            ->assertJsonPath('0.fixed_amount', 72500)
-            ->assertJsonPath('0.deficit_carried_in', 0)
-            ->assertJsonPath('0.deficit_carried_out', 0);
-    }
-
-    /** Le récapitulatif d'un contrat, avec un paiement validé de `net` par mois donné. */
-    private function recapWithValidated(array $netByMonthsAgo): array
-    {
-        [$owner, $token] = $this->loginOwner();
-        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        $contract = VehicleContract::factory()->forVehicle($vehicle)->create([
-            'start_date' => now()->subMonthsNoOverflow(max(array_keys($netByMonthsAgo)))->startOfMonth(),
-        ]);
-
-        foreach ($netByMonthsAgo as $monthsAgo => $net) {
-            Payment::factory()->onDay(now()->subMonthsNoOverflow($monthsAgo)->startOfMonth()->toDateString())
-                ->status('completed')
-                ->create(['vehicle_contract_id' => $contract->id, 'net_amount' => $net]);
-        }
-
-        $rows = $this->withHeader('Authorization', "Bearer {$token}")
-            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
-            ->assertOk()->json();
-
-        return collect($rows)->keyBy('month')->all();
-    }
-
-    private function monthKey(int $monthsAgo): string
-    {
-        return now()->subMonthsNoOverflow($monthsAgo)->format('Y-m');
-    }
-
-    public function test_un_mois_deficitaire_s_affiche_a_zero_et_reporte_son_manque(): void
-    {
-        // Décidé le 2026-09-29 : le propriétaire ne voit plus de montant négatif. Le
-        // manque du mois est déduit du mois suivant, jusqu'à être couvert.
-        $recap = $this->recapWithValidated([2 => 10_000, 1 => 100_000]);
-
-        // Il y a deux mois : 10 000 validés, 27 500 de charges.
-        $this->assertEquals(0, $recap[$this->monthKey(2)]['fixed_amount']);
-        $this->assertEquals(17_500, $recap[$this->monthKey(2)]['deficit_carried_out']);
-
-        // Le mois suivant rembourse ce manque avant de dégager un montant fixe.
-        $this->assertEquals(17_500, $recap[$this->monthKey(1)]['deficit_carried_in']);
-        $this->assertEquals(100_000 - 27_500 - 17_500, $recap[$this->monthKey(1)]['fixed_amount']);
-        $this->assertEquals(0, $recap[$this->monthKey(1)]['deficit_carried_out']);
-    }
-
-    public function test_un_deficit_s_accumule_tant_qu_il_n_est_pas_couvert(): void
-    {
-        $recap = $this->recapWithValidated([3 => 20_000, 2 => 10_000, 1 => 100_000]);
-
-        $this->assertEquals(7_500, $recap[$this->monthKey(3)]['deficit_carried_out']);
-        // 10 000 − 27 500 − 7 500 reporté.
-        $this->assertEquals(7_500, $recap[$this->monthKey(2)]['deficit_carried_in']);
-        $this->assertEquals(25_000, $recap[$this->monthKey(2)]['deficit_carried_out']);
-        $this->assertEquals(0, $recap[$this->monthKey(2)]['fixed_amount']);
-        $this->assertEquals(100_000 - 27_500 - 25_000, $recap[$this->monthKey(1)]['fixed_amount']);
-    }
-
-    public function test_aucun_montant_fixe_n_est_jamais_negatif(): void
-    {
-        $recap = $this->recapWithValidated([1 => 0]);
-
-        foreach ($recap as $month) {
-            $this->assertGreaterThanOrEqual(0, $month['fixed_amount']);
-        }
-        // Le mois courant, sans paiement, hérite du manque du précédent.
-        $this->assertEquals(27_500, $recap[$this->monthKey(0)]['deficit_carried_in']);
-        $this->assertEquals(55_000, $recap[$this->monthKey(0)]['deficit_carried_out']);
-    }
-
     public function test_counted_days_come_from_the_calendar_not_from_payments(): void
     {
         [$owner, $token] = $this->loginOwner();
@@ -342,7 +247,7 @@ class MonthlyPayoutRecapTest extends TestCase
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
         $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-06-01']);
-        // Juin entier immobilisé : mois non travaillé, aucune charge, aucun déficit reporté.
+        // Juin entier immobilisé : mois non travaillé.
         VehiclePause::factory()->forContract($contract)->create([
             'start_date' => '2026-06-01', 'end_date' => '2026-06-30', 'reason_type' => 'agent_change',
         ]);
@@ -352,7 +257,72 @@ class MonthlyPayoutRecapTest extends TestCase
             ->assertOk()->json())->firstWhere('month', '2026-06');
 
         $this->assertFalse($june['is_worked']);
-        $this->assertEquals(0, $june['total_charges']);
-        $this->assertEquals(0, $june['deficit_carried_out']);
+        // Avant la mise en service des fiches : aucune charge ni aucun solde annoncé.
+        $this->assertNull($june['charges_deducted']);
+        $this->assertNull($june['balance_due']);
+    }
+
+    /** Les tests des fiches se placent le 2026-11-15, fiches en service depuis octobre. */
+    private function atNovember(): void
+    {
+        Carbon::setTestNow('2026-11-15 09:00:00');
+        config(['remuneration.first_month' => '2026-10']);
+    }
+
+    public function test_a_validated_month_shows_its_frozen_sheet(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-10-01']);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-10-01', 'number' => 'FR-2026-10-001', 'pdf_path' => 'statements/2026/FR-2026-10-001.pdf',
+            'balance_due' => 31_210,
+            'figures' => ['revenue' => 58_710, 'recovered' => 0, 'deducted_total' => 27_500, 'balance_due' => 31_210],
+        ]);
+        // Un paiement validé APRÈS la fiche : il ne change pas le mois figé.
+        Payment::factory()->onDay('2026-10-30')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5_871]);
+
+        $october = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json())
+            ->firstWhere('month', '2026-10');
+
+        $this->assertSame('validated', $october['status']);
+        $this->assertSame('FR-2026-10-001', $october['statement_number']);
+        $this->assertEquals(58_710, $october['revenue']);
+        $this->assertEquals(31_210, $october['balance_due']);
+        $this->assertTrue($october['has_pdf']);
+    }
+
+    public function test_a_closed_month_awaiting_review_shows_no_balance(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-10-01']);
+
+        $october = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json())
+            ->firstWhere('month', '2026-10');
+
+        $this->assertSame('review_pending', $october['status']);
+        $this->assertNull($october['balance_due']);
+        $this->assertGreaterThan(0, $october['counted_days']);
+    }
+
+    public function test_the_current_month_is_an_estimate(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-11-01']);
+        Payment::factory()->onDay('2026-11-02')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 100_000]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
+            ->assertOk()
+            ->assertJsonPath('0.status', 'current')
+            ->assertJsonPath('0.is_estimate', true)
+            ->assertJsonPath('0.balance_due', 72_500);
     }
 }

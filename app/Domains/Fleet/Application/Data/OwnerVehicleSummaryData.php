@@ -2,8 +2,10 @@
 
 namespace App\Domains\Fleet\Application\Data;
 
+use App\Domains\Fleet\Domain\VehicleOwnerState;
 use App\Models\Vehicle;
 use App\Shared\Data\BaseData;
+use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 
 final class OwnerVehicleSummaryData extends BaseData
 {
@@ -11,7 +13,11 @@ final class OwnerVehicleSummaryData extends BaseData
         public string $id,
         public string $vehicleNumber,
         public ?string $vehicleType,
-        public bool $isOnPause,
+        /** Actif, En pause, ou Immobilisé — en attente d'un nouvel agent (spec §6.1). */
+        #[LiteralTypeScriptType('"active" | "paused" | "immobilized"')]
+        public string $state,
+        /** Le motif de la pause en cours, affiché à côté de l'état. */
+        public ?string $pauseReasonLabel,
         public ?OwnerContractSummaryData $contract,
     ) {}
 
@@ -24,7 +30,8 @@ final class OwnerVehicleSummaryData extends BaseData
             id: $vehicle->id,
             vehicleNumber: $vehicle->vehicle_number,
             vehicleType: $vehicle->vehicle_type,
-            isOnPause: $vehicle->activePause !== null,
+            state: VehicleOwnerState::of($vehicle->activePause),
+            pauseReasonLabel: $vehicle->activePause?->reason_label,
             // Le véhicule peut n'avoir aucun contrat actif : c'est un cas réel, que le
             // Blade traite déjà par « Aucun contrat actif pour ce véhicule ».
             contract: $contract ? OwnerContractSummaryData::fromModel($contract) : null,

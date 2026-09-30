@@ -3,9 +3,12 @@
 namespace Tests\Feature\Fleet;
 
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Models\Payment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
+use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -89,7 +92,7 @@ class OwnerVehiclesIndexTest extends TestCase
             ->getJson('/api/v1/owner/vehicles')
             ->assertOk()
             ->assertJsonPath('0.contract', null)
-            ->assertJsonPath('0.is_on_pause', false);
+            ->assertJsonPath('0.state', 'active');
     }
 
     public function test_expose_l_avancement_du_contrat_actif(): void
@@ -104,7 +107,7 @@ class OwnerVehiclesIndexTest extends TestCase
             ->assertOk()
             ->assertJsonPath('0.contract.contract_months', 24)
             ->assertJsonStructure([
-                ['id', 'vehicle_number', 'vehicle_type', 'is_on_pause', 'contract' => [
+                ['id', 'vehicle_number', 'vehicle_type', 'state', 'pause_reason_label', 'contract' => [
                     'contract_months', 'months_elapsed', 'months_remaining',
                     'progress_percentage', 'remaining_amount',
                 ]],
@@ -119,5 +122,28 @@ class OwnerVehiclesIndexTest extends TestCase
             ->getJson('/api/v1/owner/vehicles')
             ->assertOk()
             ->assertExactJson([]);
+    }
+
+    public function test_each_vehicle_carries_its_state_and_its_totals(): void
+    {
+        Carbon::setTestNow('2026-08-01 09:00:00');
+        [$owner, $token] = $this->login(Profil::Owner, ['view-own-vehicles']);
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-07-01', 'total_amount' => 3_100_000]);
+        VehiclePause::factory()->forContract($contract)->ongoing()->create(['start_date' => '2026-07-31', 'reason_type' => 'agent_change']);
+        Payment::factory()->onDay('2026-07-01')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 310_000]);
+        Payment::factory()->onDay('2026-07-02')->status('pending')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5_871]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/owner/vehicles')
+            ->assertOk()
+            ->assertJsonPath('0.state', 'immobilized')
+            ->assertJsonPath('0.contract.paid_amount', 310_000)
+            ->assertJsonPath('0.contract.pending_amount', 5_871)
+            ->assertJsonPath('0.contract.revenue_progress', 10)
+            ->assertJsonPath('0.contract.pauses.pause_allowance', 48)
+            ->assertJsonMissingPath('0.is_on_pause');
+
+        Carbon::setTestNow();
     }
 }

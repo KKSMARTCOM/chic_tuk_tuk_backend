@@ -179,6 +179,18 @@ class BuildStatementFiguresTest extends TestCase
         $this->assertEquals(5871, app(BuildStatementFigures::class)($contract, '2026-07')->revenue);
     }
 
+    public function test_a_month_awaiting_its_sheet_is_not_recovered_by_the_next(): void
+    {
+        // Juillet n'a pas encore de fiche validée : ses paiements sont SES recettes, pas du
+        // « recouvré » d'août — sinon l'estimation d'août les compterait en plus.
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-07-01']);
+        $this->paidOn($contract, ['2026-07-30'], 5871);
+        RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-07-01']);
+        Carbon::setTestNow('2026-08-20 09:00:00');
+
+        $this->assertEquals(0, app(BuildStatementFigures::class)($contract, '2026-08')->recovered);
+    }
+
     public function test_figures_survive_the_json_snapshot(): void
     {
         $f = app(BuildStatementFigures::class)($this->assogba(), '2026-07');
