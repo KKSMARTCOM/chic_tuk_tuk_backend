@@ -20,6 +20,12 @@ final class CancelPayment
      */
     public function __invoke(Payment $payment): Payment
     {
+        // Un paiement compté par une fiche validée ne s'annule plus (spec §4.2) : la fiche
+        // envoyée au propriétaire deviendrait fausse. On annule d'abord la fiche.
+        if ($payment->remunerationStatement?->status === 'validated') {
+            throw new ApiException(409, 'PAYMENT_IN_VALIDATED_STATEMENT', 'Ce paiement est compté dans une fiche de rémunération validée : annulez d\'abord la fiche.');
+        }
+
         if ($payment->status === 'cancelled') {
             throw new ApiException(409, 'PAYMENT_ALREADY_CANCELLED', 'Ce paiement est déjà annulé.');
         }
