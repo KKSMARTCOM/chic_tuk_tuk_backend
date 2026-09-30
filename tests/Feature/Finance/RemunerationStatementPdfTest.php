@@ -55,4 +55,15 @@ class RemunerationStatementPdfTest extends TestCase
 
         $this->assertStringStartsWith('%PDF', $bytes);
     }
+
+    public function test_the_pdf_stays_light_enough_to_mail(): void
+    {
+        // Sans sous-ensemble, dompdf embarque les trois graisses de Montserrat en entier :
+        // plus d'un mégaoctet par fiche, en pièce jointe à chaque propriétaire. Mesuré sans
+        // cachet ni signature, qui ne sont pas sur tous les postes.
+        config(['remuneration.branding_dir' => storage_path('framework/testing/no-branding')]);
+        $bytes = app(RemunerationStatementPdf::class)->render($this->figures(), 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
+
+        $this->assertLessThan(400_000, strlen($bytes));
+    }
 }

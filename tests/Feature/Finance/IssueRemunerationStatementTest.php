@@ -83,4 +83,16 @@ class IssueRemunerationStatementTest extends TestCase
 
         $mail->assertSeeInText('fiche de rémunération d\'octobre 2026');
     }
+
+    public function test_the_notification_names_the_vehicle_mid_sentence(): void
+    {
+        $statement = $this->validated();
+        $statement->contract->vehicle->update(['vehicle_number' => '20BJ5689']);
+
+        $this->issue($statement);
+
+        $this->assertDatabaseHas('notifications', [
+            'message' => 'Votre fiche de rémunération FR-2026-10-001 pour le véhicule 20BJ5689 est disponible : solde dû 0 FCFA.',
+        ]);
+    }
 }

@@ -322,7 +322,10 @@ final class Notifier
         $this->vers(
             $vehicle?->owner,
             'Fiche de rémunération '.$this->monthWithArticle($statement->month),
-            'Votre fiche de rémunération '.$statement->number.' pour '.$this->immatriculation($vehicle)
+            // `immatriculation()` ouvre une phrase (« Le véhicule … ») : ici le véhicule vient
+            // en milieu de phrase.
+            'Votre fiche de rémunération '.$statement->number.' pour '
+                .($vehicle?->vehicle_number ? 'le véhicule '.$vehicle->vehicle_number : 'votre véhicule')
                 .' est disponible : solde dû '.$this->montant($statement->balance_due).'.',
             'success',
             $vehicle ? "/owner/vehicles/{$vehicle->id}/payments" : null,

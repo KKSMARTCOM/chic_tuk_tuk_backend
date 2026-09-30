@@ -45,7 +45,15 @@ final class RemunerationStatementPdf
 
         return Pdf::loadHTML($this->html($figures, $number, $draft, $issuedOn))
             ->setPaper('a4')
-            ->setOption(['chroot' => base_path(), 'isRemoteEnabled' => false, 'fontDir' => $fontCache, 'fontCache' => $fontCache])
+            ->setOption([
+                'chroot' => base_path(),
+                'isRemoteEnabled' => false,
+                'fontDir' => $fontCache,
+                'fontCache' => $fontCache,
+                // Seuls les glyphes utilisés : sans cela, les trois graisses entières pèsent
+                // plus d'un mégaoctet par fiche envoyée.
+                'isFontSubsettingEnabled' => true,
+            ])
             ->output();
     }
 }
