@@ -27,7 +27,7 @@ final class RemunerationStatementDetailData extends BaseData
         public ?string $note,
         public bool $isFirstStatement,
         public bool $canValidate,
-        /** @var array<int, string> */
+        /** @var string[] */
         public array $blocking,
         public StatementFiguresData $figures,
         public RemunerationStatementOpeningData $opening,

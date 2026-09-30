@@ -47,6 +47,8 @@ php artisan app:expire-bookings
 php artisan app:process-recurring-bookings
 php artisan app:generate-daily
 php artisan app:activate-leave-pauses
+php artisan app:generate-remuneration-statements --month=2026-10
+php artisan app:check-remuneration-branding
 ```
 
 Les tests tournent sur une base PostgreSQL **dédiée** (`chic_tuktuk_db_test`, réglée dans
@@ -831,6 +833,8 @@ avant le tri d'affichage du plus récent au plus ancien.
 - `app:recover-missed-subscription-bookings` → `ListMissedSubscriptionChildren` + `RecordMissedChild`
 - `app:generate-daily {--date=}` → `GenerateDailyContractPayments` (lun-ven, hors jours couverts par une pause véhicule)
 - `app:activate-leave-pauses` → `CreateAgentLeavePause` : les pauses véhicule des agents en pause
+- `app:generate-remuneration-statements {--month=}` → `GenerateRemunerationStatements` : les brouillons des fiches de rémunération d'un mois (par défaut le mois écoulé)
+- `app:check-remuneration-branding` : le cachet et la signature des fiches sont-ils en place ?
 
 ## Scheduler (bootstrap/app.php → withSchedule)
 
@@ -842,6 +846,7 @@ Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `boots
 | `app:process-recurring-bookings` | tous les jours à 01:00        |
 | `app:generate-daily`             | lun-ven à 23:30 (`weekdays()`) |
 | `app:activate-leave-pauses`      | toutes les 2 heures           |
+| `app:generate-remuneration-statements` | le 1er du mois à 02:00 |
 
 Sortie ajoutée à `storage/logs/commands.log`. En conteneur, `schedule:run` est lancé chaque
 minute par une boucle supervisord (`docker/supervisord.conf`), pas par un cron système.
@@ -871,6 +876,59 @@ rémunération le lira. Spec : `docs/specs/2026-09-30-fiches-de-remuneration-des
   du contrat, jamais copiée sur lui.
 - La date de fin du contrat n'est plus exposée au propriétaire ; les accesseurs
   `planned_end_date` et `extended_end_date` restent pour l'administration.
+
+## Les fiches de rémunération (2026-09-30)
+
+Chaque mois, une fiche par contrat véhicule dit au propriétaire ce que son tricycle a
+rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
+`docs/specs/2026-09-30-fiches-de-remuneration-design.md`, §4, §5 et §7.
+
+- **Brouillon, puis fiche figée.** Un brouillon (`draft`) ne stocke que ses saisies —
+  prélèvements par ligne (`null` = valeur proposée), reste d'ouverture, note — et se
+  RECALCULE à chaque lecture (`BuildStatementFigures`). La validation copie tous les
+  chiffres dans `figures` (JSON, `StatementFigures::toArray()`) : une fiche validée ne se
+  relit plus jamais depuis les paiements. Elle ne se modifie pas : elle s'ANNULE
+  (`CancelRemunerationStatement`, motif obligatoire), garde son numéro et son PDF, et un
+  brouillon la remplace (`replaces_id`). Une seule fiche NON annulée par contrat et par
+  mois (index unique partiel).
+- **Rattachement des paiements.** À la validation, les paiements comptés (recettes du mois,
+  et recouvré : validés en retard d'un mois antérieur) reçoivent
+  `payments.remuneration_statement_id`. Un paiement ne compte ainsi que dans une seule
+  fiche. Rattaché à une fiche validée, il ne s'annule plus —
+  `409 PAYMENT_IN_VALIDATED_STATEMENT` ; l'annulation de la fiche le détache.
+- **Ordre et concurrence.** La validation est refusée tant que la fiche du mois précédent
+  du même contrat existe sans être validée (`STATEMENT_PREVIOUS_NOT_VALIDATED`). Le numéro
+  `FR-2026-10-001` est attribué sous un verrou consultatif PostgreSQL par mois
+  (`pg_advisory_xact_lock`), et le rattachement vérifie le nombre de lignes touchées
+  (`STATEMENT_PAYMENTS_CHANGED`).
+- **Le compte de charges** (`ChargeLedger`, classe pure) remplace, pour les fiches, le
+  report automatique du déficit : dû par mois TRAVAILLÉ, reste à recouvrer par ligne
+  (ouverture + dû − prélevé des fiches validées), valeur proposée servie dans l'ordre
+  internet, Spotify, manager dans la limite de ce que le mois rapporte. Deux refus `422` :
+  prélever plus que le reste d'une ligne, et un solde dû négatif. Ils sont vérifiés à
+  l'enregistrement ET à la validation ; `ValidateRemunerationStatement::blockers()` les
+  annonce à l'écran avant le clic.
+- **Mise en service.** `config('remuneration.first_month')` (`REMUNERATION_FIRST_MONTH`) :
+  aucune fiche avant ce mois, et ses paiements antérieurs ne comptent jamais en recouvré.
+  Les cumuls d'une fiche partent de cet historique ; ses charges sont réputées prélevées,
+  moins le reste d'ouverture saisi sur la PREMIÈRE fiche du contrat.
+- **Cachet et signature hors dépôt** : `storage/app/private/branding/` (`cachet.png`,
+  `signature.png`), sur un volume persistant en staging. Absents, le PDF porte « SPÉCIMEN —
+  non signé » et la validation est refusée (`STATEMENT_BRANDING_MISSING`).
+  `app:check-remuneration-branding` dit ce qui manque. Le logo et le filigrane, publics,
+  sont versionnés dans `resources/pdf/remuneration-statement/`.
+- **Le PDF** (dompdf, `RemunerationStatementPdf`, gabarit
+  `resources/views/pdf/remuneration-statement.blade.php`, police Montserrat embarquée) est
+  rangé sur le disque privé, `statements/2026/FR-2026-10-001.pdf`, et ne sort que par les
+  routes authentifiées. dompdf met ses métriques de police en cache dans
+  `storage/framework/cache/dompdf`.
+- **L'envoi** se fait APRÈS la transaction de validation, par une tâche en file
+  (`IssueRemunerationStatement`, 3 essais) : PDF, notification, e-mail avec la fiche en
+  pièce jointe. Relançable — un PDF rangé n'est pas refait, une fiche envoyée
+  (`sent_at`) ne repart pas.
+- **Permissions** : `view-`, `edit-` (générer, ajuster) et `validate-remuneration-statements`
+  (valider, envoyer, annuler), ces dernières à l'administrateur seul dans le seeder.
+- Le document s'appelle « Fiche de rémunération », jamais « facture ».
 
 ## Déploiement (Coolify)
 

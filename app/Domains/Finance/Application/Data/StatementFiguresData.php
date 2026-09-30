@@ -39,7 +39,7 @@ final class StatementFiguresData extends BaseData
         public int $pauseDaysTaken,
         public int $pauseAllowance,
         public bool $isFirstStatement,
-        /** @var array<int, string> */
+        /** @var string[] */
         public array $anomalies,
     ) {}
 
