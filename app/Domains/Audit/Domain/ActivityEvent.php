@@ -84,6 +84,12 @@ enum ActivityEvent: string
     case DailyPaymentsGenerated = 'payment.daily_generated';
     case CommissionCancelled = 'payment.commission_cancelled';
 
+    // Fiches de rémunération des propriétaires
+    case RemunerationStatementsGenerated = 'remuneration_statement.generated';
+    case RemunerationStatementValidated = 'remuneration_statement.validated';
+    case RemunerationStatementSent = 'remuneration_statement.sent';
+    case RemunerationStatementCancelled = 'remuneration_statement.cancelled';
+
     // Réglages
     case PricingUpdated = 'settings.pricing_updated';
     case ContractTermsUpdated = 'settings.contract_terms_updated';
@@ -150,6 +156,10 @@ enum ActivityEvent: string
             self::PaymentDeleted => 'Paiement supprimé',
             self::DailyPaymentsGenerated => 'Paiements journaliers générés',
             self::CommissionCancelled => 'Commission annulée',
+            self::RemunerationStatementsGenerated => 'Fiches de rémunération générées',
+            self::RemunerationStatementValidated => 'Fiche de rémunération validée',
+            self::RemunerationStatementSent => 'Fiche de rémunération envoyée',
+            self::RemunerationStatementCancelled => 'Fiche de rémunération annulée',
             self::PricingUpdated => 'Tarifs modifiés',
             self::ContractTermsUpdated => 'Réglages des contrats modifiés',
         };
@@ -172,6 +182,7 @@ enum ActivityEvent: string
             'booking' => 'Réservations',
             'vehicle' => 'Flotte',
             'payment' => 'Paiements',
+            'remuneration_statement' => 'Fiches de rémunération',
             default => 'Réglages',
         };
     }

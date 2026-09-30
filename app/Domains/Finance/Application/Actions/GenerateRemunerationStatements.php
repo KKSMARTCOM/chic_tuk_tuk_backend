@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
 use Carbon\Carbon;
@@ -15,6 +16,8 @@ use Carbon\Carbon;
  */
 final class GenerateRemunerationStatements
 {
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function __invoke(string $monthKey, ?string $vehicleContractId = null): int
     {
         if ($monthKey < (string) config('remuneration.first_month')) {
@@ -24,7 +27,7 @@ final class GenerateRemunerationStatements
         $start = Carbon::parse($monthKey.'-01')->startOfDay();
         $end = $start->copy()->endOfMonth();
 
-        return VehicleContract::query()
+        $count = VehicleContract::query()
             ->when($vehicleContractId, fn ($q) => $q->whereKey($vehicleContractId))
             ->whereDate('start_date', '<=', $end)
             ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $start))
@@ -37,5 +40,12 @@ final class GenerateRemunerationStatements
                 'status' => 'draft',
             ]))
             ->count();
+
+        // Une ligne au journal, et aucune quand la relance n'a rien créé.
+        if ($count > 0) {
+            $this->journal->remunerationStatementsGenerated($monthKey, $count);
+        }
+
+        return $count;
     }
 }

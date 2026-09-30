@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 
@@ -609,8 +610,56 @@ final class ActivityJournal
 
     // ----- Fiches de rémunération --------------------------------------------------------
 
-    /** L'envoi d'une fiche validée au propriétaire. Remplie à la tâche 19. */
-    public function remunerationStatementSent(RemunerationStatement $statement): void {}
+    /**
+     * Tâche planifiée du 1er du mois : UNE ligne par passage, et aucune quand elle n'a rien
+     * créé — une relance sans doublon n'a rien à dire.
+     */
+    public function remunerationStatementsGenerated(string $monthKey, int $count): void
+    {
+        $month = Carbon::parse($monthKey.'-01')->locale('fr')->translatedFormat('F Y');
+
+        $this->record(
+            ActivityEvent::RemunerationStatementsGenerated,
+            null,
+            "a créé {$count} brouillon(s) de fiches de rémunération pour {$month}",
+            ['month' => $monthKey, 'count' => $count],
+            actor: self::SYSTEM,
+        );
+    }
+
+    public function remunerationStatementValidated(RemunerationStatement $statement): void
+    {
+        $this->record(
+            ActivityEvent::RemunerationStatementValidated,
+            $statement,
+            "a validé la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)}",
+        );
+    }
+
+    /** L'envoi se fait en file, après la validation : c'est le système qui envoie. */
+    public function remunerationStatementSent(RemunerationStatement $statement): void
+    {
+        $this->record(
+            ActivityEvent::RemunerationStatementSent,
+            $statement,
+            "a envoyé la fiche de rémunération {$statement->number} à {$this->statementOwner($statement)}",
+            actor: self::SYSTEM,
+        );
+    }
+
+    public function remunerationStatementCancelled(RemunerationStatement $statement, string $reason): void
+    {
+        $this->record(
+            ActivityEvent::RemunerationStatementCancelled,
+            $statement,
+            "a annulé la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)} : {$reason}",
+        );
+    }
+
+    private function statementOwner(RemunerationStatement $statement): string
+    {
+        return $statement->contract?->vehicle?->owner?->name ?? 'un propriétaire';
+    }
 
     // ----- Plomberie ---------------------------------------------------------------------
 
