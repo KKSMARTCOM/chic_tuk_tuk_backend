@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -85,12 +86,45 @@ class OwnerVehicleShowTest extends TestCase
             ->assertJsonPath('contract.manager_remuneration', 20000)
             ->assertJsonPath('contract.total_charges', 27500)
             ->assertJsonStructure(['contract' => [
-                'start_date', 'planned_end_date', 'extended_end_date',
+                'start_date', 'total_days', 'invested_amount',
                 'total_amount', 'total_paid', 'remaining_amount', 'daily_net_amount',
                 'progress_percentage', 'months_elapsed', 'months_remaining',
-                'total_contract_days', 'total_pause_days_taken',
-                'remaining_contract_days', 'pause_usage_percentage',
+                'pauses' => ['pause_allowance', 'pause_days_taken', 'pause_days_available', 'pause_days_remaining', 'pause_overrun'],
             ]]);
+    }
+
+    public function test_the_contract_no_longer_shows_an_end_date_and_counts_worked_months(): void
+    {
+        Carbon::setTestNow('2026-08-01 09:00:00');
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create([
+            'contract_months' => 24, 'start_date' => '2026-05-01',
+        ]);
+        // Mai entièrement immobilisé : non travaillé. Juin et juillet travaillés.
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-05-01', 'end_date' => '2026-05-31', 'reason_type' => 'agent_change',
+        ]);
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-07-06', 'end_date' => '2026-07-07', 'reason_type' => 'agent_leave',
+        ]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}")
+            ->assertOk()
+            ->assertJsonMissingPath('contract.planned_end_date')
+            ->assertJsonMissingPath('contract.extended_end_date')
+            ->assertJsonPath('contract.months_elapsed', 2)
+            ->assertJsonPath('contract.months_remaining', 22)
+            ->assertJsonPath('contract.total_days', 528)
+            ->assertJsonPath('contract.invested_amount', 1_799_500)
+            ->assertJsonPath('contract.pauses.pause_allowance', 48)
+            ->assertJsonPath('contract.pauses.pause_days_taken', 2)
+            ->assertJsonPath('contract.pauses.pause_days_available', 2)
+            ->assertJsonPath('contract.pauses.pause_days_remaining', 46)
+            ->assertJsonPath('contract.pauses.pause_overrun', 0);
+
+        Carbon::setTestNow();
     }
 
     public function test_les_dates_sortent_au_format_iso(): void

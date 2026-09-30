@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -119,8 +120,33 @@ class OwnerVehiclePausesTest extends TestCase
             ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/pauses")
             ->assertOk()
             ->assertJsonStructure(['summary' => [
-                'total_contract_days', 'total_pause_days_taken',
-                'remaining_contract_days', 'pause_usage_percentage',
+                'pause_allowance', 'pause_days_taken', 'pause_days_available',
+                'pause_days_remaining', 'pause_overrun',
             ], 'items']);
+    }
+
+    public function test_pauses_beyond_the_allowance_show_as_an_overrun(): void
+    {
+        Carbon::setTestNow('2026-08-01 09:00:00');
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        // 1 mois de contrat : droit de 2 jours. Plusieurs agents peuvent se succéder sur
+        // un même contrat, d'où l'absence de restriction : le dépassement s'affiche.
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create([
+            'contract_months' => 1, 'start_date' => '2026-07-01',
+        ]);
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-07-06', 'end_date' => '2026-07-10', 'reason_type' => 'agent_leave',
+        ]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/pauses")
+            ->assertOk()
+            ->assertJsonPath('summary.pause_allowance', 2)
+            ->assertJsonPath('summary.pause_days_taken', 5)
+            ->assertJsonPath('summary.pause_days_remaining', 0)
+            ->assertJsonPath('summary.pause_overrun', 3);
+
+        Carbon::setTestNow();
     }
 }
