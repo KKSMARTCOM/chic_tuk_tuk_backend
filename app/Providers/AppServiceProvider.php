@@ -37,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
         'payment'          => \App\Models\Payment::class,
         'permission'       => \App\Models\Permission::class,
         'promo_code'       => \App\Models\PromoCode::class,
+        'remuneration_statement' => \App\Models\RemunerationStatement::class,
         'role'             => \App\Models\Role::class,
         'testimonial'      => \App\Models\Testimonial::class,
         'tourist_circuit'  => \App\Models\TouristCircuit::class,

@@ -67,6 +67,11 @@ class VehicleContract extends Model
         return $this->hasMany(VehiclePause::class);
     }
 
+    public function remunerationStatements()
+    {
+        return $this->hasMany(RemunerationStatement::class);
+    }
+
     // Montant total déjà payé
     public function getTotalPaidAttribute(): float
     {
