@@ -494,17 +494,29 @@ export type MonthlyPayoutData = {
 month: string;
 is_current: boolean;
 is_worked: boolean;
+status: "current" | "review_pending" | "validated" | "before_statements";
 business_days: number;
 counted_days: number;
 agent_leave_days: number;
 immobilization_days: number;
-validated_amount: number;
+pending_count: number;
 pending_amount: number;
-cancelled_amount: number;
-total_charges: number;
-fixed_amount: number;
-deficit_carried_in: number;
-deficit_carried_out: number;
+revenue: number | null;
+recovered: number | null;
+charges_deducted: number | null;
+balance_due: number | null;
+is_estimate: boolean;
+statement_id: string | null;
+statement_number: string | null;
+has_pdf: boolean;
+worked_months_to_date: number;
+};
+export type OwnerStatementData = {
+id: string;
+number: string;
+month: string;
+balance_due: number;
+has_pdf: boolean;
 };
 export type RemunerationStatementDetailData = {
 id: string;
@@ -882,6 +894,11 @@ months_elapsed: number;
 months_remaining: number;
 progress_percentage: number;
 remaining_amount: number;
+paid_amount: number;
+pending_amount: number;
+charges_deducted: number;
+revenue_progress: number;
+pauses: App.Domains.Fleet.Application.Data.OwnerContractPauseSummaryData;
 };
 export type OwnerVehicleAttachmentData = {
 mode: 'existing' | 'new';
@@ -895,6 +912,7 @@ export type OwnerVehicleDetailData = {
 id: string;
 vehicle_number: string;
 vehicle_type: string | null;
+state: "active" | "paused" | "immobilized";
 active_pause: App.Domains.Fleet.Application.Data.ActivePauseData | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractDetailData | null;
 };
@@ -913,7 +931,8 @@ export type OwnerVehicleSummaryData = {
 id: string;
 vehicle_number: string;
 vehicle_type: string | null;
-is_on_pause: boolean;
+state: "active" | "paused" | "immobilized";
+pause_reason_label: string | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractSummaryData | null;
 };
 export type SaveVehicleData = {

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Finance\Presentation\Api\V1\Owner\StatementController;
 use App\Domains\Fleet\Presentation\Api\V1\Owner\VehicleController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,4 +46,13 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:owner'])
         Route::get('/vehicles/{id}/payments', [VehicleController::class, 'payments'])
             ->middleware('permission:view-own-payments')
             ->name('vehicles.payments');
+
+        // Les fiches de rémunération validées (2026-09-30).
+        Route::get('/vehicles/{id}/statements', [StatementController::class, 'index'])
+            ->middleware('permission:view-own-payments')
+            ->name('vehicles.statements');
+
+        Route::get('/statements/{id}/pdf', [StatementController::class, 'pdf'])
+            ->middleware('permission:view-own-payments')
+            ->name('statements.pdf');
     });

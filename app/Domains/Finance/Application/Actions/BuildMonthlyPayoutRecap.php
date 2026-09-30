@@ -4,56 +4,63 @@ namespace App\Domains\Finance\Application\Actions;
 
 use App\Domains\Finance\Application\Data\MonthlyPayoutData;
 use App\Domains\Finance\Domain\ContractMonthCalculator;
+use App\Domains\Finance\Domain\StatementFigures;
+use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
 use Illuminate\Support\Collection;
 
 /**
- * Le récapitulatif mensuel d'un contrat véhicule.
+ * Le récapitulatif mensuel que lit le propriétaire, fusionné avec ses fiches (spec §6.1).
  *
- * Depuis le 2026-09-30, les jours viennent de `ContractMonthCalculator` : au calendrier,
- * chaque jour classé une fois — l'ancien calcul additionnait les pauses d'agent et leurs
- * pauses véhicule automatiques, et comptait donc ces jours deux fois. Les mois vont du
- * début du contrat au mois courant, mois non travaillés compris.
- *
- * Règles gardées du code d'origine : le mois courant figure toujours, les mois futurs sont
- * exclus, et le mois courant s'arrête à aujourd'hui.
- *
- * ⚠️ Le déficit se reporte (2026-09-29), dans l'ordre CHRONOLOGIQUE, avant le tri
- * d'affichage — mais seulement sur les mois TRAVAILLÉS : un mois sans jour comptabilisé
- * n'a aucune charge. Le lot 2 remplace ce report par le compte de charges.
+ * Un mois dont la fiche est validée montre les chiffres FIGÉS de la fiche. Un mois clos
+ * sans fiche validée ne montre aucun solde : le propriétaire ne doit pas lire un montant
+ * que la relecture peut changer. Le mois en cours montre une estimation, marquée comme telle.
+ * Le report du déficit (2026-09-29) a disparu : le compte de charges le remplace.
  */
 final class BuildMonthlyPayoutRecap
 {
+    public function __construct(private readonly BuildStatementFigures $figures) {}
+
     /** @return Collection<int, MonthlyPayoutData> */
     public function __invoke(VehicleContract $contract): Collection
     {
         $calculator = ContractMonthCalculator::for($contract);
-        $carriedIn = 0.0;
+        $firstMonth = (string) config('remuneration.first_month');
+        $statements = $contract->remunerationStatements()->where('status', 'validated')->get()
+            ->keyBy(fn (RemunerationStatement $s) => $s->monthKey());
 
         return collect($calculator->monthKeys())
-            ->map(function (string $monthKey) use ($calculator, $contract, &$carriedIn) {
-                $figures = $calculator->month($monthKey);
-                $charges = $figures->isWorked ? $contract->total_charges : 0.0;
+            ->map(function (string $key) use ($calculator, $contract, $firstMonth, $statements) {
+                $month = $calculator->month($key);
+                $statement = $statements->get($key);
 
-                $balance = $figures->validatedAmount - $charges - $carriedIn;
-                $deficitCarriedIn = $carriedIn;
-                $carriedIn = max(0.0, -$balance);
+                [$status, $money, $estimate] = match (true) {
+                    $statement !== null => ['validated', StatementFigures::fromArray($statement->figures), false],
+                    $month->isCurrent => ['current', ($this->figures)($contract, $key), true],
+                    $key >= $firstMonth => ['review_pending', null, false],
+                    default => ['before_statements', null, false],
+                };
 
                 return new MonthlyPayoutData(
-                    month: $monthKey,
-                    isCurrent: $figures->isCurrent,
-                    isWorked: $figures->isWorked,
-                    businessDays: $figures->businessDays,
-                    countedDays: $figures->countedDays,
-                    agentLeaveDays: $figures->pauseDays,
-                    immobilizationDays: $figures->immobilizationDays,
-                    validatedAmount: $figures->validatedAmount,
-                    pendingAmount: $figures->pendingAmount,
-                    cancelledAmount: $figures->cancelledAmount,
-                    totalCharges: $charges,
-                    fixedAmount: max(0.0, $balance),
-                    deficitCarriedIn: $deficitCarriedIn,
-                    deficitCarriedOut: $carriedIn,
+                    month: $key,
+                    isCurrent: $month->isCurrent,
+                    isWorked: $month->isWorked,
+                    status: $status,
+                    businessDays: $money?->businessDays ?? $month->businessDays,
+                    countedDays: $money?->countedDays ?? $month->countedDays,
+                    agentLeaveDays: $money?->pauseDays ?? $month->pauseDays,
+                    immobilizationDays: $money?->immobilizationDays ?? $month->immobilizationDays,
+                    pendingCount: $money?->pendingCount ?? $month->pendingCount,
+                    pendingAmount: $money?->pendingAmount ?? $month->pendingAmount,
+                    revenue: $money?->revenue ?? ($status === 'before_statements' ? $month->validatedAmount : null),
+                    recovered: $money?->recovered,
+                    chargesDeducted: $money?->deductedTotal,
+                    balanceDue: $money?->balanceDue,
+                    isEstimate: $estimate,
+                    statementId: $statement?->id,
+                    statementNumber: $statement?->number,
+                    hasPdf: $statement?->pdf_path !== null,
+                    workedMonthsToDate: $calculator->workedMonthsUntil($key),
                 );
             })
             ->sortByDesc('month')
