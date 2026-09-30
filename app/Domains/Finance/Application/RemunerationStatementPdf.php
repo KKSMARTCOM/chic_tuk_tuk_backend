@@ -27,9 +27,11 @@ final class RemunerationStatementPdf
             'draft' => $draft,
             'issuedOn' => $issuedOn ?? Carbon::now(),
             'monthLabel' => mb_strtoupper(Carbon::parse($figures->month.'-01')->locale('fr')->translatedFormat('F Y')),
-            'signed' => RemunerationBranding::isComplete(),
-            'stamp' => $image(RemunerationBranding::stampPath()),
-            'signature' => $image(RemunerationBranding::signaturePath()),
+            // ⚠️ Un brouillon n'est JAMAIS signé : un aperçu téléchargé serait sinon un
+            // document au nom de la société, sur des chiffres qui peuvent encore changer.
+            'signed' => ! $draft && RemunerationBranding::isComplete(),
+            'stamp' => $draft ? null : $image(RemunerationBranding::stampPath()),
+            'signature' => $draft ? null : $image(RemunerationBranding::signaturePath()),
             'logo' => $image(RemunerationBranding::logoPath()),
             'watermark' => $image(RemunerationBranding::watermarkPath()),
             'fonts' => resource_path('fonts'),

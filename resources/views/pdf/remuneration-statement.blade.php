@@ -76,7 +76,7 @@
         <img src="{{ $stamp }}" alt="" style="width: 130px">
         <img src="{{ $signature }}" alt="" style="width: 90px; margin-left: -110px">
       @else
-        <span class="specimen">SPÉCIMEN — non signé</span>
+        <span class="specimen">{{ $draft ? 'BROUILLON' : 'SPÉCIMEN' }} — non signé</span>
       @endif
       <br>Le gérant, {{ config('remuneration.signatory') }}
     </td>

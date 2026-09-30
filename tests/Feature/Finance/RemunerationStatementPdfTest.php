@@ -43,10 +43,11 @@ class RemunerationStatementPdfTest extends TestCase
     public function test_a_draft_says_so_and_a_missing_signature_makes_a_specimen(): void
     {
         config(['remuneration.branding_dir' => storage_path('framework/testing/no-branding')]);
-        $html = app(RemunerationStatementPdf::class)->html($this->figures(), null, true, null);
+        $draft = app(RemunerationStatementPdf::class)->html($this->figures(), null, true, null);
+        $validated = app(RemunerationStatementPdf::class)->html($this->figures(), 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
 
-        $this->assertStringContainsString('BROUILLON', $html);
-        $this->assertStringContainsString('SPÉCIMEN — non signé', $html);
+        $this->assertStringContainsString('BROUILLON', $draft);
+        $this->assertStringContainsString('SPÉCIMEN — non signé', $validated);
     }
 
     public function test_it_renders_a_pdf(): void
@@ -65,5 +66,24 @@ class RemunerationStatementPdfTest extends TestCase
         $bytes = app(RemunerationStatementPdf::class)->render($this->figures(), 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
 
         $this->assertLessThan(400_000, strlen($bytes));
+    }
+
+    public function test_a_draft_never_carries_the_stamp_nor_the_signature(): void
+    {
+        // Un aperçu téléchargé serait sinon un document signé au nom de la société, sur des
+        // chiffres que la relecture peut encore changer.
+        $dir = storage_path('framework/testing/branding');
+        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+        \Illuminate\Support\Facades\File::put($dir.'/cachet.png', 'cachet');
+        \Illuminate\Support\Facades\File::put($dir.'/signature.png', 'signature');
+        config(['remuneration.branding_dir' => $dir]);
+
+        $draft = app(RemunerationStatementPdf::class)->html($this->figures(), null, true, null);
+        $validated = app(RemunerationStatementPdf::class)->html($this->figures(), 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
+
+        $this->assertStringNotContainsString(base64_encode('cachet'), $draft);
+        $this->assertStringNotContainsString(base64_encode('signature'), $draft);
+        $this->assertStringContainsString('BROUILLON — non signé', $draft);
+        $this->assertStringContainsString(base64_encode('cachet'), $validated);
     }
 }
