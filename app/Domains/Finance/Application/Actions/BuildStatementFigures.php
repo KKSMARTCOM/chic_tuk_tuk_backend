@@ -38,18 +38,24 @@ final class BuildStatementFigures
             // Comme `ContractMonthCalculator` : un paiement sans mois n'appartient à aucun.
             ->whereNotNull('payment_month')
             ->get();
-        $revenuePayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey);
-        $recoveredPayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') < $monthKey
-            && $p->payment_month->format('Y-m') >= $firstMonth);
-        $revenue = (float) $revenuePayments->sum('net_amount');
-        $recovered = (float) $recoveredPayments->sum('net_amount');
-
         $prior = RemunerationStatement::query()
             ->where('vehicle_contract_id', $contract->id)
             ->where('status', 'validated')
             ->where('month', '<', $monthKey.'-01')
             ->when($statement?->exists, fn ($q) => $q->whereKeyNot($statement->id))
             ->get();
+        $validatedMonths = $prior->map(fn (RemunerationStatement $s) => $s->monthKey())->all();
+
+        $revenuePayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey);
+        // Recouvré = validé APRÈS la fiche de son mois. Un mois encore sans fiche validée garde
+        // ses paiements pour lui : les compter ici les montrerait deux fois — dans l'estimation
+        // du mois suivant, puis dans la fiche de leur mois.
+        $recoveredPayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') < $monthKey
+            && $p->payment_month->format('Y-m') >= $firstMonth
+            && in_array($p->payment_month->format('Y-m'), $validatedMonths, true));
+        $revenue = (float) $revenuePayments->sum('net_amount');
+        $recovered = (float) $recoveredPayments->sum('net_amount');
+
         $first = $this->firstStatement($contract, $statement);
 
         $lineAmounts = [
