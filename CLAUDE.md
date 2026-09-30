@@ -216,7 +216,7 @@ avec le mainteneur.
 - Colonnes : driver_id, vehicle_contract_id, driver_contract_id,
   payment_month, payment_type (commission/contract/bonus/other), net_amount, amount,
   status (pending/completed/cancelled/failed)
-- Paiements journaliers auto via commande `app:generate-daily` (lun-ven uniquement)
+- Paiements journaliers auto via commande `app:generate-daily` (lun-ven, hors jours de pause ou d'immobilisation)
 
 ### LeaveRequest
 
@@ -829,7 +829,7 @@ avant le tri d'affichage du plus récent au plus ancien.
 - `app:expire-bookings` → `ExpireStaleBookings` : les courses pending dépassées de 24 h
 - `app:process-recurring-bookings` → `GenerateDueSubscriptionDays` : les journées J+1 (1 h)
 - `app:recover-missed-subscription-bookings` → `ListMissedSubscriptionChildren` + `RecordMissedChild`
-- `app:generate-daily {--date=}` → `GenerateDailyContractPayments` (lun-ven uniquement)
+- `app:generate-daily {--date=}` → `GenerateDailyContractPayments` (lun-ven, hors jours couverts par une pause véhicule)
 - `app:activate-leave-pauses` → `CreateAgentLeavePause` : les pauses véhicule des agents en pause
 
 ## Scheduler (bootstrap/app.php → withSchedule)
@@ -845,6 +845,32 @@ Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `boots
 
 Sortie ajoutée à `storage/logs/commands.log`. En conteneur, `schedule:run` est lancé chaque
 minute par une boucle supervisord (`docker/supervisord.conf`), pas par un cron système.
+
+## Les chiffres mensuels d'un contrat (2026-09-30)
+
+`ContractMonthCalculator` (`app/Domains/Finance/Domain`) est le SEUL endroit où se
+calculent les jours et les montants d'un mois de contrat véhicule. Le récapitulatif du
+propriétaire, ses mois effectués et son solde de pauses le lisent ; la fiche de
+rémunération le lira. Spec : `docs/specs/2026-09-30-fiches-de-remuneration-design.md`.
+
+- Jour ouvré = du lundi au vendredi, au calendrier, sans jours fériés.
+- Chaque jour est classé UNE fois (`ContractMonthCalendar`) : PAUSE s'il est couvert par
+  une pause d'agent ou une pause véhicule `agent_leave`, IMMOBILISATION s'il est couvert
+  par une autre pause véhicule, sinon COMPTABILISÉ. L'ancien récapitulatif additionnait
+  les pauses d'agent et leurs pauses véhicule automatiques : mêmes jours comptés deux fois.
+- ⚠️ Les pauses d'agent se lisent sur DEUX sources, `leave_requests` (en cours ou
+  terminées) et `vehicle_pauses` `agent_leave`. `AddHistoricalLeave` ne crée jamais de
+  pause véhicule : ne lire que `vehicle_pauses` ferait de ces jours des jours
+  comptabilisés. Constaté en base le 2026-09-30 (9 pauses d'agent sur 11).
+- Un mois sans jour comptabilisé n'est pas TRAVAILLÉ : aucune charge, et il ne compte pas
+  dans les mois effectués — un contrat de 24 mois avec un mois non travaillé en dure 25.
+- Le calendrier fait foi, les paiements lui sont rapprochés : un paiement sur un jour
+  d'arrêt, ou un jour comptabilisé sans paiement, est une anomalie, pas une correction.
+- La génération du soir saute tout jour couvert par une pause véhicule.
+- `vehicle_contract_terms.invested_amount` est une donnée d'affichage, LUE selon la durée
+  du contrat, jamais copiée sur lui.
+- La date de fin du contrat n'est plus exposée au propriétaire ; les accesseurs
+  `planned_end_date` et `extended_end_date` restent pour l'administration.
 
 ## Déploiement (Coolify)
 
