@@ -17,7 +17,7 @@ final class UpdateVehicleContractSettingsData extends BaseData
 {
     public function __construct(
         /** @var array<int, array<string, mixed>> */
-        #[LiteralTypeScriptType('Array<{ months: number; total_amount: number; daily_amount: number; daily_tax: number }>')]
+        #[LiteralTypeScriptType('Array<{ months: number; total_amount: number; daily_amount: number; daily_tax: number; invested_amount?: number | null }>')]
         public array $terms,
         public float $unlimitedInternet,
         public float $spotifyPremium,
@@ -33,6 +33,7 @@ final class UpdateVehicleContractSettingsData extends BaseData
             'terms.*.total_amount' => ['required', 'numeric', 'min:1'],
             'terms.*.daily_amount' => ['required', 'numeric', 'min:1'],
             'terms.*.daily_tax' => ['required', 'numeric', 'min:0', 'lt:terms.*.daily_amount'],
+            'terms.*.invested_amount' => ['nullable', 'numeric', 'min:0'],
             'unlimited_internet' => ['required', 'numeric', 'min:0'],
             'spotify_premium' => ['required', 'numeric', 'min:0'],
             'manager_remuneration' => ['required', 'numeric', 'min:0'],
@@ -57,6 +58,8 @@ final class UpdateVehicleContractSettingsData extends BaseData
             'terms.*.daily_tax.required' => 'La taxe journalière est obligatoire.',
             'terms.*.daily_tax.min' => 'La taxe journalière ne peut pas être négative.',
             'terms.*.daily_tax.lt' => 'La taxe journalière doit rester inférieure au versement journalier.',
+            'terms.*.invested_amount.numeric' => 'Le montant investi est un nombre.',
+            'terms.*.invested_amount.min' => 'Le montant investi ne peut pas être négatif.',
             'unlimited_internet.required' => 'L\'internet illimité est obligatoire.',
             'spotify_premium.required' => 'Spotify Premium est obligatoire.',
             'manager_remuneration.required' => 'La rémunération du manager est obligatoire.',

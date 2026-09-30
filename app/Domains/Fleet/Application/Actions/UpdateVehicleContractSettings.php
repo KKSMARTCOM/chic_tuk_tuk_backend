@@ -34,6 +34,7 @@ final class UpdateVehicleContractSettings
                         'total_amount' => $term['total_amount'],
                         'daily_amount' => $term['daily_amount'],
                         'daily_tax' => $term['daily_tax'],
+                        'invested_amount' => $term['invested_amount'] ?? null,
                     ],
                 );
             }

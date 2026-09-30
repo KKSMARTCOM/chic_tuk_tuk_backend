@@ -13,6 +13,8 @@ final class VehicleContractTermData extends BaseData
         public float $totalAmount,
         public float $dailyAmount,
         public float $dailyTax,
+        /** Donnée d'affichage, jamais copiée sur le contrat (2026-09-30). */
+        public ?float $investedAmount,
     ) {}
 
     public static function fromModel(VehicleContractTerm $term): self
@@ -22,6 +24,7 @@ final class VehicleContractTermData extends BaseData
             totalAmount: (float) $term->total_amount,
             dailyAmount: (float) $term->daily_amount,
             dailyTax: (float) $term->daily_tax,
+            investedAmount: $term->invested_amount !== null ? (float) $term->invested_amount : null,
         );
     }
 }
