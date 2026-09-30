@@ -30,6 +30,17 @@ final class CancelRemunerationStatement
         if ($statement->status !== 'validated') {
             throw new ApiException(409, 'STATEMENT_NOT_VALIDATED', 'Seule une fiche validée s\'annule.');
         }
+        // Le miroir de la règle d'ordre de la validation : une fiche suivante validée a bâti
+        // ses cumuls et son compte de charges sur celle-ci, et elle est déjà chez le
+        // propriétaire. On annule donc de la plus récente à la plus ancienne.
+        $laterValidated = RemunerationStatement::query()
+            ->where('vehicle_contract_id', $statement->vehicle_contract_id)
+            ->where('status', 'validated')
+            ->where('month', '>', $statement->month->toDateString())
+            ->exists();
+        if ($laterValidated) {
+            throw new ApiException(409, 'STATEMENT_LATER_VALIDATED', 'Une fiche plus récente de ce contrat est validée : annulez-la d\'abord.');
+        }
 
         $replacement = DB::transaction(function () use ($statement, $by, $reason) {
             Payment::query()->where('remuneration_statement_id', $statement->id)->update(['remuneration_statement_id' => null]);

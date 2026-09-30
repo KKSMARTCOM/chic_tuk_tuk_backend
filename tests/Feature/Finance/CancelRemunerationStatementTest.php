@@ -51,4 +51,21 @@ class CancelRemunerationStatementTest extends TestCase
         $this->expectException(ApiException::class);
         app(CancelRemunerationStatement::class)(RemunerationStatement::factory()->create(), User::factory()->create(), 'x');
     }
+
+    public function test_a_statement_followed_by_a_validated_one_cannot_be_cancelled(): void
+    {
+        // La fiche suivante, déjà envoyée, a bâti ses cumuls et son compte de charges sur
+        // celle-ci : on annule dans l'ordre inverse de la validation.
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-10-01']);
+        $october = RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2026-10-01']);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2026-11-01']);
+
+        try {
+            app(CancelRemunerationStatement::class)($october, User::factory()->create(), 'Erreur');
+            $this->fail('L\'annulation devait être refusée.');
+        } catch (ApiException $e) {
+            $this->assertSame('STATEMENT_LATER_VALIDATED', $e->errorCode);
+        }
+        $this->assertSame('validated', $october->fresh()->status);
+    }
 }

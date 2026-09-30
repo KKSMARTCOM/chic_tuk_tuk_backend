@@ -42,6 +42,9 @@ final class ValidateRemunerationStatement
             if ($this->previousIsPending($statement)) {
                 throw new ApiException(409, 'STATEMENT_PREVIOUS_NOT_VALIDATED', 'La fiche du mois précédent doit être validée d\'abord.');
             }
+            if ($this->monthIsNotOver($statement)) {
+                throw new ApiException(409, 'STATEMENT_MONTH_NOT_OVER', 'Le mois n\'est pas terminé : ses chiffres ne sont que partiels.');
+            }
 
             $figures = ($this->figures)($statement->contract, $statement->monthKey(), $statement);
             $violations = $this->violations($figures);
@@ -92,11 +95,23 @@ final class ValidateRemunerationStatement
         if ($this->previousIsPending($statement)) {
             $blockers[] = 'La fiche du mois précédent doit être validée d\'abord.';
         }
+        if ($this->monthIsNotOver($statement)) {
+            $blockers[] = 'Le mois n\'est pas terminé : ses chiffres ne sont que partiels.';
+        }
         if (! RemunerationBranding::isComplete()) {
             $blockers[] = 'Le cachet ou la signature sont introuvables sur le serveur.';
         }
 
         return [...$blockers, ...array_values($this->violations($figures))];
+    }
+
+    /**
+     * Un brouillon du mois en cours peut se générer et se relire, pas se valider : il
+     * partirait chez le propriétaire avec des chiffres partiels.
+     */
+    private function monthIsNotOver(RemunerationStatement $statement): bool
+    {
+        return $statement->month->copy()->endOfMonth()->gte(now());
     }
 
     private function previousIsPending(RemunerationStatement $statement): bool

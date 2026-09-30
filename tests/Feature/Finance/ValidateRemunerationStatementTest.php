@@ -144,4 +144,16 @@ class ValidateRemunerationStatementTest extends TestCase
 
         $this->assertSame('PAYMENT_IN_VALIDATED_STATEMENT', $this->refusalCode(fn () => app(CancelPayment::class)($payment->fresh())));
     }
+
+    public function test_a_month_not_over_cannot_be_validated(): void
+    {
+        // Le 2 novembre : novembre n'est pas fini, ses chiffres ne sont que partiels.
+        $november = $this->draft('2026-11-01');
+
+        $this->assertSame('STATEMENT_MONTH_NOT_OVER', $this->refusalCode(fn () => $this->validate($november)));
+        $this->assertContains(
+            'Le mois n\'est pas terminé : ses chiffres ne sont que partiels.',
+            app(ValidateRemunerationStatement::class)->blockers($november, app(\App\Domains\Finance\Application\Actions\BuildStatementFigures::class)($this->contract, '2026-11', $november)),
+        );
+    }
 }
