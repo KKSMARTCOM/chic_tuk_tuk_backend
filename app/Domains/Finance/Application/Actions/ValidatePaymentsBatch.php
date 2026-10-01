@@ -4,6 +4,7 @@ namespace App\Domains\Finance\Application\Actions;
 
 use App\Domains\Notification\Application\Notifier;
 use App\Models\Payment;
+use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,11 @@ final class ValidatePaymentsBatch
     public function __invoke(array $paymentIds, Carbon $collectedOn, bool $notifyDrivers): int
     {
         $payments = DB::transaction(function () use ($paymentIds, $collectedOn) {
+            // Les contrats véhicule AVANT les paiements, dans l'ordre de la validation d'une
+            // fiche : deux verrous pris en sens inverse s'interbloqueraient.
+            $vehicleContractIds = Payment::query()->whereIn('id', $paymentIds)->whereNotNull('vehicle_contract_id')
+                ->distinct()->orderBy('vehicle_contract_id')->pluck('vehicle_contract_id');
+            VehicleContract::query()->whereIn('id', $vehicleContractIds)->orderBy('id')->lockForUpdate()->get();
             $payments = Payment::query()->whereIn('id', $paymentIds)->lockForUpdate()->get();
             $notPending = $payments->where('status', '!=', 'pending')->count() + count(array_unique($paymentIds)) - $payments->count();
             if ($notPending > 0) {

@@ -148,4 +148,16 @@ class OwnerStatementsApiTest extends TestCase
 
         $this->assertSame(0, $statement->refresh()->owner_download_count);
     }
+
+    public function test_the_limit_message_of_a_reconstituted_statement_does_not_mention_an_email(): void
+    {
+        [$token, $statement] = $this->ownerWithStatement();
+        $statement->update(['owner_download_count' => 3, 'delivery' => 'none']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/v1/owner/statements/{$statement->id}/pdf")
+            ->assertStatus(403)->assertJsonPath('message', 'Limite de téléchargement atteinte.');
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$statement->contract->vehicle_id}/statements")
+            ->assertJsonPath('0.sent_by_email', false);
+    }
 }

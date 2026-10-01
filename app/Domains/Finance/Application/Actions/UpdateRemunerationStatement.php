@@ -8,6 +8,7 @@ use App\Models\RemunerationStatement;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
+use Spatie\LaravelData\Optional;
 
 /**
  * Enregistrer les saisies d'un brouillon. Les garde-fous du compte de charges sont vérifiés
@@ -36,10 +37,12 @@ final class UpdateRemunerationStatement
             'note' => $data->note,
         ] + $opening);
 
-        if ($data->issuedOn !== null) {
-            $issueViolations = app(ValidateRemunerationStatement::class)->issueDateViolations($statement, Carbon::parse($data->issuedOn));
-            if ($issueViolations !== []) {
-                throw ValidationException::withMessages($issueViolations);
+        if (! $data->issuedOn instanceof Optional) {
+            if ($data->issuedOn !== null) {
+                $issueViolations = app(ValidateRemunerationStatement::class)->issueDateViolations($statement, Carbon::parse($data->issuedOn));
+                if ($issueViolations !== []) {
+                    throw ValidationException::withMessages($issueViolations);
+                }
             }
             $statement->issued_on = $data->issuedOn;
         }

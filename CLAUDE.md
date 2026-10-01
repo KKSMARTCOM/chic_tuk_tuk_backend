@@ -981,7 +981,11 @@ contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, pro
   notification ni e-mail ; son annulation ne prévient pas le propriétaire.
 - ⚠️ **Le numéro vient de `remuneration_statement_numbers`**, un compteur par mois qui ne
   recule jamais : compter les fiches réattribuerait un numéro après
-  `DELETE /admin/remuneration-statements/cancelled` (rôle `admin` seul).
+  `DELETE /admin/remuneration-statements/cancelled` (`purge-remuneration-statements`, une
+  permission que seul le rôle `admin` porte — **rejouer le seeder après déploiement**).
+- **Verrous, toujours dans cet ordre** : contrat agent, contrat véhicule, paiements. Valider
+  ou corriger un paiement et figer une fiche verrouillent le contrat véhicule : un
+  encaissement ne se glisse pas pendant qu'une fiche du même contrat se fige.
 - **PDF** : un an de vie (`pdf_purged_at`, `410 STATEMENT_PDF_EXPIRED`), régénérés par
   `POST /admin/remuneration-statements/{id}/pdf` ; le propriétaire télécharge 3 fois
   (`owner_download_count`, `403 STATEMENT_DOWNLOAD_LIMIT`), l'admin sans limite.

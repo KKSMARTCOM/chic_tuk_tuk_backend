@@ -123,4 +123,16 @@ class GenerateDailyContractPaymentsTest extends TestCase
         // Deux agents d'un même véhicule ne doivent pas générer le même jour en parallèle.
         $this->assertTrue($vehicleLocked);
     }
+
+    public function test_the_command_refuses_a_future_date_out_loud(): void
+    {
+        // Le planificateur ne classe jamais un jour à venir : la commande le dit au lieu de
+        // ne rien générer en silence (revue du 2026-10-01).
+        $future = Carbon::tomorrow()->isWeekend() ? Carbon::today()->next(Carbon::MONDAY) : Carbon::tomorrow();
+
+        $this->artisan('app:generate-daily', ['--date' => $future->toDateString()])
+            ->expectsOutputToContain('date future')
+            ->assertFailed();
+        $this->assertSame(0, Payment::count());
+    }
 }

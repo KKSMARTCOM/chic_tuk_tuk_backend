@@ -64,7 +64,11 @@ final class StatementController
                 ->where('owner_download_count', '<', (int) config('remuneration.owner_download_limit'))
                 ->increment('owner_download_count');
             if ($counted === 0) {
-                throw new ApiException(403, 'STATEMENT_DOWNLOAD_LIMIT', 'Limite de téléchargement atteinte — la fiche vous a été envoyée par e-mail.');
+                // Une fiche reconstituée n'est jamais partie par e-mail : le propriétaire l'a reçue
+                // sur papier (2026-10-01).
+                throw new ApiException(403, 'STATEMENT_DOWNLOAD_LIMIT', $statement->delivery === 'none'
+                    ? 'Limite de téléchargement atteinte.'
+                    : 'Limite de téléchargement atteinte — la fiche vous a été envoyée par e-mail.');
             }
 
             return response($bytes, 200, [

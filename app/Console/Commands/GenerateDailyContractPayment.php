@@ -32,10 +32,16 @@ class GenerateDailyContractPayment extends Command
      */
     public function handle()
     {
-        //
         $date = $this->option('date')
             ? Carbon::parse($this->option('date'))
             : Carbon::today();
+
+        // Un jour à venir n'est pas dû : le planificateur ne le classe jamais (2026-10-01).
+        if ($date->copy()->startOfDay()->gt(Carbon::today())) {
+            $this->error("[{$date->toDateString()}] date future — un paiement ne se génère que pour un jour arrivé.");
+
+            return self::FAILURE;
+        }
 
         if ($date->isWeekend()) {
             $this->warn("[{$date->toDateString()}] Jour de week-end — aucun paiement généré.");

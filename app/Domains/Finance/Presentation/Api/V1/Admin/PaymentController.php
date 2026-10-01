@@ -4,6 +4,7 @@ namespace App\Domains\Finance\Presentation\Api\V1\Admin;
 
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Actions\CancelPayment;
+use App\Domains\Finance\Application\Actions\CorrectCollectionDate;
 use App\Domains\Finance\Application\Actions\CreatePayment;
 use App\Domains\Finance\Application\Actions\DeletePayment;
 use App\Domains\Finance\Application\Actions\ListPayableDrivers;
@@ -12,16 +13,15 @@ use App\Domains\Finance\Application\Actions\ShowDriverPayments;
 use App\Domains\Finance\Application\Actions\ShowPaymentDetail;
 use App\Domains\Finance\Application\Actions\UpdatePayment;
 use App\Domains\Finance\Application\Actions\ValidatePayment;
+use App\Domains\Finance\Application\Actions\ValidatePaymentsBatch;
+use App\Domains\Finance\Application\Data\CorrectCollectionDateData;
 use App\Domains\Finance\Application\Data\CreatePaymentData;
 use App\Domains\Finance\Application\Data\UpdatePaymentData;
+use App\Domains\Finance\Application\Data\ValidatePaymentData;
+use App\Domains\Finance\Application\Data\ValidatePaymentsBatchData;
 use App\Models\Driver;
 use App\Models\Payment;
 use App\Shared\Http\ApiException;
-use App\Domains\Finance\Application\Actions\CorrectCollectionDate;
-use App\Domains\Finance\Application\Actions\ValidatePaymentsBatch;
-use App\Domains\Finance\Application\Data\CorrectCollectionDateData;
-use App\Domains\Finance\Application\Data\ValidatePaymentData;
-use App\Domains\Finance\Application\Data\ValidatePaymentsBatchData;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -109,7 +109,8 @@ final class PaymentController
         return $this->guard($request, 'la validation groupée des paiements', 'Les paiements n\'ont pas pu être validés.', 'PAYMENTS_BATCH_VALIDATE_FAILED',
             function () use ($data, $validate) {
                 $count = $validate($data->paymentIds, Carbon::parse($data->collectedOn), $data->notifyDrivers);
-                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('amount');
+                // En net, comme la génération : le journal parle le langage des fiches.
+                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('net_amount');
                 $this->journal->paymentsValidatedInBatch($count, $total, $data->collectedOn);
 
                 return response()->json(['validated' => $count]);

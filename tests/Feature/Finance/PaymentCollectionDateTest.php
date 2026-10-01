@@ -28,6 +28,7 @@ class PaymentCollectionDateTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow('2026-10-01 09:00:00');
+        config(['remuneration.first_month' => '2026-03']);
         $this->contract = VehicleContract::factory()->create(['start_date' => '2026-03-01']);
         $this->driver = Driver::factory()->create();
     }
@@ -141,5 +142,75 @@ class PaymentCollectionDateTest extends TestCase
     {
         $a = $this->pending('2026-03-02');
         $this->api([])->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id], 'collected_on' => '2026-03-31'])->assertForbidden();
+    }
+
+    public function test_the_batch_journal_totals_net_amounts_like_the_generation(): void
+    {
+        $a = Payment::factory()->onDay('2026-03-02')->status('pending')->create(['vehicle_contract_id' => $this->contract->id, 'amount' => 6112, 'net_amount' => 5871]);
+        $b = Payment::factory()->onDay('2026-03-03')->status('pending')->create(['vehicle_contract_id' => $this->contract->id, 'amount' => 6112, 'net_amount' => 5871]);
+
+        $this->api()->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id, $b->id], 'collected_on' => '2026-03-31'])->assertOk();
+
+        $this->assertEquals(11742, \Spatie\Activitylog\Models\Activity::where('event', 'payment.batch_validated')->sole()->properties['total']);
+    }
+
+    public function test_a_payment_before_the_first_month_is_never_blocked_by_a_statement(): void
+    {
+        // Un paiement d'avant la mise en service n'entre dans aucune fiche, même en recouvré :
+        // aucune fiche ne peut l'avoir « manqué ».
+        config(['remuneration.first_month' => '2026-04']);
+        RemunerationStatement::factory()->for($this->contract, 'contract')->validated()->create(['month' => '2026-04-01', 'issued_on' => '2026-05-04']);
+        $march = $this->pending('2026-03-30');
+
+        $this->api()->postJson("/api/v1/admin/payments/{$march->id}/validate", ['collected_on' => '2026-04-10'])->assertOk();
+    }
+
+    /** Les requêtes FOR UPDATE, dans l'ordre : « vc » pour le contrat véhicule, « payment » pour un paiement. */
+    private function lockOrder(callable $action): array
+    {
+        $order = [];
+        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$order) {
+            if (! str_contains(strtolower($query->sql), 'for update')) {
+                return;
+            }
+            if (str_contains($query->sql, '"vehicle_contracts"')) {
+                $order[] = 'vc';
+            } elseif (str_contains($query->sql, '"payments"')) {
+                $order[] = 'payment';
+            }
+        });
+        $action();
+
+        return $order;
+    }
+
+    public function test_validating_a_payment_locks_its_vehicle_contract(): void
+    {
+        // Revue du 2026-10-01 : sans verrou commun, un paiement validé pendant la validation
+        // d'une fiche du même contrat passait le garde-fou et glissait dans la fiche suivante.
+        $a = $this->pending('2026-03-02');
+
+        $order = $this->lockOrder(fn () => $this->api()->postJson("/api/v1/admin/payments/{$a->id}/validate", ['collected_on' => '2026-03-31'])->assertOk());
+
+        $this->assertContains('vc', $order);
+    }
+
+    public function test_the_batch_locks_vehicle_contracts_before_payments(): void
+    {
+        $a = $this->pending('2026-03-02');
+
+        $order = $this->lockOrder(fn () => $this->api()->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id], 'collected_on' => '2026-03-31'])->assertOk());
+
+        $this->assertSame('vc', $order[0] ?? null);
+        $this->assertContains('payment', $order);
+    }
+
+    public function test_correcting_a_date_locks_the_vehicle_contract(): void
+    {
+        $paid = Payment::factory()->onDay('2026-03-02')->create(['vehicle_contract_id' => $this->contract->id, 'collected_on' => '2026-10-01']);
+
+        $order = $this->lockOrder(fn () => $this->api()->patchJson("/api/v1/admin/payments/{$paid->id}/collected-on", ['collected_on' => '2026-03-31'])->assertOk());
+
+        $this->assertContains('vc', $order);
     }
 }

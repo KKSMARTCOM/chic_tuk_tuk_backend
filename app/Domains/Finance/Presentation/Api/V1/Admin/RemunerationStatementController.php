@@ -125,13 +125,10 @@ final class RemunerationStatementController
         }
     }
 
-    /** Vider les fiches annulées — le RÔLE administrateur, pas une permission attribuable (2026-10-01). */
+    /** Vider les fiches annulées — `purge-remuneration-statements`, portée par la route (2026-10-01). */
     public function purgeCancelled(Request $request, PurgeCancelledStatements $purge): JsonResponse
     {
         try {
-            if (! $request->user()->hasRole('admin')) {
-                throw new ApiException(403, 'ADMIN_ROLE_REQUIRED', 'Seul l\'administrateur peut vider les fiches annulées.');
-            }
             $numbers = $purge();
             if ($numbers !== []) {
                 $this->journal->cancelledStatementsPurged($numbers);

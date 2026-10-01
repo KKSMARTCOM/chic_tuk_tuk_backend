@@ -4,8 +4,10 @@ namespace App\Domains\Finance\Application\Actions;
 
 use App\Domains\Notification\Application\Notifier;
 use App\Models\Payment;
+use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Valider un paiement — ex-`PaymentService::validatePayment()`, déplacé sans changement
@@ -24,14 +26,25 @@ final class ValidatePayment
      */
     public function __invoke(Payment $payment, ?Carbon $collectedOn = null, bool $notify = true): Payment
     {
-        if ($payment->status !== 'pending') {
-            throw new ApiException(409, 'PAYMENT_NOT_PENDING', 'Seul un paiement en attente se valide.');
-        }
-
         $collectedOn ??= Carbon::today();
-        ($this->checkCollectionDate)($payment, $collectedOn);
 
-        $payment->update(['status' => 'completed', 'collected_on' => $collectedOn->toDateString()]);
+        // Le contrat véhicule verrouillé, comme à la validation d'une fiche : sinon un paiement
+        // validé pendant qu'une fiche du même contrat se valide passerait le garde-fou et
+        // glisserait dans la fiche suivante (revue du 2026-10-01).
+        $payment = DB::transaction(function () use ($payment, $collectedOn) {
+            if ($payment->vehicle_contract_id !== null) {
+                VehicleContract::query()->lockForUpdate()->find($payment->vehicle_contract_id);
+            }
+            $payment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
+            if ($payment->status !== 'pending') {
+                throw new ApiException(409, 'PAYMENT_NOT_PENDING', 'Seul un paiement en attente se valide.');
+            }
+
+            ($this->checkCollectionDate)($payment, $collectedOn);
+            $payment->update(['status' => 'completed', 'collected_on' => $collectedOn->toDateString()]);
+
+            return $payment;
+        });
 
         // C'est l'ACTION qui est notifiée, pas la création du paiement : celle-ci est
         // majoritairement automatique et quotidienne.
