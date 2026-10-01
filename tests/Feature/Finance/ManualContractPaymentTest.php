@@ -6,6 +6,7 @@ use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\Payment;
+use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\VehicleContract;
 use Carbon\Carbon;
@@ -44,7 +45,7 @@ class ManualContractPaymentTest extends TestCase
 
     private function body(Driver $driver, array $extra = []): array
     {
-        return ['driver_id' => $driver->id, 'payment_type' => 'contract', 'amount' => 6112, 'payment_method' => 'cash', 'payment_date' => '2026-05-12'] + $extra;
+        return array_merge(['driver_id' => $driver->id, 'payment_type' => 'contract', 'amount' => 6112, 'payment_method' => 'cash', 'payment_date' => '2026-05-12'], $extra);
     }
 
     public function test_a_resigned_agents_payment_goes_to_the_chosen_ended_contract_with_its_month(): void
@@ -88,5 +89,21 @@ class ManualContractPaymentTest extends TestCase
         $this->assertCount(2, $all);
         $this->assertCount(1, $active);
         $this->assertSame($ended->id, collect($all)->firstWhere('id', $ended->driver_id)['contracts'][0]['id']);
+    }
+
+    public function test_a_manual_payment_an_issued_statement_should_have_counted_is_refused(): void
+    {
+        $vehicleContract = VehicleContract::factory()->create(['start_date' => '2026-03-01']);
+        $agent = DriverContract::factory()->forVehicleContract($vehicleContract)->create(['start_date' => '2026-03-02', 'status' => 'active']);
+        RemunerationStatement::factory()->for($vehicleContract, 'contract')->validated()->create(['month' => '2026-03-01', 'issued_on' => '2026-04-03']);
+
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($agent->driver, ['driver_contract_id' => $agent->id, 'payment_date' => '2026-03-15']))
+            ->assertStatus(422)->assertJsonValidationErrors('payment_date');
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($agent->driver, ['driver_contract_id' => $agent->id, 'payment_date' => '2026-10-02']))
+            ->assertStatus(422)->assertJsonValidationErrors('payment_date');
+        $this->assertSame(0, Payment::count());
+
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($agent->driver, ['driver_contract_id' => $agent->id, 'payment_date' => '2026-04-10']))
+            ->assertCreated();
     }
 }

@@ -14,7 +14,10 @@ use Illuminate\Validation\ValidationException;
  */
 final class CreatePayment
 {
-    public function __construct(private readonly CheckPaymentData $checkPaymentData) {}
+    public function __construct(
+        private readonly CheckPaymentData $checkPaymentData,
+        private readonly CheckCollectionDate $checkCollectionDate,
+    ) {}
 
     /**
      * Créer un paiement
@@ -45,6 +48,19 @@ final class CreatePayment
         }
 
         ($this->checkPaymentData)($data);
+
+        // Il naît validé, encaissé à sa date : mêmes garde-fous qu'une validation (spec
+        // 2026-10-01, §4.4), sous le champ de la date du formulaire.
+        if ($isContract) {
+            try {
+                ($this->checkCollectionDate)(new Payment([
+                    'vehicle_contract_id' => $data['vehicle_contract_id'] ?? null,
+                    'payment_month' => $data['payment_month'],
+                ]), Carbon::parse($data['payment_date']));
+            } catch (ValidationException $e) {
+                throw ValidationException::withMessages(['payment_date' => $e->errors()['collected_on'] ?? $e->errors()]);
+            }
+        }
 
         $payment = Payment::create([
             'driver_id' => $data['driver_id'],
