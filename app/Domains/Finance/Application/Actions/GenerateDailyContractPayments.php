@@ -6,6 +6,7 @@ use App\Domains\Audit\Application\ActivityJournal;
 use App\Models\DriverContract;
 use App\Models\Payment;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -90,33 +91,41 @@ final class GenerateDailyContractPayments
             return false;
         }
 
-        try {
-            $plan = ($this->plan)($contract, $today, $today);
-        } catch (ValidationException) {
-            return false; // le jour est hors du contrat
-        }
-
-        if ($plan->toGenerate() !== [$today->toDateString()]) {
-            return false;
-        }
-
         $dailyAmount = (float) $vehicleContract->daily_amount;
         $netAmount = $dailyAmount - (float) ($vehicleContract->daily_tax ?? 0);
 
-        Payment::create([
-            'driver_id' => $contract->driver_id,
-            'payment_type' => 'contract',
-            'vehicle_contract_id' => $vehicleContract->id,
-            'driver_contract_id' => $contract->id,
-            'payment_month' => $today->copy()->startOfMonth()->toDateString(),
-            'payment_method' => 'other',
-            'net_amount' => $netAmount,
-            'amount' => $dailyAmount,
-            'payment_date' => $today->toDateString(),
-            'status' => 'pending',
-            'notes' => "Paiement journalier auto — {$today->format('d/m/Y')}",
-        ]);
+        // Le contrat agent verrouillé, le jour reclassé APRÈS le verrou : comme la
+        // génération sur une période (revue du 2026-10-01), sans quoi les deux pouvaient
+        // créer le paiement du même jour.
+        return DB::transaction(function () use ($contract, $vehicleContract, $today, $dailyAmount, $netAmount) {
+            $contract = DriverContract::query()->lockForUpdate()->with('vehicleContract')->findOrFail($contract->id);
 
-        return true;
+            try {
+                $plan = ($this->plan)($contract, $today, $today);
+            } catch (ValidationException) {
+                return false; // le jour est hors du contrat
+            }
+
+            if ($plan->toGenerate() !== [$today->toDateString()]) {
+                return false;
+            }
+
+            Payment::create([
+                'driver_id' => $contract->driver_id,
+                'payment_type' => 'contract',
+                'vehicle_contract_id' => $vehicleContract->id,
+                'driver_contract_id' => $contract->id,
+                'payment_month' => $today->copy()->startOfMonth()->toDateString(),
+                'payment_method' => 'other',
+                'net_amount' => $netAmount,
+                'amount' => $dailyAmount,
+                'payment_date' => $today->toDateString(),
+                'status' => 'pending',
+                'notes' => "Paiement journalier auto — {$today->format('d/m/Y')}",
+            ]);
+
+            return true;
+        });
     }
 }
+

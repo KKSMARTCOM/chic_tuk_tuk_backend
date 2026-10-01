@@ -10,6 +10,7 @@ use App\Models\VehicleContract;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -101,5 +102,20 @@ class GenerateDailyContractPaymentsTest extends TestCase
         ]);
 
         $this->assertSame(0, $this->generateOn('2026-07-15'));
+    }
+
+    public function test_the_agent_contract_is_locked_while_its_day_is_planned(): void
+    {
+        // Revue du 2026-10-01 : la génération sur une période verrouille le contrat agent ;
+        // sans le même verrou ici, les deux pouvaient créer le paiement du même jour.
+        $locked = false;
+        DB::listen(function ($query) use (&$locked) {
+            if (str_contains($query->sql, 'driver_contracts') && str_contains(strtolower($query->sql), 'for update')) {
+                $locked = true;
+            }
+        });
+
+        $this->assertSame(1, $this->generateOn('2026-07-15'));
+        $this->assertTrue($locked);
     }
 }
