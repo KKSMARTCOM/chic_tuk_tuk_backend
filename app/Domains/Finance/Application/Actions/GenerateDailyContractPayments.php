@@ -6,8 +6,8 @@ use App\Domains\Audit\Application\ActivityJournal;
 use App\Models\DriverContract;
 use App\Models\Payment;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Les paiements journaliers sur contrat — ex-`PaymentService::generateDailyContractPayments()`,
@@ -15,7 +15,10 @@ use Illuminate\Support\Facades\Log;
  */
 final class GenerateDailyContractPayments
 {
-    public function __construct(private readonly ActivityJournal $journal) {}
+    public function __construct(
+        private readonly ActivityJournal $journal,
+        private readonly PlanDriverContractPayments $plan,
+    ) {}
 
     /**
      * Génère les paiements journaliers sur contrat pour tous les agents actifs.
@@ -61,80 +64,58 @@ final class GenerateDailyContractPayments
 
     /**
      * Génère le paiement journalier pour un contrat donné.
-     * Retourne true si créé, false si ignoré (déjà existant ou données manquantes).
+     * Retourne true si créé, false si ignoré.
+     *
+     * Le jour est classé par `ContractPaymentPlanner`, comme pour la génération sur une
+     * période (2026-10-01) : week-end, pause d'agent, immobilisation, déjà payé — une seule
+     * règle. Le contrat véhicule est celui du contrat agent, plus le contrat actif du
+     * véhicule.
      */
-    private function generateForContract(DriverContract $contract, ?Carbon $date = null): bool
+    private function generateForContract(DriverContract $contract, Carbon $today): bool
     {
-        $today = $date ?? Carbon::today();
-
-        // Ne pas générer le week-end (samedi=6, dimanche=0)
         if ($today->isWeekend()) {
             return false;
         }
 
-        // Déjà généré aujourd'hui pour ce contrat
-        $alreadyExists = Payment::where('driver_contract_id', $contract->id)
-            ->where('payment_type', 'contract')
-            ->whereDate('payment_date', $today)
-            ->exists();
-        if ($alreadyExists) {
-            return false;
-        }
-
-        $vehicleContract = $contract->vehicle->activeVehicleContract;
-
-        if (! $vehicleContract) {
-            return false;
-        }
-
-        // Aucun paiement un jour de pause ou d'immobilisation (2026-09-30) : la génération
-        // l'ignorait, et créait des paiements jamais dus, qu'il fallait annuler à la main.
-        // Toute pause véhicule qui couvre ce jour, quel que soit son motif. Les pauses
-        // d'agent sans pause véhicule sont les pauses HISTORIQUES, toujours passées :
-        // elles ne concernent pas la génération du jour.
-        $stopped = $vehicleContract->pauses()
-            ->whereDate('start_date', '<=', $today)
-            ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $today))
-            ->exists();
-
-        if ($stopped) {
-            return false;
-        }
-
-        // Montants journaliers FIGÉS sur le contrat à sa création (2026-09-29) : modifier
-        // les réglages ne change pas les versements d'un contrat en cours.
-        //
-        // Un contrat sans versement journalier — une durée hors des réglages, du temps où
-        // elle était libre — générait chaque soir un paiement de 0 FCFA. Il est écarté et
-        // signalé : c'est au contrat d'être corrigé.
-        if ($vehicleContract->daily_amount === null) {
+        $vehicleContract = $contract->vehicleContract;
+        // Montants journaliers FIGÉS sur le contrat à sa création (2026-09-29). Un contrat
+        // sans versement journalier — une durée hors des réglages, du temps où elle était
+        // libre — générait chaque soir un paiement de 0 FCFA : il est écarté et signalé.
+        if ($vehicleContract === null || $vehicleContract->daily_amount === null) {
             Log::warning('Contrat véhicule sans versement journalier : aucun paiement généré', [
-                'vehicle_contract_id' => $vehicleContract->id,
-                'contract_months' => $vehicleContract->contract_months,
+                'vehicle_contract_id' => $vehicleContract?->id,
+                'contract_months' => $vehicleContract?->contract_months,
             ]);
 
+            return false;
+        }
+
+        try {
+            $plan = ($this->plan)($contract, $today, $today);
+        } catch (ValidationException) {
+            return false; // le jour est hors du contrat
+        }
+
+        if ($plan->toGenerate() !== [$today->toDateString()]) {
             return false;
         }
 
         $dailyAmount = (float) $vehicleContract->daily_amount;
-
         $netAmount = $dailyAmount - (float) ($vehicleContract->daily_tax ?? 0);
 
-        DB::transaction(function () use ($contract, $vehicleContract, $dailyAmount, $today, $netAmount) {
-            Payment::create([
-                'driver_id' => $contract->driver_id,
-                'payment_type' => 'contract',
-                'vehicle_contract_id' => $vehicleContract->id,
-                'driver_contract_id' => $contract->id,
-                'payment_month' => $today->copy()->startOfMonth()->toDateString(),
-                'payment_method' => 'other',
-                'net_amount' => $netAmount,
-                'amount' => $dailyAmount,
-                'payment_date' => $today->toDateString(),
-                'status' => 'pending',
-                'notes' => "Paiement journalier auto — {$today->format('d/m/Y')}",
-            ]);
-        });
+        Payment::create([
+            'driver_id' => $contract->driver_id,
+            'payment_type' => 'contract',
+            'vehicle_contract_id' => $vehicleContract->id,
+            'driver_contract_id' => $contract->id,
+            'payment_month' => $today->copy()->startOfMonth()->toDateString(),
+            'payment_method' => 'other',
+            'net_amount' => $netAmount,
+            'amount' => $dailyAmount,
+            'payment_date' => $today->toDateString(),
+            'status' => 'pending',
+            'notes' => "Paiement journalier auto — {$today->format('d/m/Y')}",
+        ]);
 
         return true;
     }

@@ -4,6 +4,7 @@ namespace Tests\Feature\Finance;
 
 use App\Domains\Finance\Application\Actions\GenerateDailyContractPayments;
 use App\Models\DriverContract;
+use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
@@ -80,5 +81,25 @@ class GenerateDailyContractPaymentsTest extends TestCase
     public function test_still_no_payment_on_a_weekend(): void
     {
         $this->assertSame(0, $this->generateOn('2026-07-18'));
+    }
+
+    public function test_payments_go_to_the_agents_own_vehicle_contract(): void
+    {
+        // Le contrat agent porte sur CE contrat véhicule, même si le véhicule en a un autre actif.
+        $other = VehicleContract::factory()->create(['vehicle_id' => $this->contract->vehicle_id, 'start_date' => '2026-07-01']);
+
+        $this->generateOn('2026-07-15');
+
+        $this->assertSame(0, Payment::where('vehicle_contract_id', $other->id)->count());
+    }
+
+    public function test_no_payment_on_an_ongoing_agent_pause_without_a_vehicle_pause(): void
+    {
+        $driverContract = DriverContract::where('vehicle_contract_id', $this->contract->id)->first();
+        LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $driverContract->driver_id, 'driver_contract_id' => $driverContract->id, 'start_date' => '2026-07-14',
+        ]);
+
+        $this->assertSame(0, $this->generateOn('2026-07-15'));
     }
 }
