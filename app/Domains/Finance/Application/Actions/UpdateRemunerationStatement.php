@@ -6,6 +6,7 @@ use App\Domains\Finance\Application\Data\UpdateRemunerationStatementData;
 use App\Domains\Finance\Domain\ChargeLedger;
 use App\Models\RemunerationStatement;
 use App\Shared\Http\ApiException;
+use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -34,6 +35,14 @@ final class UpdateRemunerationStatement
             'deducted_manager' => $data->deductedManager,
             'note' => $data->note,
         ] + $opening);
+
+        if ($data->issuedOn !== null) {
+            $issueViolations = app(ValidateRemunerationStatement::class)->issueDateViolations($statement, Carbon::parse($data->issuedOn));
+            if ($issueViolations !== []) {
+                throw ValidationException::withMessages($issueViolations);
+            }
+            $statement->issued_on = $data->issuedOn;
+        }
 
         $figures = ($this->figures)($statement->contract, $statement->monthKey(), $statement);
 

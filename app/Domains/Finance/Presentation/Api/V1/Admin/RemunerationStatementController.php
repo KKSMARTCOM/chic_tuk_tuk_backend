@@ -7,16 +7,19 @@ use App\Domains\Finance\Application\Actions\BuildStatementFigures;
 use App\Domains\Finance\Application\Actions\CancelRemunerationStatement;
 use App\Domains\Finance\Application\Actions\GenerateRemunerationStatements;
 use App\Domains\Finance\Application\Actions\ListRemunerationStatements;
+use App\Domains\Finance\Application\Actions\PurgeCancelledStatements;
 use App\Domains\Finance\Application\Actions\UpdateRemunerationStatement;
 use App\Domains\Finance\Application\Actions\ValidateRemunerationStatement;
 use App\Domains\Finance\Application\Data\CancelRemunerationStatementData;
 use App\Domains\Finance\Application\Data\GenerateRemunerationStatementsData;
 use App\Domains\Finance\Application\Data\RemunerationStatementDetailData;
 use App\Domains\Finance\Application\Data\UpdateRemunerationStatementData;
+use App\Domains\Finance\Application\Data\ValidateRemunerationStatementData;
 use App\Domains\Finance\Application\RemunerationStatementPdf;
 use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\RemunerationStatement;
 use App\Shared\Http\ApiException;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,10 +93,10 @@ final class RemunerationStatementController
         }
     }
 
-    public function validateStatement(Request $request, string $id): JsonResponse
+    public function validateStatement(Request $request, string $id, ValidateRemunerationStatementData $data): JsonResponse
     {
         try {
-            $statement = ($this->validate)($this->find($id), $request->user());
+            $statement = ($this->validate)($this->find($id), $request->user(), $data->issuedOn !== null ? Carbon::parse($data->issuedOn) : null, $data->send);
             $statement = $this->find($statement->id);
             $this->journal->remunerationStatementValidated($statement);
 
@@ -122,6 +125,27 @@ final class RemunerationStatementController
         }
     }
 
+    /** Vider les fiches annulées — le RÔLE administrateur, pas une permission attribuable (2026-10-01). */
+    public function purgeCancelled(Request $request, PurgeCancelledStatements $purge): JsonResponse
+    {
+        try {
+            if (! $request->user()->hasRole('admin')) {
+                throw new ApiException(403, 'ADMIN_ROLE_REQUIRED', 'Seul l\'administrateur peut vider les fiches annulées.');
+            }
+            $numbers = $purge();
+            if ($numbers !== []) {
+                $this->journal->cancelledStatementsPurged($numbers);
+            }
+
+            return response()->json(['deleted' => count($numbers)]);
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'la purge des fiches annulées',
+                'Les fiches annulées n\'ont pas pu être vidées.', 'ADMIN_REMUNERATION_PURGE_FAILED');
+        }
+    }
+
     /**
      * Le PDF, jamais servi directement depuis le disque (spec §5.6). Un brouillon porte le
      * filigrane « BROUILLON » ; une fiche validée sert le PDF rangé, ou le refait depuis ses
@@ -131,16 +155,44 @@ final class RemunerationStatementController
     {
         $statement = $this->find($id);
 
+        // Effacé au bout d'un an : l'admin le régénère, il n'est pas refait en silence.
+        if ($statement->status !== 'draft' && $statement->pdf_purged_at !== null) {
+            throw new ApiException(410, 'STATEMENT_PDF_EXPIRED', 'Fichier indisponible : le PDF a été effacé du serveur au bout d\'un an.');
+        }
+
         $bytes = match (true) {
             $statement->status === 'draft' => $pdf->render(($this->build)($statement->contract, $statement->monthKey(), $statement), null, true, null),
             $statement->pdf_path !== null && Storage::disk('local')->exists($statement->pdf_path) => Storage::disk('local')->get($statement->pdf_path),
-            default => $pdf->render(StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->validated_at),
+            default => $pdf->render(StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->issued_on ?? $statement->validated_at),
         };
 
         return response($bytes, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.($statement->number ?? 'brouillon').'.pdf"',
         ]);
+    }
+
+    /** Reproduire le PDF effacé depuis les chiffres figés : même numéro, même date (spec 2026-10-01, §7.2). */
+    public function regeneratePdf(Request $request, string $id, RemunerationStatementPdf $pdf): JsonResponse
+    {
+        try {
+            $statement = $this->find($id);
+            if ($statement->status !== 'validated') {
+                throw new ApiException(409, 'STATEMENT_NOT_VALIDATED', 'Seule une fiche validée a un PDF à régénérer.');
+            }
+            $path = sprintf('statements/%s/%s.pdf', $statement->month->format('Y'), $statement->number);
+            Storage::disk('local')->put($path, $pdf->render(
+                StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
+            ));
+            // Le compteur du propriétaire ne bouge pas : la régénération sert l'archive.
+            $statement->update(['pdf_path' => $path, 'pdf_generated_at' => now(), 'pdf_purged_at' => null]);
+
+            return response()->json($this->detail($this->find($id)));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'la régénération du PDF', 'Le PDF n\'a pas pu être régénéré.', 'ADMIN_REMUNERATION_PDF_REGENERATE_FAILED');
+        }
     }
 
     private function find(string $id): RemunerationStatement

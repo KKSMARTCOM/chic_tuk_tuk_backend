@@ -7,17 +7,19 @@ use App\Models\Driver;
 
 /**
  * Les agents proposés au formulaire de paiement : ceux qui ont un contrat actif, comme
- * `Admin\PaymentController::create()`.
- *
- * @return array<int, AdminPaymentDriverOptionData>
+ * `Admin\PaymentController::create()`. Pour un paiement de CONTRAT (`$type = 'contract'`),
+ * tous ceux qui en ont eu un, démissionnaires compris (2026-10-01).
  */
 final class ListPayableDrivers
 {
-    public function __invoke(): array
+    /** @return array<int, AdminPaymentDriverOptionData> */
+    public function __invoke(?string $type = null): array
     {
         return Driver::query()
-            ->whereHas('driverContracts', fn ($query) => $query->where('status', 'active'))
-            ->with(['user', 'activeDriverContract.vehicle'])
+            ->when($type === 'contract',
+                fn ($query) => $query->whereHas('driverContracts'),
+                fn ($query) => $query->whereHas('driverContracts', fn ($q) => $q->where('status', 'active')))
+            ->with(['user', 'activeDriverContract.vehicle', 'driverContracts.vehicle'])
             ->get()
             ->sortBy(fn (Driver $driver) => $driver->user?->name)
             ->map(fn (Driver $driver) => AdminPaymentDriverOptionData::fromModel($driver))

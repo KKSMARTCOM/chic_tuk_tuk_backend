@@ -95,4 +95,19 @@ class IssueRemunerationStatementTest extends TestCase
             'message' => 'Votre fiche de rémunération FR-2026-10-001 pour le véhicule 20BJ5689 est disponible : solde dû 0 FCFA.',
         ]);
     }
+
+    public function test_a_statement_validated_without_sending_gets_its_pdf_and_nothing_else(): void
+    {
+        $statement = $this->validated();
+        $statement->update(['delivery' => 'none', 'issued_on' => '2026-11-02']);
+
+        $this->issue($statement);
+
+        $statement->refresh();
+        Storage::disk('local')->assertExists($statement->pdf_path);
+        $this->assertNotNull($statement->pdf_generated_at);
+        $this->assertNull($statement->sent_at);
+        Mail::assertNothingQueued();
+        $this->assertDatabaseCount('notifications', 0);
+    }
 }

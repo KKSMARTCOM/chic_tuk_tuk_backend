@@ -50,11 +50,24 @@ final class StatementController
                 ->whereHas('contract.vehicle', fn ($q) => $q->where('owner_id', $request->user()->id))
                 ->findOrFail($id);
 
+            // Effacé au bout d'un an : la fiche reste consultable, plus le fichier (2026-10-01).
+            if ($statement->pdf_purged_at !== null) {
+                throw new ApiException(410, 'STATEMENT_PDF_EXPIRED', 'Fichier indisponible.');
+            }
             if ($statement->pdf_path === null || ! Storage::disk('local')->exists($statement->pdf_path)) {
                 throw new ApiException(409, 'STATEMENT_NOT_READY', 'Votre fiche est en préparation. Réessayez dans quelques minutes.');
             }
+            $bytes = Storage::disk('local')->get($statement->pdf_path);
 
-            return response(Storage::disk('local')->get($statement->pdf_path), 200, [
+            // Mise à jour CONDITIONNELLE : deux clics simultanés au 3e ne font pas un 4e.
+            $counted = RemunerationStatement::query()->whereKey($statement->id)
+                ->where('owner_download_count', '<', (int) config('remuneration.owner_download_limit'))
+                ->increment('owner_download_count');
+            if ($counted === 0) {
+                throw new ApiException(403, 'STATEMENT_DOWNLOAD_LIMIT', 'Limite de téléchargement atteinte — la fiche vous a été envoyée par e-mail.');
+            }
+
+            return response($bytes, 200, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'attachment; filename="fiche-de-remuneration-'.$statement->number.'.pdf"',
             ]);

@@ -4,11 +4,13 @@ namespace Tests\Feature\Finance;
 
 use App\Domains\Finance\Application\Actions\GenerateDailyContractPayments;
 use App\Models\DriverContract;
+use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -80,5 +82,40 @@ class GenerateDailyContractPaymentsTest extends TestCase
     public function test_still_no_payment_on_a_weekend(): void
     {
         $this->assertSame(0, $this->generateOn('2026-07-18'));
+    }
+
+    public function test_payments_go_to_the_agents_own_vehicle_contract(): void
+    {
+        // Le contrat agent porte sur CE contrat véhicule, même si le véhicule en a un autre actif.
+        $other = VehicleContract::factory()->create(['vehicle_id' => $this->contract->vehicle_id, 'start_date' => '2026-07-01']);
+
+        $this->generateOn('2026-07-15');
+
+        $this->assertSame(0, Payment::where('vehicle_contract_id', $other->id)->count());
+    }
+
+    public function test_no_payment_on_an_ongoing_agent_pause_without_a_vehicle_pause(): void
+    {
+        $driverContract = DriverContract::where('vehicle_contract_id', $this->contract->id)->first();
+        LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $driverContract->driver_id, 'driver_contract_id' => $driverContract->id, 'start_date' => '2026-07-14',
+        ]);
+
+        $this->assertSame(0, $this->generateOn('2026-07-15'));
+    }
+
+    public function test_the_agent_contract_is_locked_while_its_day_is_planned(): void
+    {
+        // Revue du 2026-10-01 : la génération sur une période verrouille le contrat agent ;
+        // sans le même verrou ici, les deux pouvaient créer le paiement du même jour.
+        $locked = false;
+        DB::listen(function ($query) use (&$locked) {
+            if (str_contains($query->sql, 'driver_contracts') && str_contains(strtolower($query->sql), 'for update')) {
+                $locked = true;
+            }
+        });
+
+        $this->assertSame(1, $this->generateOn('2026-07-15'));
+        $this->assertTrue($locked);
     }
 }

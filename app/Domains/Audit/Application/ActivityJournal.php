@@ -573,6 +573,30 @@ final class ActivityJournal
         );
     }
 
+    /** UNE ligne par génération sur une période, pas une par paiement (2026-10-01). */
+    public function contractPaymentsGenerated(DriverContract $contract, string $from, string $to, int $count, float $total): void
+    {
+        $period = Carbon::parse($from)->format('d/m/Y').' au '.Carbon::parse($to)->format('d/m/Y');
+
+        $this->record(
+            ActivityEvent::ContractPaymentsGenerated,
+            $contract,
+            "a généré {$count} paiement(s) de {$this->driverName($contract->driver)} ({$this->money($total)}) pour la période du {$period}",
+            ['from' => $from, 'to' => $to, 'count' => $count, 'total' => $total],
+        );
+    }
+
+    /** UNE ligne par validation groupée (2026-10-01). */
+    public function paymentsValidatedInBatch(int $count, float $total, string $collectedOn): void
+    {
+        $this->record(
+            ActivityEvent::PaymentsBatchValidated,
+            null,
+            "a validé {$count} paiement(s) ({$this->money($total)}) encaissés le ".Carbon::parse($collectedOn)->format('d/m/Y'),
+            ['count' => $count, 'total' => $total, 'collected_on' => $collectedOn],
+        );
+    }
+
     public function commissionCancelled(Commission $commission): void
     {
         $this->record(
@@ -632,7 +656,9 @@ final class ActivityJournal
         $this->record(
             ActivityEvent::RemunerationStatementValidated,
             $statement,
-            "a validé la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)}",
+            $statement->delivery === 'none'
+                ? "a validé sans l'envoyer la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)}"
+                : "a validé la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)}",
         );
     }
 
@@ -644,6 +670,17 @@ final class ActivityJournal
             $statement,
             "a envoyé la fiche de rémunération {$statement->number} à {$this->statementOwner($statement)}",
             actor: self::SYSTEM,
+        );
+    }
+
+    /** @param  list<string>  $numbers */
+    public function cancelledStatementsPurged(array $numbers): void
+    {
+        $this->record(
+            ActivityEvent::RemunerationStatementsPurged,
+            null,
+            'a vidé '.count($numbers).' fiche(s) de rémunération annulée(s) : '.implode(', ', $numbers),
+            ['numbers' => $numbers],
         );
     }
 

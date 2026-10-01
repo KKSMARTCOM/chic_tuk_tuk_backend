@@ -5,6 +5,7 @@ use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\PricingSettingsController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\CommissionController;
+use App\Domains\Finance\Presentation\Api\V1\Admin\ContractPaymentGenerationController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\RemunerationStatementController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
@@ -268,6 +269,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->middleware('permission:create-payments')->name('payments.store');
 
         Route::middleware('permission:edit-payments')->group(function () {
+            // Avant les routes paramétrées : « validate-batch » n'est pas un paiement.
+            Route::post('/payments/validate-batch', [PaymentController::class, 'validateBatch'])->name('payments.validate-batch');
+            Route::patch('/payments/{payment}/collected-on', [PaymentController::class, 'correctCollectionDate'])->name('payments.collected-on');
             Route::put('/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
             Route::post('/payments/{payment}/validate', [PaymentController::class, 'validatePayment'])->name('payments.validate');
             Route::post('/payments/{payment}/cancel', [PaymentController::class, 'cancel'])->name('payments.cancel');
@@ -275,6 +279,15 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
             ->middleware('permission:delete-payments')->name('payments.destroy');
+
+        /*
+         * Générer les paiements d'une période (spec 2026-10-01, §3) — pour un contrat agent
+         * EN COURS OU TERMINÉ : c'est ce qui permet de reconstituer les jours d'un agent parti.
+         */
+        Route::middleware('permission:create-payments')->group(function () {
+            Route::post('/driver-contracts/{id}/payments/preview', [ContractPaymentGenerationController::class, 'preview'])->name('driver-contracts.payments.preview');
+            Route::post('/driver-contracts/{id}/payments/generate', [ContractPaymentGenerationController::class, 'generate'])->name('driver-contracts.payments.generate');
+        });
 
         /*
          * Les fiches de rémunération (spec 2026-09-30). Relire et ajuster se délègue ;
@@ -295,6 +308,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::middleware('permission:validate-remuneration-statements')->group(function () {
             Route::post('/remuneration-statements/{id}/validate', [RemunerationStatementController::class, 'validateStatement'])->name('remuneration-statements.validate');
             Route::post('/remuneration-statements/{id}/cancel', [RemunerationStatementController::class, 'cancel'])->name('remuneration-statements.cancel');
+            // Le rôle administrateur est vérifié en plus, dans le contrôleur (2026-10-01).
+            Route::delete('/remuneration-statements/cancelled', [RemunerationStatementController::class, 'purgeCancelled'])->name('remuneration-statements.purge-cancelled');
+            Route::post('/remuneration-statements/{id}/pdf', [RemunerationStatementController::class, 'regeneratePdf'])->name('remuneration-statements.pdf.regenerate');
         });
 
         /*

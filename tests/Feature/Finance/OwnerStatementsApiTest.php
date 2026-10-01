@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
@@ -87,5 +88,64 @@ class OwnerStatementsApiTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/owner/vehicles/'.Vehicle::factory()->create()->id.'/statements')
             ->assertNotFound();
+    }
+
+    /** @return array{0: string, 1: RemunerationStatement} le jeton du propriétaire et sa fiche, PDF rangé */
+    private function ownerWithStatement(): array
+    {
+        Storage::fake('local');
+        config(['remuneration.owner_download_limit' => 3]);
+        [$owner, $token] = $this->loginOwner();
+        $statement = RemunerationStatement::factory()
+            ->for(VehicleContract::factory()->forVehicle(Vehicle::factory()->create(['owner_id' => $owner->id])), 'contract')
+            ->validated()->create(['pdf_path' => 'statements/2026/FR-2026-10-001.pdf', 'pdf_generated_at' => now()]);
+        Storage::disk('local')->put('statements/2026/FR-2026-10-001.pdf', '%PDF-1.7 fiche');
+
+        return [$token, $statement];
+    }
+
+    public function test_three_downloads_then_the_limit(): void
+    {
+        [$token, $statement] = $this->ownerWithStatement();
+
+        foreach ([2, 1, 0] as $left) {
+            $this->withHeader('Authorization', "Bearer {$token}")->get("/api/v1/owner/statements/{$statement->id}/pdf")->assertOk();
+            $this->assertSame($left, $statement->refresh()->ownerDownloadsLeft());
+        }
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/v1/owner/statements/{$statement->id}/pdf")
+            ->assertStatus(403)->assertJsonPath('code', 'STATEMENT_DOWNLOAD_LIMIT');
+    }
+
+    public function test_an_erased_pdf_answers_410(): void
+    {
+        [$token, $statement] = $this->ownerWithStatement();
+        $statement->update(['pdf_path' => null, 'pdf_purged_at' => now()]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")->getJson("/api/v1/owner/statements/{$statement->id}/pdf")
+            ->assertStatus(410)->assertJsonPath('code', 'STATEMENT_PDF_EXPIRED');
+        $this->assertSame(0, $statement->refresh()->owner_download_count);
+    }
+
+    public function test_the_list_tells_the_file_state_and_downloads_left(): void
+    {
+        [$token, $statement] = $this->ownerWithStatement();
+        $statement->update(['owner_download_count' => 1]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$statement->contract->vehicle_id}/statements")
+            ->assertOk()->assertJsonPath('0.pdf_state', 'ready')->assertJsonPath('0.downloads_left', 2);
+    }
+
+    public function test_an_admin_download_does_not_count(): void
+    {
+        [, $statement] = $this->ownerWithStatement();
+        $admin = User::factory()->profil(Profil::Admin)->create(['password' => Hash::make('bon-mot-de-passe')]);
+        $admin->givePermissionTo(Permission::findOrCreate('view-remuneration-statements', 'web'));
+        $token = $this->postJson('/api/v1/auth/login', ['email' => $admin->email, 'password' => 'bon-mot-de-passe'])->json('token');
+        Auth::forgetGuards();
+
+        $this->withHeader('Authorization', "Bearer {$token}")->get("/api/v1/admin/remuneration-statements/{$statement->id}/pdf")->assertOk();
+
+        $this->assertSame(0, $statement->refresh()->owner_download_count);
     }
 }

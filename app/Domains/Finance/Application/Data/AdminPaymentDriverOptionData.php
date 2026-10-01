@@ -19,6 +19,8 @@ final class AdminPaymentDriverOptionData extends BaseData
         public ?string $agentId,
         public ?int $contractMonths,
         public ?string $vehicleNumber,
+        /** @var AdminPaymentDriverContractOptionData[] tous ses contrats, le plus récent en tête */
+        public array $contracts = [],
     ) {}
 
     public static function fromModel(Driver $driver): self
@@ -29,6 +31,9 @@ final class AdminPaymentDriverOptionData extends BaseData
             agentId: $driver->agent_id,
             contractMonths: $driver->activeDriverContract?->contract_months,
             vehicleNumber: $driver->activeDriverContract?->vehicle?->vehicle_number,
+            contracts: $driver->driverContracts->sortByDesc('start_date')
+                ->map(fn ($contract) => AdminPaymentDriverContractOptionData::fromModel($contract))
+                ->values()->all(),
         );
     }
 }

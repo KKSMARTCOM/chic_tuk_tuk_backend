@@ -82,6 +82,8 @@ enum ActivityEvent: string
     case PaymentCancelled = 'payment.cancelled';
     case PaymentDeleted = 'payment.deleted';
     case DailyPaymentsGenerated = 'payment.daily_generated';
+    case ContractPaymentsGenerated = 'payment.period_generated';
+    case PaymentsBatchValidated = 'payment.batch_validated';
     case CommissionCancelled = 'payment.commission_cancelled';
 
     // Fiches de rémunération des propriétaires
@@ -89,6 +91,7 @@ enum ActivityEvent: string
     case RemunerationStatementValidated = 'remuneration_statement.validated';
     case RemunerationStatementSent = 'remuneration_statement.sent';
     case RemunerationStatementCancelled = 'remuneration_statement.cancelled';
+    case RemunerationStatementsPurged = 'remuneration_statement.purged';
 
     // Réglages
     case PricingUpdated = 'settings.pricing_updated';
@@ -155,11 +158,14 @@ enum ActivityEvent: string
             self::PaymentCancelled => 'Paiement annulé',
             self::PaymentDeleted => 'Paiement supprimé',
             self::DailyPaymentsGenerated => 'Paiements journaliers générés',
+            self::ContractPaymentsGenerated => 'Paiements générés sur une période',
+            self::PaymentsBatchValidated => 'Paiements validés en groupe',
             self::CommissionCancelled => 'Commission annulée',
             self::RemunerationStatementsGenerated => 'Fiches de rémunération générées',
             self::RemunerationStatementValidated => 'Fiche de rémunération validée',
             self::RemunerationStatementSent => 'Fiche de rémunération envoyée',
             self::RemunerationStatementCancelled => 'Fiche de rémunération annulée',
+            self::RemunerationStatementsPurged => 'Fiches annulées vidées',
             self::PricingUpdated => 'Tarifs modifiés',
             self::ContractTermsUpdated => 'Réglages des contrats modifiés',
         };

@@ -49,6 +49,8 @@ php artisan app:generate-daily
 php artisan app:activate-leave-pauses
 php artisan app:generate-remuneration-statements --month=2026-10
 php artisan app:check-remuneration-branding
+php artisan app:purge-remuneration-pdfs      # chaque nuit à 3 h : PDF de plus d'un an
+php artisan app:audit-contract-payments      # lecture seule, avant une reconstitution
 ```
 
 Les tests tournent sur une base PostgreSQL **dédiée** (`chic_tuktuk_db_test`, réglée dans
@@ -855,6 +857,8 @@ fiche validée — l'aperçu n'en recalcule aucun.
 - `app:activate-leave-pauses` → `CreateAgentLeavePause` : les pauses véhicule des agents en pause
 - `app:generate-remuneration-statements {--month=}` → `GenerateRemunerationStatements` : les brouillons des fiches de rémunération d'un mois (par défaut le mois écoulé)
 - `app:check-remuneration-branding` : le cachet et la signature des fiches sont-ils en place ?
+- `app:purge-remuneration-pdfs` : efface les PDF de fiches générés depuis plus de `remuneration.pdf_retention_days` jours ; la fiche reste
+- `app:audit-contract-payments` : LECTURE SEULE — plus ancien contrat, paiements sans mois, sans contrat, sur un jour d'arrêt, en double, en attente d'un mois passé
 
 ## Scheduler (bootstrap/app.php → withSchedule)
 
@@ -867,6 +871,7 @@ Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `boots
 | `app:generate-daily`             | lun-ven à 23:30 (`weekdays()`) |
 | `app:activate-leave-pauses`      | toutes les 2 heures           |
 | `app:generate-remuneration-statements` | le 1er du mois à 02:00 |
+| `app:purge-remuneration-pdfs`   | tous les jours à 03:00        |
 
 Sortie ajoutée à `storage/logs/commands.log`. En conteneur, `schedule:run` est lancé chaque
 minute par une boucle supervisord (`docker/supervisord.conf`), pas par un cron système.
@@ -949,6 +954,37 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
 - **Permissions** : `view-`, `edit-` (générer, ajuster) et `validate-remuneration-statements`
   (valider, envoyer, annuler), ces dernières à l'administrateur seul dans le seeder.
 - Le document s'appelle « Fiche de rémunération », jamais « facture ».
+
+## La reconstitution des fiches (2026-10-01)
+
+Rejouer dans le système la chronologie des paiements et des fiches depuis le plus ancien
+contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, procédure §9.
+
+- **Générer une période** : `POST /admin/driver-contracts/{id}/payments/preview|generate`
+  (`create-payments`), pour un contrat agent EN COURS OU TERMINÉ. `ContractPaymentPlanner`
+  classe chaque jour (hors contrat, week-end, pause d'agent, immobilisation, payé, annulé,
+  à générer) ; la génération du soir s'en sert aussi. ⚠️ Le contrat véhicule est celui DU
+  CONTRAT AGENT, jamais le contrat actif du véhicule.
+- ⚠️ **La date décide, pas l'ordre des clics.** `payments.collected_on` (encaissement) et
+  `remuneration_statements.issued_on` (établissement) : recettes = encaissés au plus tard à
+  la date de la fiche ; en instance = en attente ou encaissés après ; recouvré = mois
+  antérieurs à fiche validée, encaissés au plus tard à cette date. Un paiement validé SANS
+  date compte comme encaissé. Un encaissement qu'une fiche déjà arrêtée aurait dû compter
+  est refusé (`CheckCollectionDate`).
+- **Validation groupée** `POST /admin/payments/validate-batch`, silencieuse par défaut ;
+  correction de la date d'un paiement validé non rattaché :
+  `PATCH /admin/payments/{id}/collected-on`.
+- **« Valider sans envoyer »** (`send: false`, `delivery = none`) : PDF produit, ni
+  notification ni e-mail ; son annulation ne prévient pas le propriétaire.
+- ⚠️ **Le numéro vient de `remuneration_statement_numbers`**, un compteur par mois qui ne
+  recule jamais : compter les fiches réattribuerait un numéro après
+  `DELETE /admin/remuneration-statements/cancelled` (rôle `admin` seul).
+- **PDF** : un an de vie (`pdf_purged_at`, `410 STATEMENT_PDF_EXPIRED`), régénérés par
+  `POST /admin/remuneration-statements/{id}/pdf` ; le propriétaire télécharge 3 fois
+  (`owner_download_count`, `403 STATEMENT_DOWNLOAD_LIMIT`), l'admin sans limite.
+- **Saisie manuelle** d'un paiement de contrat : `driver_contract_id` (contrat même terminé)
+  et `payment_month` = mois de la date. Avant, ces paiements naissaient sans mois et
+  n'entraient dans aucune fiche.
 
 ## Déploiement (Coolify)
 

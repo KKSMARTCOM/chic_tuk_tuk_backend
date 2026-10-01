@@ -21,6 +21,8 @@ final class CreatePaymentData extends BaseData
         public string $paymentDate,
         public ?string $notes = null,
         public ?string $referenceNumber = null,
+        /** Le contrat agent, en cours OU terminé, d'un paiement de contrat (2026-10-01). */
+        public ?string $driverContractId = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -34,6 +36,7 @@ final class CreatePaymentData extends BaseData
             'payment_date' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
             'reference_number' => ['nullable', 'string', 'max:100', 'unique:payments,reference_number'],
+            'driver_contract_id' => ['nullable', 'uuid', 'exists:driver_contracts,id'],
         ];
     }
 
@@ -64,6 +67,7 @@ final class CreatePaymentData extends BaseData
             'payment_date' => $this->paymentDate,
             'notes' => $this->notes,
             'reference_number' => $this->referenceNumber,
+            'driver_contract_id' => $this->driverContractId,
         ];
     }
 }

@@ -93,6 +93,14 @@ final class ContractMonthCalculator
         return collect($this->monthKeys())->filter(fn ($key) => $key <= $monthKey)->sum(fn ($key) => $this->month($key)->pauseDays);
     }
 
+    /** @return list<string> les jours de pause et d'immobilisation du mois, `Y-m-d` (audit, 2026-10-01) */
+    public function stoppedDates(string $monthKey): array
+    {
+        [$from, $to] = $this->range($monthKey);
+
+        return ContractMonthCalendar::classify($from, $to, $this->pauses)->stoppedDates;
+    }
+
     /** Le dernier jour compté : aujourd'hui, ou la fin du contrat si elle est passée. */
     private function bound(): Carbon
     {
@@ -104,14 +112,7 @@ final class ContractMonthCalculator
     private function compute(string $monthKey): ContractMonthFigures
     {
         $monthStart = Carbon::parse($monthKey.'-01')->startOfDay();
-        $monthEnd = $monthStart->copy()->endOfMonth()->startOfDay();
-        $contractStart = $this->contract->start_date->copy()->startOfDay();
-        $bound = $this->bound();
-
-        // Comparaisons explicites : `max()` et `min()` de PHP ne comparent pas des
-        // instances Carbon de façon fiable.
-        $from = $contractStart->gt($monthStart) ? $contractStart : $monthStart;
-        $to = $bound->lt($monthEnd) ? $bound : $monthEnd;
+        [$from, $to] = $this->range($monthKey);
 
         $days = ContractMonthCalendar::classify($from, $to, $this->pauses);
 
@@ -136,5 +137,21 @@ final class ContractMonthCalculator
             paymentsOnStoppedDays: $live->filter(fn ($p) => in_array($p->payment_date->toDateString(), $days->stoppedDates, true))->count(),
             countedDaysWithoutPayment: collect($days->countedDates)->diff($paidDates)->count(),
         );
+    }
+
+    /** @return array{0: Carbon, 1: Carbon} les jours du mois compris dans le contrat, jusqu'à la borne */
+    private function range(string $monthKey): array
+    {
+        $monthStart = Carbon::parse($monthKey.'-01')->startOfDay();
+        $monthEnd = $monthStart->copy()->endOfMonth()->startOfDay();
+        $contractStart = $this->contract->start_date->copy()->startOfDay();
+        $bound = $this->bound();
+
+        // Comparaisons explicites : `max()` et `min()` de PHP ne comparent pas des
+        // instances Carbon de façon fiable.
+        return [
+            $contractStart->gt($monthStart) ? $contractStart : $monthStart,
+            $bound->lt($monthEnd) ? $bound : $monthEnd,
+        ];
     }
 }

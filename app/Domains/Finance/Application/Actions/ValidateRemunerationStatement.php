@@ -9,6 +9,7 @@ use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\User;
+use Carbon\Carbon;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,13 +25,13 @@ final class ValidateRemunerationStatement
 {
     public function __construct(private readonly BuildStatementFigures $figures) {}
 
-    public function __invoke(RemunerationStatement $statement, User $by): RemunerationStatement
+    public function __invoke(RemunerationStatement $statement, User $by, ?Carbon $issuedOn = null, bool $send = true): RemunerationStatement
     {
         if (! RemunerationBranding::isComplete()) {
             throw new ApiException(409, 'STATEMENT_BRANDING_MISSING', 'Le cachet ou la signature sont introuvables sur le serveur : la fiche partirait non signée.');
         }
 
-        DB::transaction(function () use (&$statement, $by) {
+        DB::transaction(function () use (&$statement, $by, $issuedOn, $send) {
             // ⚠️ Un verrou par mois : deux validations simultanées prendraient sinon le même
             // numéro. Verrou de TRANSACTION, relâché au commit.
             DB::select('SELECT pg_advisory_xact_lock(?)', [crc32('remuneration-'.$statement->monthKey())]);
@@ -46,6 +47,14 @@ final class ValidateRemunerationStatement
                 throw new ApiException(409, 'STATEMENT_MONTH_NOT_OVER', 'Le mois n\'est pas terminé : ses chiffres ne sont que partiels.');
             }
 
+            $issuedOn ??= $statement->issued_on ?? Carbon::today();
+            $issueViolations = $this->issueDateViolations($statement, $issuedOn);
+            if ($issueViolations !== []) {
+                throw ValidationException::withMessages($issueViolations);
+            }
+            // Les chiffres se lisent à la date d'établissement (spec 2026-10-01, §4.3).
+            $statement->issued_on = $issuedOn;
+
             $figures = ($this->figures)($statement->contract, $statement->monthKey(), $statement);
             $violations = $this->violations($figures);
             if ($violations !== []) {
@@ -59,9 +68,14 @@ final class ValidateRemunerationStatement
                 throw new ApiException(409, 'STATEMENT_PAYMENTS_CHANGED', 'Des paiements ont changé pendant la validation. Rechargez la fiche.');
             }
 
-            // Le rang compte aussi les fiches annulées, qui gardent leur numéro : une fiche
-            // de remplacement en reçoit un neuf.
-            $rank = RemunerationStatement::query()->whereDate('month', $statement->month)->whereNotNull('number')->count() + 1;
+            // Le dernier rang attribué du mois, jamais un compte des fiches : un numéro ne
+            // désigne qu'une fiche, même après la purge des fiches annulées (2026-10-01).
+            $rank = DB::selectOne(
+                'INSERT INTO remuneration_statement_numbers (month, last_rank) VALUES (?, 1)
+                 ON CONFLICT (month) DO UPDATE SET last_rank = remuneration_statement_numbers.last_rank + 1
+                 RETURNING last_rank',
+                [$statement->month->toDateString()],
+            )->last_rank;
             $charges = collect($figures->charges)->keyBy('key');
 
             $statement->update([
@@ -74,6 +88,8 @@ final class ValidateRemunerationStatement
                 'deducted_manager' => $charges['manager']['deducted'],
                 'validated_by' => $by->id,
                 'validated_at' => now(),
+                'issued_on' => $issuedOn->toDateString(),
+                'delivery' => $send ? 'email' : 'none',
             ]);
         });
 
@@ -112,6 +128,33 @@ final class ValidateRemunerationStatement
     private function monthIsNotOver(RemunerationStatement $statement): bool
     {
         return $statement->month->copy()->endOfMonth()->gte(now());
+    }
+
+    /**
+     * La date d'établissement : après la fin du mois, pas dans le futur, et jamais avant
+     * celle de la fiche validée du mois précédent (spec 2026-10-01, §4.4).
+     *
+     * @return array<string, string>
+     */
+    public function issueDateViolations(RemunerationStatement $statement, Carbon $issuedOn): array
+    {
+        $issuedOn = $issuedOn->copy()->startOfDay();
+        if ($issuedOn->lte($statement->month->copy()->endOfMonth())) {
+            return ['issued_on' => 'La date d\'établissement doit suivre la fin du mois de la fiche.'];
+        }
+        if ($issuedOn->gt(Carbon::today())) {
+            return ['issued_on' => 'La date d\'établissement ne peut pas être dans le futur.'];
+        }
+        $previous = RemunerationStatement::query()
+            ->where('vehicle_contract_id', $statement->vehicle_contract_id)
+            ->where('status', 'validated')
+            ->whereDate('month', $statement->month->copy()->subMonthNoOverflow())
+            ->first();
+        if ($previous?->issued_on !== null && $issuedOn->lt($previous->issued_on)) {
+            return ['issued_on' => 'La date d\'établissement ne peut pas précéder celle de la fiche du mois précédent ('.$previous->issued_on->format('d/m/Y').').'];
+        }
+
+        return [];
     }
 
     private function previousIsPending(RemunerationStatement $statement): bool

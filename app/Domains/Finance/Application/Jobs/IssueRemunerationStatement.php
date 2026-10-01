@@ -41,12 +41,18 @@ final class IssueRemunerationStatement implements ShouldQueue
             return;
         }
 
-        if ($statement->pdf_path === null) {
+        if ($statement->pdf_path === null && $statement->pdf_purged_at === null) {
             $path = sprintf('statements/%s/%s.pdf', $statement->month->format('Y'), $statement->number);
             Storage::disk('local')->put($path, $pdf->render(
-                StatementFigures::fromArray($statement->figures), $statement->number, false, $statement->validated_at,
+                StatementFigures::fromArray($statement->figures), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
             ));
-            $statement->update(['pdf_path' => $path]);
+            $statement->update(['pdf_path' => $path, 'pdf_generated_at' => now()]);
+        }
+
+        // Une fiche reconstituée ne part pas : le propriétaire a déjà son exemplaire papier
+        // (spec 2026-10-01, §5).
+        if ($statement->delivery === 'none') {
+            return;
         }
 
         $notifier->remunerationStatementIssued($statement);

@@ -21,6 +21,7 @@ class RemunerationStatement extends Model
         'opening_internet', 'opening_spotify', 'opening_manager', 'note',
         'figures', 'balance_due', 'validated_by', 'validated_at', 'pdf_path', 'sent_at',
         'cancelled_by', 'cancelled_at', 'cancel_reason', 'replaces_id',
+        'issued_on', 'delivery', 'pdf_generated_at', 'pdf_purged_at', 'owner_download_count',
     ];
 
     protected $casts = [
@@ -36,6 +37,10 @@ class RemunerationStatement extends Model
         'validated_at' => 'datetime',
         'sent_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'issued_on' => 'date',
+        'pdf_generated_at' => 'datetime',
+        'pdf_purged_at' => 'datetime',
+        'owner_download_count' => 'integer',
     ];
 
     public function contract()
@@ -56,5 +61,20 @@ class RemunerationStatement extends Model
     public function monthKey(): string
     {
         return $this->month->format('Y-m');
+    }
+
+    /** `expired` : effacé au bout d'un an ; `preparing` : la tâche en file ne l'a pas encore produit. */
+    public function pdfState(): string
+    {
+        return match (true) {
+            $this->pdf_purged_at !== null => 'expired',
+            $this->pdf_path === null => 'preparing',
+            default => 'ready',
+        };
+    }
+
+    public function ownerDownloadsLeft(): int
+    {
+        return max(0, (int) config('remuneration.owner_download_limit') - (int) $this->owner_download_count);
     }
 }

@@ -44,5 +44,9 @@ final class MonthlyPayoutData extends BaseData
         public bool $hasPdf,
         /** Les mois travaillés jusqu'à ce mois inclus : le « 04 » de « Mois 04 | 24 ». */
         public int $workedMonthsToDate,
+        /** L'état du PDF de la fiche validée ; nul sans fiche validée (2026-10-01). */
+        #[LiteralTypeScriptType("'ready' | 'preparing' | 'expired' | null")]
+        public ?string $pdfState = null,
+        public ?int $downloadsLeft = null,
     ) {}
 }
