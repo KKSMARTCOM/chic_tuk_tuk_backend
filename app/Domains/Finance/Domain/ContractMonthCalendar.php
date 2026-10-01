@@ -3,6 +3,7 @@
 namespace App\Domains\Finance\Domain;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Le classement des jours ouvrés d'une période : pause, immobilisation, comptabilisé.
@@ -30,19 +31,16 @@ final class ContractMonthCalendar
         $counted = $stopped = [];
 
         for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
-            if ($day->isWeekend()) {
+            $class = self::classifyDay($day, $pauses);
+            if ($class === 'weekend') {
                 continue;
             }
 
             $business++;
-            // Une pause sans fin couvre jusqu'à la borne : c'est une pause en cours.
-            $covering = $pauses->filter(fn ($p) => $p->start_date->copy()->startOfDay()->lte($day)
-                && ($p->end_date === null || $p->end_date->copy()->startOfDay()->gte($day)));
-
-            if ($covering->contains('reason_type', 'agent_leave')) {
+            if ($class === 'pause') {
                 $pause++;
                 $stopped[] = $day->toDateString();
-            } elseif ($covering->isNotEmpty()) {
+            } elseif ($class === 'immobilization') {
                 $immobilization++;
                 $stopped[] = $day->toDateString();
             } else {
@@ -51,5 +49,22 @@ final class ContractMonthCalendar
         }
 
         return new MonthDays($business, $pause, $immobilization, count($counted), $counted, $stopped);
+    }
+
+    /** La classe d'UN jour : la règle unique, partagée avec `ContractPaymentPlanner`. */
+    public static function classifyDay(Carbon $day, Collection $pauses): string
+    {
+        if ($day->isWeekend()) {
+            return 'weekend';
+        }
+        // Une pause sans fin couvre jusqu'à la borne : c'est une pause en cours.
+        $covering = $pauses->filter(fn ($p) => $p->start_date->copy()->startOfDay()->lte($day)
+            && ($p->end_date === null || $p->end_date->copy()->startOfDay()->gte($day)));
+
+        return match (true) {
+            $covering->contains('reason_type', 'agent_leave') => 'pause',
+            $covering->isNotEmpty() => 'immobilization',
+            default => 'counted',
+        };
     }
 }
