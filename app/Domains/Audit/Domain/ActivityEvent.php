@@ -83,6 +83,7 @@ enum ActivityEvent: string
     case PaymentDeleted = 'payment.deleted';
     case DailyPaymentsGenerated = 'payment.daily_generated';
     case ContractPaymentsGenerated = 'payment.period_generated';
+    case PaymentsBatchValidated = 'payment.batch_validated';
     case CommissionCancelled = 'payment.commission_cancelled';
 
     // Fiches de rémunération des propriétaires
@@ -157,6 +158,7 @@ enum ActivityEvent: string
             self::PaymentDeleted => 'Paiement supprimé',
             self::DailyPaymentsGenerated => 'Paiements journaliers générés',
             self::ContractPaymentsGenerated => 'Paiements générés sur une période',
+            self::PaymentsBatchValidated => 'Paiements validés en groupe',
             self::CommissionCancelled => 'Commission annulée',
             self::RemunerationStatementsGenerated => 'Fiches de rémunération générées',
             self::RemunerationStatementValidated => 'Fiche de rémunération validée',

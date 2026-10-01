@@ -17,6 +17,12 @@ use App\Domains\Finance\Application\Data\UpdatePaymentData;
 use App\Models\Driver;
 use App\Models\Payment;
 use App\Shared\Http\ApiException;
+use App\Domains\Finance\Application\Actions\CorrectCollectionDate;
+use App\Domains\Finance\Application\Actions\ValidatePaymentsBatch;
+use App\Domains\Finance\Application\Data\CorrectCollectionDateData;
+use App\Domains\Finance\Application\Data\ValidatePaymentData;
+use App\Domains\Finance\Application\Data\ValidatePaymentsBatchData;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -86,12 +92,36 @@ final class PaymentController
             });
     }
 
-    public function validatePayment(Request $request, string $paymentId, ShowPaymentDetail $show, ValidatePayment $validate): JsonResponse
+    public function validatePayment(Request $request, string $paymentId, ValidatePaymentData $data, ShowPaymentDetail $show, ValidatePayment $validate): JsonResponse
     {
         return $this->guard($request, 'la validation du paiement', 'Ce paiement n\'a pas pu être validé.', 'PAYMENT_VALIDATE_FAILED',
-            function () use ($paymentId, $show, $validate) {
-                $validate(Payment::findOrFail($paymentId));
+            function () use ($paymentId, $data, $show, $validate) {
+                $validate(Payment::findOrFail($paymentId), $data->collectedOn !== null ? Carbon::parse($data->collectedOn) : null);
                 $this->journal->paymentValidated(Payment::with('driver.user')->findOrFail($paymentId));
+
+                return response()->json($show($paymentId));
+            });
+    }
+
+    /** Valider en groupe, à une date d'encaissement — silencieux par défaut (2026-10-01). */
+    public function validateBatch(Request $request, ValidatePaymentsBatchData $data, ValidatePaymentsBatch $validate): JsonResponse
+    {
+        return $this->guard($request, 'la validation groupée des paiements', 'Les paiements n\'ont pas pu être validés.', 'PAYMENTS_BATCH_VALIDATE_FAILED',
+            function () use ($data, $validate) {
+                $count = $validate($data->paymentIds, Carbon::parse($data->collectedOn), $data->notifyDrivers);
+                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('amount');
+                $this->journal->paymentsValidatedInBatch($count, $total, $data->collectedOn);
+
+                return response()->json(['validated' => $count]);
+            });
+    }
+
+    public function correctCollectionDate(Request $request, string $paymentId, CorrectCollectionDateData $data, ShowPaymentDetail $show, CorrectCollectionDate $correct): JsonResponse
+    {
+        return $this->guard($request, 'la correction de la date d\'encaissement', 'La date d\'encaissement n\'a pas pu être corrigée.', 'PAYMENT_COLLECTED_ON_FAILED',
+            function () use ($paymentId, $data, $show, $correct) {
+                $correct(Payment::findOrFail($paymentId), Carbon::parse($data->collectedOn));
+                $this->journal->paymentUpdated(Payment::with('driver.user')->findOrFail($paymentId));
 
                 return response()->json($show($paymentId));
             });

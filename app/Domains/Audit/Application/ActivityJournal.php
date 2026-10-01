@@ -586,6 +586,17 @@ final class ActivityJournal
         );
     }
 
+    /** UNE ligne par validation groupée (2026-10-01). */
+    public function paymentsValidatedInBatch(int $count, float $total, string $collectedOn): void
+    {
+        $this->record(
+            ActivityEvent::PaymentsBatchValidated,
+            null,
+            "a validé {$count} paiement(s) ({$this->money($total)}) encaissés le ".Carbon::parse($collectedOn)->format('d/m/Y'),
+            ['count' => $count, 'total' => $total, 'collected_on' => $collectedOn],
+        );
+    }
+
     public function commissionCancelled(Commission $commission): void
     {
         $this->record(

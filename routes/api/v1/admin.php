@@ -269,6 +269,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->middleware('permission:create-payments')->name('payments.store');
 
         Route::middleware('permission:edit-payments')->group(function () {
+            // Avant les routes paramétrées : « validate-batch » n'est pas un paiement.
+            Route::post('/payments/validate-batch', [PaymentController::class, 'validateBatch'])->name('payments.validate-batch');
+            Route::patch('/payments/{payment}/collected-on', [PaymentController::class, 'correctCollectionDate'])->name('payments.collected-on');
             Route::put('/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
             Route::post('/payments/{payment}/validate', [PaymentController::class, 'validatePayment'])->name('payments.validate');
             Route::post('/payments/{payment}/cancel', [PaymentController::class, 'cancel'])->name('payments.cancel');

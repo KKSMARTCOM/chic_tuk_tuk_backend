@@ -5,6 +5,7 @@ namespace App\Domains\Finance\Application\Actions;
 use App\Domains\Notification\Application\Notifier;
 use App\Models\Payment;
 use App\Shared\Http\ApiException;
+use Carbon\Carbon;
 
 /**
  * Valider un paiement — ex-`PaymentService::validatePayment()`, déplacé sans changement
@@ -12,23 +13,31 @@ use App\Shared\Http\ApiException;
  */
 final class ValidatePayment
 {
+    public function __construct(private readonly CheckCollectionDate $checkCollectionDate) {}
+
     /**
-     * Valider un paiement EN ATTENTE, et le dire à l'agent.
+     * Valider un paiement EN ATTENTE, à sa date d'encaissement — aujourd'hui par défaut —,
+     * et le dire à l'agent, sauf validation groupée silencieuse (2026-10-01).
      *
      * Corrigé le 2026-09-26 : rien n'empêchait de valider un paiement annulé — l'écran ne
      * le proposait pas, le serveur l'acceptait, et l'agent était notifié.
      */
-    public function __invoke(Payment $payment): Payment
+    public function __invoke(Payment $payment, ?Carbon $collectedOn = null, bool $notify = true): Payment
     {
         if ($payment->status !== 'pending') {
             throw new ApiException(409, 'PAYMENT_NOT_PENDING', 'Seul un paiement en attente se valide.');
         }
 
-        $payment->update(['status' => 'completed']);
+        $collectedOn ??= Carbon::today();
+        ($this->checkCollectionDate)($payment, $collectedOn);
+
+        $payment->update(['status' => 'completed', 'collected_on' => $collectedOn->toDateString()]);
 
         // C'est l'ACTION qui est notifiée, pas la création du paiement : celle-ci est
         // majoritairement automatique et quotidienne.
-        app(Notifier::class)->paymentValidated($payment->fresh()->load('driver.user'));
+        if ($notify) {
+            app(Notifier::class)->paymentValidated($payment->fresh()->load('driver.user'));
+        }
 
         return $payment->refresh();
     }

@@ -46,6 +46,10 @@ final class AdminPaymentData extends BaseData
         public bool $canCancel,
         public bool $isDeletable,
         public string $createdAt,
+        /** La date d'encaissement (2026-10-01) ; nulle tant que le paiement n'est pas validé. */
+        public ?string $collectedOn = null,
+        /** Validé et compté par aucune fiche validée : sa date d'encaissement se corrige. */
+        public bool $canCorrectCollectionDate = false,
     ) {}
 
     public static function fromModel(Payment $payment): self
@@ -75,6 +79,8 @@ final class AdminPaymentData extends BaseData
             canCancel: $payment->status !== 'cancelled',
             isDeletable: $pending,
             createdAt: $payment->created_at->toIso8601String(),
+            collectedOn: $payment->collected_on?->toDateString(),
+            canCorrectCollectionDate: $payment->status === 'completed' && $payment->remuneration_statement_id === null,
         );
     }
 }
