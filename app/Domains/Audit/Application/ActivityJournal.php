@@ -597,6 +597,27 @@ final class ActivityJournal
         );
     }
 
+    /** UNE ligne par annulation groupée, avec son motif (2026-10-01). */
+    public function paymentsCancelledInBatch(int $count, float $total, string $reason): void
+    {
+        $this->record(
+            ActivityEvent::PaymentsBatchCancelled,
+            null,
+            "a annulé {$count} paiement(s) ({$this->money($total)}) : {$reason}",
+            ['count' => $count, 'total' => $total, 'reason' => $reason],
+        );
+    }
+
+    public function cancelledPaymentsPurged(int $count, float $total): void
+    {
+        $this->record(
+            ActivityEvent::CancelledPaymentsPurged,
+            null,
+            "a vidé {$count} paiement(s) de contrat annulé(s) ({$this->money($total)})",
+            ['count' => $count, 'total' => $total],
+        );
+    }
+
     public function commissionCancelled(Commission $commission): void
     {
         $this->record(

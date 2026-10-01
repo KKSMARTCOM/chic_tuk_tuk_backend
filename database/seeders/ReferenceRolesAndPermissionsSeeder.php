@@ -165,6 +165,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         // `manage-payments` retirée le 2026-09-26 (P2), découpée en edit/delete-payments.
         'create-payments' => ['Créer un paiement', 'Créer un paiement'],
         'delete-payments' => ['Supprimer un paiement', 'Supprimer un paiement en attente'],
+        'purge-payments' => ['Vider les paiements annulés', 'Supprimer définitivement les paiements de contrat annulés'],
         'edit-payments' => ['Modifier un paiement', 'Modifier, valider ou annuler un paiement'],
         'view-payments' => ['Voir les paiements', 'Voir les paiements'],
 

@@ -989,6 +989,14 @@ contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, pro
 - **PDF** : un an de vie (`pdf_purged_at`, `410 STATEMENT_PDF_EXPIRED`), régénérés par
   `POST /admin/remuneration-statements/{id}/pdf` ; le propriétaire télécharge 3 fois
   (`owner_download_count`, `403 STATEMENT_DOWNLOAD_LIMIT`), l'admin sans limite.
+- **Nettoyer avant de reconstituer** : les anomalies (sans mois, sans contrat, sur un jour
+  d'arrêt, doublon du même jour, en attente d'un mois passé) se définissent dans
+  `ContractPaymentAnomalies`, que l'audit compte ET que la liste filtre
+  (`filter[anomaly]=…`). Annulation groupée avec motif `POST /admin/payments/cancel-batch`
+  (`edit-payments`, silencieuse par défaut). ⚠️ **La liste masque les paiements annulés
+  par défaut** ; `filter[status]=cancelled` les montre, et
+  `DELETE /admin/payments/cancelled` (`purge-payments`, l'administrateur seul) vide les
+  paiements de CONTRAT annulés — rejouer le seeder après déploiement.
 - **Saisie manuelle** d'un paiement de contrat : `driver_contract_id` (contrat même terminé)
   et `payment_month` = mois de la date. Avant, ces paiements naissaient sans mois et
   n'entraient dans aucune fiche.
