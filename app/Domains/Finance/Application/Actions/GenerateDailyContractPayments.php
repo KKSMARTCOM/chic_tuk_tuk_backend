@@ -5,6 +5,7 @@ namespace App\Domains\Finance\Application\Actions;
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Models\DriverContract;
 use App\Models\Payment;
+use App\Models\VehicleContract;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -99,6 +100,9 @@ final class GenerateDailyContractPayments
         // créer le paiement du même jour.
         return DB::transaction(function () use ($contract, $vehicleContract, $today, $dailyAmount, $netAmount) {
             $contract = DriverContract::query()->lockForUpdate()->with('vehicleContract')->findOrFail($contract->id);
+            // Le contrat VÉHICULE aussi : deux agents d'un même véhicule ne génèrent jamais le
+            // même jour en parallèle (2026-10-01).
+            VehicleContract::query()->lockForUpdate()->find($contract->vehicle_contract_id);
 
             try {
                 $plan = ($this->plan)($contract, $today, $today);

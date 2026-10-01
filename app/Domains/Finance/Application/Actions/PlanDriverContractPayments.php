@@ -52,8 +52,11 @@ final class PlanDriverContractPayments
                 'reason_type' => 'agent_leave',
             ]);
 
+        // Les paiements du CONTRAT VÉHICULE, tous agents confondus : le véhicule ne rapporte
+        // qu'une fois par jour. Le jour où un agent part et l'autre arrive, celui déjà payé
+        // par l'un n'est pas généré pour l'autre (2026-10-01).
         $payments = Payment::query()
-            ->where('driver_contract_id', $contract->id)
+            ->where(fn ($q) => $q->where('vehicle_contract_id', $vehicleContract->id)->orWhere('driver_contract_id', $contract->id))
             ->where('payment_type', 'contract')
             ->whereBetween('payment_date', [$boundedFrom->toDateString(), $boundedTo->toDateString()])
             ->get(['id', 'payment_date', 'status']);

@@ -108,14 +108,19 @@ class GenerateDailyContractPaymentsTest extends TestCase
     {
         // Revue du 2026-10-01 : la génération sur une période verrouille le contrat agent ;
         // sans le même verrou ici, les deux pouvaient créer le paiement du même jour.
-        $locked = false;
-        DB::listen(function ($query) use (&$locked) {
+        $locked = $vehicleLocked = false;
+        DB::listen(function ($query) use (&$locked, &$vehicleLocked) {
             if (str_contains($query->sql, 'driver_contracts') && str_contains(strtolower($query->sql), 'for update')) {
                 $locked = true;
+            }
+            if (str_contains($query->sql, '"vehicle_contracts"') && str_contains(strtolower($query->sql), 'for update')) {
+                $vehicleLocked = true;
             }
         });
 
         $this->assertSame(1, $this->generateOn('2026-07-15'));
         $this->assertTrue($locked);
+        // Deux agents d'un même véhicule ne doivent pas générer le même jour en parallèle.
+        $this->assertTrue($vehicleLocked);
     }
 }

@@ -47,8 +47,10 @@ class AuditContractPayments extends Command
         });
         $this->section('Sur un jour d\'arrêt', $stopped);
 
-        $this->section('Doublons du même jour', (clone $live)->whereNotNull('driver_contract_id')->get()
-            ->groupBy(fn ($p) => $p->driver_contract_id.'|'.$p->payment_date->toDateString())
+        // Par contrat VÉHICULE : deux agents payés le même jour sur un véhicule le comptent
+        // deux fois en recettes.
+        $this->section('Doublons du même jour', (clone $live)->whereNotNull('vehicle_contract_id')->get()
+            ->groupBy(fn ($p) => $p->vehicle_contract_id.'|'.$p->payment_date->toDateString())
             ->filter(fn ($group) => $group->count() > 1)
             ->flatMap(fn ($group) => $group->slice(1)));
 

@@ -53,4 +53,16 @@ class AuditContractPaymentsTest extends TestCase
     {
         $this->artisan('app:audit-contract-payments')->expectsOutputToContain('Aucun contrat véhicule.')->assertSuccessful();
     }
+
+    public function test_two_agents_paid_the_same_day_on_one_vehicle_is_a_duplicate(): void
+    {
+        Carbon::setTestNow('2026-10-01 09:00:00');
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-01']);
+        $a = DriverContract::factory()->forVehicleContract($contract)->create(['start_date' => '2026-03-02', 'end_date' => '2026-03-13']);
+        $b = DriverContract::factory()->forVehicleContract($contract)->create(['start_date' => '2026-03-13']);
+        Payment::factory()->onDay('2026-03-13')->create(['vehicle_contract_id' => $contract->id, 'driver_contract_id' => $a->id, 'driver_id' => $a->driver_id]);
+        Payment::factory()->onDay('2026-03-13')->create(['vehicle_contract_id' => $contract->id, 'driver_contract_id' => $b->id, 'driver_id' => $b->driver_id]);
+
+        $this->artisan('app:audit-contract-payments')->expectsOutputToContain('Doublons du même jour : 1')->assertSuccessful();
+    }
 }
