@@ -48,5 +48,7 @@ final class MonthlyPayoutData extends BaseData
         #[LiteralTypeScriptType("'ready' | 'preparing' | 'expired' | null")]
         public ?string $pdfState = null,
         public ?int $downloadsLeft = null,
+        /** Faux pour une fiche reconstituée, validée sans envoi ; nul sans fiche validée. */
+        public ?bool $sentByEmail = null,
     ) {}
 }

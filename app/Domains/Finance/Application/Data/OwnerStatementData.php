@@ -22,6 +22,8 @@ final class OwnerStatementData extends BaseData
         public string $pdfState = 'preparing',
         /** Il en a trois : la fiche lui a déjà été envoyée par e-mail. */
         public int $downloadsLeft = 0,
+        /** Faux pour une fiche reconstituée, validée sans envoi : le propriétaire l'a sur papier. */
+        public bool $sentByEmail = true,
     ) {}
 
     public static function fromModel(RemunerationStatement $statement): self
@@ -34,6 +36,7 @@ final class OwnerStatementData extends BaseData
             hasPdf: $statement->pdf_path !== null,
             pdfState: $statement->pdfState(),
             downloadsLeft: $statement->ownerDownloadsLeft(),
+            sentByEmail: $statement->delivery !== 'none',
         );
     }
 }

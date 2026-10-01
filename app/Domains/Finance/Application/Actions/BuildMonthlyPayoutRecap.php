@@ -63,6 +63,7 @@ final class BuildMonthlyPayoutRecap
                     workedMonthsToDate: $calculator->workedMonthsUntil($key),
                     pdfState: $statement?->pdfState(),
                     downloadsLeft: $statement?->ownerDownloadsLeft(),
+                    sentByEmail: $statement !== null ? $statement->delivery !== 'none' : null,
                 );
             })
             ->sortByDesc('month')

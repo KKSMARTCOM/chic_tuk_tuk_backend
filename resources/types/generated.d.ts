@@ -553,6 +553,7 @@ has_pdf: boolean;
 worked_months_to_date: number;
 pdf_state: 'ready' | 'preparing' | 'expired' | null;
 downloads_left: number | null;
+sent_by_email: boolean | null;
 };
 export type OwnerStatementData = {
 id: string;
@@ -562,6 +563,7 @@ balance_due: number;
 has_pdf: boolean;
 pdf_state: 'ready' | 'preparing' | 'expired';
 downloads_left: number;
+sent_by_email: boolean;
 };
 export type PlannedDayData = {
 date: string;
