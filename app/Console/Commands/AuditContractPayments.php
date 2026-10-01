@@ -2,8 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Domains\Finance\Domain\ContractMonthCalculator;
-use App\Models\Payment;
+use App\Domains\Finance\Application\ContractPaymentAnomalies;
 use App\Models\VehicleContract;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -30,40 +29,22 @@ class AuditContractPayments extends Command
         $month = Carbon::parse($first)->startOfMonth();
         $this->info('Plus ancien contrat véhicule : '.$month->locale('fr')->translatedFormat('F Y')." (REMUNERATION_FIRST_MONTH={$month->format('Y-m')} ou plus tôt)");
 
-        $live = Payment::query()->where('payment_type', 'contract')->where('status', '!=', 'cancelled');
-
-        $this->section('Sans mois', (clone $live)->whereNull('payment_month')->get());
-        $this->section('Sans contrat', (clone $live)
-            ->where(fn ($q) => $q->whereNull('vehicle_contract_id')->orWhereNull('driver_contract_id'))->get());
-
-        $stopped = collect();
-        VehicleContract::query()->where('status', '!=', 'cancelled')->each(function (VehicleContract $contract) use ($stopped) {
-            $calculator = ContractMonthCalculator::for($contract);
-            $payments = $contract->payments()->where('payment_type', 'contract')->where('status', '!=', 'cancelled')->whereNotNull('payment_month')->get();
-            foreach ($payments->groupBy(fn ($p) => $p->payment_month->format('Y-m')) as $key => $ofMonth) {
-                $stoppedDates = $calculator->stoppedDates($key);
-                $ofMonth->filter(fn ($p) => in_array($p->payment_date->toDateString(), $stoppedDates, true))->each(fn ($p) => $stopped->push($p));
-            }
-        });
-        $this->section('Sur un jour d\'arrêt', $stopped);
-
-        // Par contrat VÉHICULE : deux agents payés le même jour sur un véhicule le comptent
-        // deux fois en recettes.
-        $this->section('Doublons du même jour', (clone $live)->whereNotNull('vehicle_contract_id')->get()
-            ->groupBy(fn ($p) => $p->vehicle_contract_id.'|'.$p->payment_date->toDateString())
-            ->filter(fn ($group) => $group->count() > 1)
-            ->flatMap(fn ($group) => $group->slice(1)));
-
-        $this->section('En attente d\'un mois passé', Payment::query()->where('payment_type', 'contract')->where('status', 'pending')
-            ->where('payment_month', '<', now()->startOfMonth()->toDateString())->get());
+        // Les règles vivent dans ContractPaymentAnomalies, que la liste des paiements filtre
+        // aussi : l'audit et l'écran tombent toujours d'accord (2026-10-01).
+        foreach (ContractPaymentAnomalies::KINDS as $kind => $title) {
+            $this->section($title, ContractPaymentAnomalies::payments($kind), $kind);
+        }
 
         return self::SUCCESS;
     }
 
-    private function section(string $title, Collection $payments): void
+    private function section(string $title, Collection $payments, string $kind): void
     {
         $this->line('');
         $this->info("{$title} : {$payments->count()}");
+        if ($payments->isNotEmpty()) {
+            $this->line("  À l'écran : /admin/payments?filter[anomaly]={$kind}");
+        }
         foreach ($payments as $p) {
             $this->line(sprintf('  %s  %s  %s  %s  contrat véhicule %s', $p->id, $p->payment_date?->toDateString() ?? '—', $p->status, $p->amount, $p->vehicle_contract_id ?? '—'));
         }

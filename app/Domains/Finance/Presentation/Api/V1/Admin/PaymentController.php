@@ -4,16 +4,19 @@ namespace App\Domains\Finance\Presentation\Api\V1\Admin;
 
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Actions\CancelPayment;
+use App\Domains\Finance\Application\Actions\CancelPaymentsBatch;
 use App\Domains\Finance\Application\Actions\CorrectCollectionDate;
 use App\Domains\Finance\Application\Actions\CreatePayment;
 use App\Domains\Finance\Application\Actions\DeletePayment;
 use App\Domains\Finance\Application\Actions\ListPayableDrivers;
 use App\Domains\Finance\Application\Actions\ListPayments;
+use App\Domains\Finance\Application\Actions\PurgeCancelledPayments;
 use App\Domains\Finance\Application\Actions\ShowDriverPayments;
 use App\Domains\Finance\Application\Actions\ShowPaymentDetail;
 use App\Domains\Finance\Application\Actions\UpdatePayment;
 use App\Domains\Finance\Application\Actions\ValidatePayment;
 use App\Domains\Finance\Application\Actions\ValidatePaymentsBatch;
+use App\Domains\Finance\Application\Data\CancelPaymentsBatchData;
 use App\Domains\Finance\Application\Data\CorrectCollectionDateData;
 use App\Domains\Finance\Application\Data\CreatePaymentData;
 use App\Domains\Finance\Application\Data\UpdatePaymentData;
@@ -114,6 +117,33 @@ final class PaymentController
                 $this->journal->paymentsValidatedInBatch($count, $total, $data->collectedOn);
 
                 return response()->json(['validated' => $count]);
+            });
+    }
+
+    /** Annuler en groupe, avec un motif — silencieux par défaut (2026-10-01). */
+    public function cancelBatch(Request $request, CancelPaymentsBatchData $data, CancelPaymentsBatch $cancel): JsonResponse
+    {
+        return $this->guard($request, 'l\'annulation groupée des paiements', 'Les paiements n\'ont pas pu être annulés.', 'PAYMENTS_BATCH_CANCEL_FAILED',
+            function () use ($data, $cancel) {
+                $count = $cancel($data->paymentIds, $data->reason, $data->notifyDrivers);
+                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('net_amount');
+                $this->journal->paymentsCancelledInBatch($count, $total, $data->reason);
+
+                return response()->json(['cancelled' => $count]);
+            });
+    }
+
+    /** Vider les paiements de contrat annulés — `purge-payments`, l'administrateur seul (2026-10-01). */
+    public function purgeCancelled(Request $request, PurgeCancelledPayments $purge): JsonResponse
+    {
+        return $this->guard($request, 'la purge des paiements annulés', 'Les paiements annulés n\'ont pas pu être vidés.', 'PAYMENTS_PURGE_FAILED',
+            function () use ($purge) {
+                ['count' => $count, 'total' => $total] = $purge();
+                if ($count > 0) {
+                    $this->journal->cancelledPaymentsPurged($count, $total);
+                }
+
+                return response()->json(['deleted' => $count]);
             });
     }
 

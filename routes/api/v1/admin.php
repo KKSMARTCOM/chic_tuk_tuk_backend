@@ -271,11 +271,16 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::middleware('permission:edit-payments')->group(function () {
             // Avant les routes paramétrées : « validate-batch » n'est pas un paiement.
             Route::post('/payments/validate-batch', [PaymentController::class, 'validateBatch'])->name('payments.validate-batch');
+            Route::post('/payments/cancel-batch', [PaymentController::class, 'cancelBatch'])->name('payments.cancel-batch');
             Route::patch('/payments/{payment}/collected-on', [PaymentController::class, 'correctCollectionDate'])->name('payments.collected-on');
             Route::put('/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
             Route::post('/payments/{payment}/validate', [PaymentController::class, 'validatePayment'])->name('payments.validate');
             Route::post('/payments/{payment}/cancel', [PaymentController::class, 'cancel'])->name('payments.cancel');
         });
+
+        // Vider les paiements de contrat annulés (2026-10-01) — AVANT `/payments/{payment}`.
+        Route::delete('/payments/cancelled', [PaymentController::class, 'purgeCancelled'])
+            ->middleware('permission:purge-payments')->name('payments.purge-cancelled');
 
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
             ->middleware('permission:delete-payments')->name('payments.destroy');

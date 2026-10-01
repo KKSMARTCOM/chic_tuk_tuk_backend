@@ -140,8 +140,13 @@ class AdminPaymentsApiTest extends TestCase
         $this->assertFalse($rows[$completed->id]['can_validate']);
         $this->assertTrue($rows[$completed->id]['can_cancel']);
         $this->assertFalse($rows[$completed->id]['is_deletable']);
-        $this->assertFalse($rows[$cancelled->id]['can_cancel']);
+        // Masqué par défaut depuis le 2026-10-01 : le filtre « Annulé » le montre.
+        $this->assertFalse($rows->has($cancelled->id));
         $this->assertSame(24, $rows[$pending->id]['contract_months']);
+        $cancelledRow = $this->asBearer($this->login(['view-payments']))
+            ->getJson('/api/v1/admin/payments?filter[status]=cancelled')->json('payments.0');
+        $this->assertSame($cancelled->id, $cancelledRow['id']);
+        $this->assertFalse($cancelledRow['can_cancel']);
 
         $this->asBearer($this->login(['view-payments']))
             ->getJson('/api/v1/admin/payments?filter[status]=pending')

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Domains\Finance\Application\ContractPaymentAnomalies;
 use App\Domains\Finance\Application\Data\AdminPaymentData;
 use App\Domains\Finance\Application\Data\AdminPaymentDriverOptionData;
 use App\Domains\Finance\Application\Data\AdminPaymentPageData;
@@ -20,7 +21,7 @@ use Spatie\QueryBuilder\QueryBuilder;
 final class ListPayments
 {
     /**
-     * @param  array<string, mixed>  $params  `filter[driver_id|status|payment_type|search|date_from|date_to]`,
+     * @param  array<string, mixed>  $params  `filter[driver_id|status|payment_type|search|date_from|date_to|anomaly]`,
      *                                         `sort` (amount, payment_date, created_at), `page`, `per_page`
      */
     public function __invoke(array $params = []): AdminPaymentPageData
@@ -47,7 +48,13 @@ final class ListPayments
      */
     private function query(array $params): QueryBuilder
     {
-        return ListQuery::build(Payment::query()->with(['driver.user', 'vehicleContract.vehicle', 'driverContract.vehicle']), $params, fn (QueryBuilder $query) => $query
+        // Les paiements annulés sont masqués par défaut (2026-10-01) : ils s'accumulent au fil
+        // des reconstitutions et noyaient la liste. Le filtre « Annulé » les montre.
+        $status = $params['filter']['status'] ?? null;
+        $base = Payment::query()->with(['driver.user', 'vehicleContract.vehicle', 'driverContract.vehicle'])
+            ->when($status === null || $status === '', fn (Builder $q) => $q->where('payments.status', '!=', 'cancelled'));
+
+        return ListQuery::build($base, $params, fn (QueryBuilder $query) => $query
             ->allowedFilters([
                 ListQuery::exact('driver_id'),
                 ListQuery::exact('status'),
@@ -59,6 +66,8 @@ final class ListPayments
                     ->orWhere('reference_number', 'ilike', '%'.$search.'%'))),
                 AllowedFilter::callback('date_from', fn (Builder $q, $date) => $q->whereDate('payment_date', '>=', $date))->ignore(''),
                 AllowedFilter::callback('date_to', fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date))->ignore(''),
+                // Les anomalies de l'audit, retrouvées à l'écran (2026-10-01).
+                AllowedFilter::callback('anomaly', fn (Builder $q, $kind) => ContractPaymentAnomalies::apply($q, (string) $kind))->ignore(''),
             ])
             ->allowedSorts(['amount', 'payment_date', 'created_at'])
             // Le tri du Blade : date du paiement, puis date d'enregistrement.
