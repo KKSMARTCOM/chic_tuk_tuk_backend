@@ -858,7 +858,7 @@ fiche validée — l'aperçu n'en recalcule aucun.
 - `app:generate-remuneration-statements {--month=}` → `GenerateRemunerationStatements` : les brouillons des fiches de rémunération d'un mois (par défaut le mois écoulé)
 - `app:check-remuneration-branding` : le cachet et la signature des fiches sont-ils en place ?
 - `app:purge-remuneration-pdfs` : efface les PDF de fiches générés depuis plus de `remuneration.pdf_retention_days` jours ; la fiche reste
-- `app:audit-contract-payments` : LECTURE SEULE — plus ancien contrat, paiements sans mois, sans contrat, sur un jour d'arrêt, en double, en attente d'un mois passé
+- `app:audit-contract-payments` : LECTURE SEULE — plus ancien contrat, paiements sans mois, sans contrat, sur un jour d'arrêt, en double sur un même contrat véhicule (deux agents compris), en attente d'un mois passé
 
 ## Scheduler (bootstrap/app.php → withSchedule)
 
@@ -965,6 +965,9 @@ contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, pro
   classe chaque jour (hors contrat, week-end, pause d'agent, immobilisation, payé, annulé,
   à générer) ; la génération du soir s'en sert aussi. ⚠️ Le contrat véhicule est celui DU
   CONTRAT AGENT, jamais le contrat actif du véhicule.
+  ⚠️ **Un véhicule rapporte une fois par jour** : un jour déjà payé par N'IMPORTE QUEL agent
+  du contrat véhicule est « payé » (le jour où A part et B arrive). Les deux générateurs
+  verrouillent le contrat agent PUIS le contrat véhicule — toujours dans cet ordre.
 - ⚠️ **La date décide, pas l'ordre des clics.** `payments.collected_on` (encaissement) et
   `remuneration_statements.issued_on` (établissement) : recettes = encaissés au plus tard à
   la date de la fiche ; en instance = en attente ou encaissés après ; recouvré = mois

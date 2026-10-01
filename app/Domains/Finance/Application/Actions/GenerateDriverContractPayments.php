@@ -6,6 +6,7 @@ use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Data\ContractPaymentGenerationData;
 use App\Models\DriverContract;
 use App\Models\Payment;
+use App\Models\VehicleContract;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -32,6 +33,9 @@ final class GenerateDriverContractPayments
     {
         [$created, $total, $skipped] = DB::transaction(function () use ($contract, $from, $to, $regenerateCancelled, $note, $expected) {
             $contract = DriverContract::query()->lockForUpdate()->with('vehicleContract')->findOrFail($contract->id);
+            // Le contrat VÉHICULE aussi : deux agents d'un même véhicule ne génèrent jamais le
+            // même jour en parallèle (2026-10-01).
+            VehicleContract::query()->lockForUpdate()->find($contract->vehicle_contract_id);
             $plan = ($this->plan)($contract, $from, $to);
 
             $unknown = array_diff($regenerateCancelled, $plan->cancelled());

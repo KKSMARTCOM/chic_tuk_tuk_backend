@@ -166,4 +166,31 @@ class ContractPaymentGenerationApiTest extends TestCase
         $this->login([])->postJson($this->url('preview'), ['from' => '2026-03-01', 'to' => '2026-03-31'])->assertForbidden();
         $this->login([])->postJson($this->url('generate'), ['from' => '2026-03-01', 'to' => '2026-03-31'])->assertForbidden();
     }
+
+    public function test_a_day_already_paid_by_another_agent_of_the_same_vehicle_is_not_generated_again(): void
+    {
+        // Le jour où A part et B arrive : le véhicule ne rapporte qu'une fois ce jour-là.
+        $next = DriverContract::factory()->forVehicleContract($this->vehicleContract)->create(['start_date' => '2026-03-13']);
+        Payment::factory()->onDay('2026-03-13')->status('completed')->create([
+            'vehicle_contract_id' => $this->vehicleContract->id, 'driver_contract_id' => $next->id, 'driver_id' => $next->driver_id,
+        ]);
+
+        $response = $this->login()->postJson($this->url('preview'), ['from' => '2026-03-13', 'to' => '2026-03-13'])->assertOk();
+
+        $this->assertSame('paid', $response->json('days.0.class'));
+        $this->login()->postJson($this->url('generate'), ['from' => '2026-03-13', 'to' => '2026-03-13'])->assertJson(['created' => 0]);
+    }
+
+    public function test_the_vehicle_contract_is_locked_during_generation(): void
+    {
+        $locked = false;
+        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$locked) {
+            if (str_contains($query->sql, '"vehicle_contracts"') && str_contains(strtolower($query->sql), 'for update')) {
+                $locked = true;
+            }
+        });
+
+        $this->login()->postJson($this->url('generate'), ['from' => '2026-03-02', 'to' => '2026-03-02'])->assertJson(['created' => 1]);
+        $this->assertTrue($locked);
+    }
 }
