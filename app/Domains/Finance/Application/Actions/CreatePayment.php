@@ -3,7 +3,10 @@
 namespace App\Domains\Finance\Application\Actions;
 
 use App\Models\Driver;
+use App\Models\DriverContract;
 use App\Models\Payment;
+use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Enregistrer un paiement — ex-`PaymentService::create()`, déplacé sans changement le
@@ -19,10 +22,26 @@ final class CreatePayment
     public function __invoke(array $data)
     {
         $driver = Driver::with('activeDriverContract')->findOrFail($data['driver_id']);
+        $isContract = ($data['payment_type'] ?? null) === 'contract';
 
-        if ($driver->activeDriverContract) {
+        if ($isContract && ! empty($data['driver_contract_id'])) {
+            // Un contrat EN COURS OU TERMINÉ de l'agent (2026-10-01) : c'est ce qui rattache
+            // le paiement d'un agent parti au contrat sur lequel il a travaillé.
+            $contract = DriverContract::query()->whereKey($data['driver_contract_id'])->where('driver_id', $driver->id)->first();
+            if ($contract === null) {
+                throw ValidationException::withMessages(['driver_contract_id' => 'Ce contrat n\'est pas celui de l\'agent.']);
+            }
+            $data['vehicle_contract_id'] = $contract->vehicle_contract_id;
+        } elseif ($driver->activeDriverContract) {
             $data['driver_contract_id'] = $driver->activeDriverContract->id;
             $data['vehicle_contract_id'] = $driver->activeDriverContract->vehicle_contract_id;
+        } else {
+            unset($data['driver_contract_id']);
+        }
+
+        // Sans mois, un paiement de contrat n'entrait dans aucune fiche (2026-10-01).
+        if ($isContract) {
+            $data['payment_month'] = Carbon::parse($data['payment_date'])->startOfMonth()->toDateString();
         }
 
         ($this->checkPaymentData)($data);
@@ -40,6 +59,8 @@ final class CreatePayment
             'vehicle_contract_id' => $data['vehicle_contract_id'] ?? null,
             'driver_contract_id' => $data['driver_contract_id'] ?? null,
             'net_amount' => $data['net_amount'] ?? null,
+            // Il naît validé : encaissé à sa date (2026-10-01).
+            'collected_on' => $data['payment_date'],
         ]);
 
         return $payment;

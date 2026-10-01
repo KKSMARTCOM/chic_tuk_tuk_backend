@@ -51,7 +51,7 @@ final class PaymentController
     public function payableDrivers(Request $request, ListPayableDrivers $list): JsonResponse
     {
         return $this->guard($request, 'la liste des agents payables', 'Les agents n\'ont pas pu être chargés. Réessayez.', 'PAYABLE_DRIVERS_FAILED',
-            fn () => response()->json($list()));
+            fn () => response()->json($list($request->query('type'))));
     }
 
     public function show(Request $request, string $paymentId, ShowPaymentDetail $show): JsonResponse

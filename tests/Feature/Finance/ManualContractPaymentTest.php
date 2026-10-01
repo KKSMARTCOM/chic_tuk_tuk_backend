@@ -1,0 +1,92 @@
+<?php
+
+namespace Tests\Feature\Finance;
+
+use App\Domains\Identity\Domain\Enums\Profil;
+use App\Models\Driver;
+use App\Models\DriverContract;
+use App\Models\Payment;
+use App\Models\User;
+use App\Models\VehicleContract;
+use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Permission;
+use Tests\TestCase;
+
+/** Plus aucun paiement de contrat invisible des fiches (spec 2026-10-01, §6). */
+class ManualContractPaymentTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Carbon::setTestNow('2026-10-01 09:00:00');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
+    private function api(): self
+    {
+        $user = User::factory()->profil(Profil::Admin)->create(['password' => Hash::make('bon-mot-de-passe')]);
+        $user->givePermissionTo(Permission::firstOrCreate(['name' => 'create-payments', 'guard_name' => 'web']));
+        $token = $this->postJson('/api/v1/auth/login', ['email' => $user->email, 'password' => 'bon-mot-de-passe'])->json('token');
+        Auth::forgetGuards();
+
+        return $this->withHeader('Authorization', "Bearer {$token}");
+    }
+
+    private function body(Driver $driver, array $extra = []): array
+    {
+        return ['driver_id' => $driver->id, 'payment_type' => 'contract', 'amount' => 6112, 'payment_method' => 'cash', 'payment_date' => '2026-05-12'] + $extra;
+    }
+
+    public function test_a_resigned_agents_payment_goes_to_the_chosen_ended_contract_with_its_month(): void
+    {
+        $vehicleContract = VehicleContract::factory()->create(['start_date' => '2026-03-01']);
+        $ended = DriverContract::factory()->forVehicleContract($vehicleContract)->create(['start_date' => '2026-03-02', 'end_date' => '2026-04-15', 'status' => 'ended']);
+
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id]))->assertCreated();
+
+        $payment = Payment::sole();
+        $this->assertSame([$ended->id, $vehicleContract->id, '2026-05-01', '2026-05-12'],
+            [$payment->driver_contract_id, $payment->vehicle_contract_id, $payment->payment_month->toDateString(), $payment->collected_on->toDateString()]);
+    }
+
+    public function test_someone_elses_contract_is_refused(): void
+    {
+        $mine = DriverContract::factory()->create();
+        $other = DriverContract::factory()->create();
+
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($mine->driver, ['driver_contract_id' => $other->id]))
+            ->assertStatus(422)->assertJsonValidationErrors(['driver_contract_id' => 'Ce contrat n\'est pas celui de l\'agent.']);
+    }
+
+    public function test_without_a_contract_id_the_active_contract_is_kept_and_the_month_is_set(): void
+    {
+        $active = DriverContract::factory()->create(['status' => 'active']);
+
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($active->driver))->assertCreated();
+
+        $this->assertSame([$active->id, '2026-05-01'], [Payment::sole()->driver_contract_id, Payment::sole()->payment_month->toDateString()]);
+    }
+
+    public function test_payable_drivers_for_contracts_include_resigned_agents_with_their_contracts(): void
+    {
+        $ended = DriverContract::factory()->create(['status' => 'ended', 'end_date' => '2026-04-15']);
+        DriverContract::factory()->create(['status' => 'active']);
+
+        $all = $this->api()->getJson('/api/v1/admin/payments/payable-drivers?type=contract')->assertOk()->json();
+        $active = $this->api()->getJson('/api/v1/admin/payments/payable-drivers')->assertOk()->json();
+
+        $this->assertCount(2, $all);
+        $this->assertCount(1, $active);
+        $this->assertSame($ended->id, collect($all)->firstWhere('id', $ended->driver_id)['contracts'][0]['id']);
+    }
+}
