@@ -310,6 +310,7 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::post('/remuneration-statements/{id}/cancel', [RemunerationStatementController::class, 'cancel'])->name('remuneration-statements.cancel');
             // Le rôle administrateur est vérifié en plus, dans le contrôleur (2026-10-01).
             Route::delete('/remuneration-statements/cancelled', [RemunerationStatementController::class, 'purgeCancelled'])->name('remuneration-statements.purge-cancelled');
+            Route::post('/remuneration-statements/{id}/pdf', [RemunerationStatementController::class, 'regeneratePdf'])->name('remuneration-statements.pdf.regenerate');
         });
 
         /*
