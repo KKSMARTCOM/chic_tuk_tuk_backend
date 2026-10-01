@@ -673,6 +673,17 @@ final class ActivityJournal
         );
     }
 
+    /** @param  list<string>  $numbers */
+    public function cancelledStatementsPurged(array $numbers): void
+    {
+        $this->record(
+            ActivityEvent::RemunerationStatementsPurged,
+            null,
+            'a vidé '.count($numbers).' fiche(s) de rémunération annulée(s) : '.implode(', ', $numbers),
+            ['numbers' => $numbers],
+        );
+    }
+
     public function remunerationStatementCancelled(RemunerationStatement $statement, string $reason): void
     {
         $this->record(

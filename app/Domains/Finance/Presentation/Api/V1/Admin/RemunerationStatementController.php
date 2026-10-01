@@ -7,6 +7,7 @@ use App\Domains\Finance\Application\Actions\BuildStatementFigures;
 use App\Domains\Finance\Application\Actions\CancelRemunerationStatement;
 use App\Domains\Finance\Application\Actions\GenerateRemunerationStatements;
 use App\Domains\Finance\Application\Actions\ListRemunerationStatements;
+use App\Domains\Finance\Application\Actions\PurgeCancelledStatements;
 use App\Domains\Finance\Application\Actions\UpdateRemunerationStatement;
 use App\Domains\Finance\Application\Actions\ValidateRemunerationStatement;
 use App\Domains\Finance\Application\Data\CancelRemunerationStatementData;
@@ -121,6 +122,27 @@ final class RemunerationStatementController
         } catch (\Throwable $e) {
             return $this->failure($e, $request, 'l\'annulation de la fiche de rémunération',
                 'Cette fiche de rémunération n\'a pas pu être annulée.', 'ADMIN_REMUNERATION_CANCEL_FAILED');
+        }
+    }
+
+    /** Vider les fiches annulées — le RÔLE administrateur, pas une permission attribuable (2026-10-01). */
+    public function purgeCancelled(Request $request, PurgeCancelledStatements $purge): JsonResponse
+    {
+        try {
+            if (! $request->user()->hasRole('admin')) {
+                throw new ApiException(403, 'ADMIN_ROLE_REQUIRED', 'Seul l\'administrateur peut vider les fiches annulées.');
+            }
+            $numbers = $purge();
+            if ($numbers !== []) {
+                $this->journal->cancelledStatementsPurged($numbers);
+            }
+
+            return response()->json(['deleted' => count($numbers)]);
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'la purge des fiches annulées',
+                'Les fiches annulées n\'ont pas pu être vidées.', 'ADMIN_REMUNERATION_PURGE_FAILED');
         }
     }
 

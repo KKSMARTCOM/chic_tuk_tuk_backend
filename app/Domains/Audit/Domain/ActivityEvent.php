@@ -91,6 +91,7 @@ enum ActivityEvent: string
     case RemunerationStatementValidated = 'remuneration_statement.validated';
     case RemunerationStatementSent = 'remuneration_statement.sent';
     case RemunerationStatementCancelled = 'remuneration_statement.cancelled';
+    case RemunerationStatementsPurged = 'remuneration_statement.purged';
 
     // Réglages
     case PricingUpdated = 'settings.pricing_updated';
@@ -164,6 +165,7 @@ enum ActivityEvent: string
             self::RemunerationStatementValidated => 'Fiche de rémunération validée',
             self::RemunerationStatementSent => 'Fiche de rémunération envoyée',
             self::RemunerationStatementCancelled => 'Fiche de rémunération annulée',
+            self::RemunerationStatementsPurged => 'Fiches annulées vidées',
             self::PricingUpdated => 'Tarifs modifiés',
             self::ContractTermsUpdated => 'Réglages des contrats modifiés',
         };
