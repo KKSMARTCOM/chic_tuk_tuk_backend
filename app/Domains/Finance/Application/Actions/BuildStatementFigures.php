@@ -9,13 +9,17 @@ use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
+use Carbon\Carbon;
 
 /**
  * Les chiffres d'une fiche de rémunération (spec 2026-09-30, §4).
  *
- * - recettes : les paiements validés du mois qu'aucune fiche n'a rattachés ;
- * - recouvré : ceux des mois ANTÉRIEURS — validés en retard —, à partir du premier mois de
- *   mise en service seulement ;
+ * - recettes : les paiements validés du mois qu'aucune fiche n'a rattachés, encaissés au
+ *   plus tard à la date d'établissement (aujourd'hui pour un brouillon sans date) ;
+ * - en instance : ceux du mois encore en attente, ou encaissés après cette date ;
+ * - recouvré : ceux des mois ANTÉRIEURS dont la fiche est validée, encaissés au plus tard à
+ *   la date d'établissement, à partir du premier mois de mise en service seulement.
+ *   C'est la DATE qui décide, pas l'ordre des validations (spec 2026-10-01, §4.3) ;
  * - charges : par ligne, reste à recouvrer = ouverture + (dû − prélevé) des fiches validées
  *   antérieures + dû de ce mois, zéro si le mois n'est pas travaillé ;
  * - cumuls : l'historique d'avant la mise en service, puis les fiches validées, puis celle-ci.
@@ -38,6 +42,11 @@ final class BuildStatementFigures
             // Comme `ContractMonthCalculator` : un paiement sans mois n'appartient à aucun.
             ->whereNotNull('payment_month')
             ->get();
+        // La date d'établissement fait foi (spec 2026-10-01, §4.3) : aujourd'hui pour un
+        // brouillon qui n'en a pas. Un paiement validé sans date d'encaissement — hérité, ou
+        // d'avant la reprise — compte comme encaissé.
+        $issuedOn = ($statement?->issued_on ?? Carbon::today())->copy()->startOfDay();
+        $collected = fn ($p) => $p->collected_on === null || $p->collected_on->copy()->startOfDay()->lte($issuedOn);
         $prior = RemunerationStatement::query()
             ->where('vehicle_contract_id', $contract->id)
             ->where('status', 'validated')
@@ -46,13 +55,16 @@ final class BuildStatementFigures
             ->get();
         $validatedMonths = $prior->map(fn (RemunerationStatement $s) => $s->monthKey())->all();
 
-        $revenuePayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey);
+        $revenuePayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey && $collected($p));
         // Recouvré = validé APRÈS la fiche de son mois. Un mois encore sans fiche validée garde
         // ses paiements pour lui : les compter ici les montrerait deux fois — dans l'estimation
         // du mois suivant, puis dans la fiche de leur mois.
         $recoveredPayments = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') < $monthKey
             && $p->payment_month->format('Y-m') >= $firstMonth
-            && in_array($p->payment_month->format('Y-m'), $validatedMonths, true));
+            && in_array($p->payment_month->format('Y-m'), $validatedMonths, true)
+            && $collected($p));
+        // En instance : en attente, OU validés mais encaissés après la date de la fiche.
+        $late = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey && ! $collected($p));
         $revenue = (float) $revenuePayments->sum('net_amount');
         $recovered = (float) $recoveredPayments->sum('net_amount');
 
@@ -114,8 +126,8 @@ final class BuildStatementFigures
             dailyAmount: $contract->daily_net_amount,
             revenue: $revenue,
             recovered: $recovered,
-            pendingCount: $month->pendingCount,
-            pendingAmount: $month->pendingAmount,
+            pendingCount: $month->pendingCount + $late->count(),
+            pendingAmount: $month->pendingAmount + (float) $late->sum('net_amount'),
             charges: $charges,
             deductedTotal: $deductedTotal,
             balanceDue: round($revenue + $recovered - $deductedTotal, 2),

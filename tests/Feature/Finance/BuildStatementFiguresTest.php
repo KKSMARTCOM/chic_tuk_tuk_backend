@@ -197,4 +197,77 @@ class BuildStatementFiguresTest extends TestCase
 
         $this->assertEquals($f->toArray(), StatementFigures::fromArray($f->toArray())->toArray());
     }
+
+    /** L'exemple de la spec 2026-10-01, §4 : 20 jours de mars à temps, 2 réglés le 12/05. */
+    private function marchScenario(): array
+    {
+        Carbon::setTestNow('2026-06-05 09:00:00');
+        config(['remuneration.first_month' => '2026-03']);
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        $days = $this->businessDays('2026-03-02', '2026-03-31'); // 22 jours
+        foreach (array_slice($days, 0, 20) as $day) {
+            Payment::factory()->onDay($day)->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5871, 'collected_on' => '2026-03-31']);
+        }
+        foreach (array_slice($days, 20) as $day) {
+            Payment::factory()->onDay($day)->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5871, 'collected_on' => '2026-05-12']);
+        }
+
+        return [$contract, RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01', 'issued_on' => '2026-04-03'])];
+    }
+
+    private function freeze(RemunerationStatement $statement, StatementFigures $f): void
+    {
+        $statement->update(['status' => 'validated', 'number' => 'FR-'.$statement->monthKey().'-001', 'figures' => $f->toArray()]);
+        Payment::whereIn('id', [...$f->revenuePaymentIds, ...$f->recoveredPaymentIds])->update(['remuneration_statement_id' => $statement->id]);
+    }
+
+    public function test_the_issue_date_decides_revenue_pending_and_recovered(): void
+    {
+        [$contract, $march] = $this->marchScenario();
+        $build = app(BuildStatementFigures::class);
+
+        $f = $build($contract, '2026-03', $march);
+        $this->assertEquals(20 * 5871, $f->revenue);
+        $this->assertSame(2, $f->pendingCount);
+        $this->assertEquals(2 * 5871, $f->pendingAmount);
+        $this->freeze($march, $f);
+
+        $april = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-04-01', 'issued_on' => '2026-05-04']);
+        $f = $build($contract, '2026-04', $april);
+        $this->assertEquals(0, $f->recovered);
+        $this->freeze($april, $f);
+
+        $may = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-05-01', 'issued_on' => '2026-06-03']);
+        $this->assertEquals(2 * 5871, $build($contract, '2026-05', $may)->recovered);
+    }
+
+    public function test_a_pending_payment_still_counts_as_pending(): void
+    {
+        [$contract, $march] = $this->marchScenario();
+        Payment::factory()->onDay('2026-03-31')->status('pending')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5871]);
+
+        $this->assertSame(3, app(BuildStatementFigures::class)($contract, '2026-03', $march)->pendingCount);
+    }
+
+    public function test_a_payment_without_collection_date_counts_as_collected(): void
+    {
+        Carbon::setTestNow('2026-04-05 09:00:00');
+        config(['remuneration.first_month' => '2026-03']);
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        Payment::factory()->onDay('2026-03-02')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5871, 'collected_on' => null]);
+        $march = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01', 'issued_on' => '2026-04-03']);
+
+        $this->assertEquals(5871, app(BuildStatementFigures::class)($contract, '2026-03', $march)->revenue);
+    }
+
+    public function test_a_draft_without_issue_date_reads_up_to_today(): void
+    {
+        Carbon::setTestNow('2026-04-05 09:00:00');
+        config(['remuneration.first_month' => '2026-03']);
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        Payment::factory()->onDay('2026-03-02')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5871, 'collected_on' => '2026-04-05']);
+        $march = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
+
+        $this->assertEquals(5871, app(BuildStatementFigures::class)($contract, '2026-03', $march)->revenue);
+    }
 }
