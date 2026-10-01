@@ -28,6 +28,7 @@ class PaymentCollectionDateTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow('2026-10-01 09:00:00');
+        config(['remuneration.first_month' => '2026-03']);
         $this->contract = VehicleContract::factory()->create(['start_date' => '2026-03-01']);
         $this->driver = Driver::factory()->create();
     }
@@ -151,5 +152,16 @@ class PaymentCollectionDateTest extends TestCase
         $this->api()->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id, $b->id], 'collected_on' => '2026-03-31'])->assertOk();
 
         $this->assertEquals(11742, \Spatie\Activitylog\Models\Activity::where('event', 'payment.batch_validated')->sole()->properties['total']);
+    }
+
+    public function test_a_payment_before_the_first_month_is_never_blocked_by_a_statement(): void
+    {
+        // Un paiement d'avant la mise en service n'entre dans aucune fiche, même en recouvré :
+        // aucune fiche ne peut l'avoir « manqué ».
+        config(['remuneration.first_month' => '2026-04']);
+        RemunerationStatement::factory()->for($this->contract, 'contract')->validated()->create(['month' => '2026-04-01', 'issued_on' => '2026-05-04']);
+        $march = $this->pending('2026-03-30');
+
+        $this->api()->postJson("/api/v1/admin/payments/{$march->id}/validate", ['collected_on' => '2026-04-10'])->assertOk();
     }
 }

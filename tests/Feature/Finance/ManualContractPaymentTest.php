@@ -25,6 +25,7 @@ class ManualContractPaymentTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow('2026-10-01 09:00:00');
+        config(['remuneration.first_month' => '2026-03']);
     }
 
     protected function tearDown(): void

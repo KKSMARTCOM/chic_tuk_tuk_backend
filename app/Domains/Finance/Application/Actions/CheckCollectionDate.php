@@ -24,6 +24,11 @@ final class CheckCollectionDate
         if ($payment->vehicle_contract_id === null || $payment->payment_month === null) {
             return;
         }
+        // Avant la mise en service, un paiement n'entre dans aucune fiche, même en recouvré :
+        // aucune ne peut l'avoir manqué.
+        if ($payment->payment_month->format('Y-m') < (string) config('remuneration.first_month')) {
+            return;
+        }
 
         $blocking = RemunerationStatement::query()
             ->where('vehicle_contract_id', $payment->vehicle_contract_id)
