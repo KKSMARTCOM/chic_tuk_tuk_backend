@@ -24,6 +24,7 @@ class Payment extends Model
         'notes',
         'reference_number',
         'remuneration_statement_id',
+        'collected_on',
     ];
 
     protected $casts = [
@@ -31,6 +32,7 @@ class Payment extends Model
         'payment_month' => 'date', // nouveau
         'amount' => 'decimal:2',
         'net_amount' => 'decimal:2', // nouveau
+        'collected_on' => 'date',
     ];
 
     public function driver()
