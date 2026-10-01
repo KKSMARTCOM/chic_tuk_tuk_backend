@@ -302,14 +302,16 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::get('/remuneration-statements/{id}/pdf', [RemunerationStatementController::class, 'pdf'])->name('remuneration-statements.pdf');
         });
 
+        // Vider les fiches annulées : une permission que seul l'administrateur porte (2026-10-01).
+        Route::delete('/remuneration-statements/cancelled', [RemunerationStatementController::class, 'purgeCancelled'])
+            ->middleware('permission:purge-remuneration-statements')->name('remuneration-statements.purge-cancelled');
+
         Route::patch('/remuneration-statements/{id}', [RemunerationStatementController::class, 'update'])
             ->middleware('permission:edit-remuneration-statements')->name('remuneration-statements.update');
 
         Route::middleware('permission:validate-remuneration-statements')->group(function () {
             Route::post('/remuneration-statements/{id}/validate', [RemunerationStatementController::class, 'validateStatement'])->name('remuneration-statements.validate');
             Route::post('/remuneration-statements/{id}/cancel', [RemunerationStatementController::class, 'cancel'])->name('remuneration-statements.cancel');
-            // Le rôle administrateur est vérifié en plus, dans le contrôleur (2026-10-01).
-            Route::delete('/remuneration-statements/cancelled', [RemunerationStatementController::class, 'purgeCancelled'])->name('remuneration-statements.purge-cancelled');
             Route::post('/remuneration-statements/{id}/pdf', [RemunerationStatementController::class, 'regeneratePdf'])->name('remuneration-statements.pdf.regenerate');
         });
 

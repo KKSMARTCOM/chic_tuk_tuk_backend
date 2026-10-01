@@ -105,6 +105,7 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'view-remuneration-statements' => ['Voir les fiches de rémunération', 'Consulter les fiches de rémunération des propriétaires'],
         'edit-remuneration-statements' => ['Préparer les fiches de rémunération', 'Générer les brouillons, ajuster les prélèvements et la note'],
         'validate-remuneration-statements' => ['Valider les fiches de rémunération', 'Valider, envoyer et annuler une fiche de rémunération'],
+        'purge-remuneration-statements' => ['Vider les fiches annulées', 'Supprimer définitivement les fiches de rémunération annulées et leurs PDF'],
 
         // Réglages
         // Ajoutée le 2026-09-29, à l'administrateur seul : tarifs des courses, durées et
