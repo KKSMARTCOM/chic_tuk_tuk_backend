@@ -5,6 +5,7 @@ use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\PricingSettingsController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\CommissionController;
+use App\Domains\Finance\Presentation\Api\V1\Admin\ContractPaymentGenerationController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\RemunerationStatementController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
@@ -275,6 +276,15 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])
             ->middleware('permission:delete-payments')->name('payments.destroy');
+
+        /*
+         * Générer les paiements d'une période (spec 2026-10-01, §3) — pour un contrat agent
+         * EN COURS OU TERMINÉ : c'est ce qui permet de reconstituer les jours d'un agent parti.
+         */
+        Route::middleware('permission:create-payments')->group(function () {
+            Route::post('/driver-contracts/{id}/payments/preview', [ContractPaymentGenerationController::class, 'preview'])->name('driver-contracts.payments.preview');
+            Route::post('/driver-contracts/{id}/payments/generate', [ContractPaymentGenerationController::class, 'generate'])->name('driver-contracts.payments.generate');
+        });
 
         /*
          * Les fiches de rémunération (spec 2026-09-30). Relire et ajuster se délègue ;

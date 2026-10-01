@@ -573,6 +573,19 @@ final class ActivityJournal
         );
     }
 
+    /** UNE ligne par génération sur une période, pas une par paiement (2026-10-01). */
+    public function contractPaymentsGenerated(DriverContract $contract, string $from, string $to, int $count, float $total): void
+    {
+        $period = Carbon::parse($from)->format('d/m/Y').' au '.Carbon::parse($to)->format('d/m/Y');
+
+        $this->record(
+            ActivityEvent::ContractPaymentsGenerated,
+            $contract,
+            "a généré {$count} paiement(s) de {$this->driverName($contract->driver)} ({$this->money($total)}) pour la période du {$period}",
+            ['from' => $from, 'to' => $to, 'count' => $count, 'total' => $total],
+        );
+    }
+
     public function commissionCancelled(Commission $commission): void
     {
         $this->record(
