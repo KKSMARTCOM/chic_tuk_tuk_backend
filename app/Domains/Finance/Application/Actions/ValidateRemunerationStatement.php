@@ -121,6 +121,11 @@ final class ValidateRemunerationStatement
         if (! RemunerationBranding::isComplete()) {
             $blockers[] = 'Le cachet ou la signature sont introuvables sur le serveur.';
         }
+        // Une date d'établissement saisie peut être devenue invalide depuis (la fiche du mois
+        // précédent revalidée plus tard) : l'écran le dit avant le clic (2026-10-01).
+        if ($statement->issued_on !== null) {
+            $blockers = [...$blockers, ...array_values($this->issueDateViolations($statement, $statement->issued_on))];
+        }
 
         return [...$blockers, ...array_values($this->violations($figures))];
     }

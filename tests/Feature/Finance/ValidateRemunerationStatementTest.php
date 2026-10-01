@@ -237,4 +237,30 @@ class ValidateRemunerationStatementTest extends TestCase
 
         $this->assertTrue($locked);
     }
+
+    public function test_the_draft_issue_date_can_be_cleared_and_is_kept_when_absent(): void
+    {
+        $draft = $this->draft();
+        $update = app(UpdateRemunerationStatement::class);
+
+        $update($draft, UpdateRemunerationStatementData::from(['issued_on' => '2026-11-01']));
+        $update($draft->refresh(), UpdateRemunerationStatementData::from(['note' => 'relue']));
+        $this->assertSame('2026-11-01', $draft->refresh()->issued_on->toDateString());
+
+        $update($draft, UpdateRemunerationStatementData::from(['issued_on' => null]));
+        $this->assertNull($draft->refresh()->issued_on);
+    }
+
+    public function test_an_issue_date_that_became_invalid_blocks_before_the_click(): void
+    {
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-09-01']);
+        $september = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-09-01', 'issued_on' => '2026-10-05']);
+        // La fiche d'août, revalidée après coup, est arrêtée plus tard que la date saisie.
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2026-08-01', 'issued_on' => '2026-10-20']);
+
+        $validate = app(ValidateRemunerationStatement::class);
+        $figures = app(\App\Domains\Finance\Application\Actions\BuildStatementFigures::class)($contract, '2026-09', $september);
+
+        $this->assertContains('La date d\'établissement ne peut pas précéder celle de la fiche du mois précédent (20/10/2026).', $validate->blockers($september, $figures));
+    }
 }

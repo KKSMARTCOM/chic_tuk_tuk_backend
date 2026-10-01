@@ -640,7 +640,7 @@ opening_internet: number | null;
 opening_spotify: number | null;
 opening_manager: number | null;
 note: string | null;
-issued_on: string | null;
+issued_on?: string | null;
 };
 export type ValidatePaymentData = {
 collected_on: string | null;

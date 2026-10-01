@@ -3,6 +3,7 @@
 namespace App\Domains\Finance\Application\Data;
 
 use App\Shared\Data\BaseData;
+use Spatie\LaravelData\Optional;
 
 /** PATCH d'un brouillon : les prélèvements, le reste d'ouverture, la note. */
 final class UpdateRemunerationStatementData extends BaseData
@@ -15,8 +16,11 @@ final class UpdateRemunerationStatementData extends BaseData
         public ?float $openingSpotify = null,
         public ?float $openingManager = null,
         public ?string $note = null,
-        /** La date d'établissement, saisie pour une fiche reconstituée (2026-10-01). */
-        public ?string $issuedOn = null,
+        /**
+         * La date d'établissement, saisie pour une fiche reconstituée (2026-10-01). ABSENTE :
+         * inchangée ; `null` : effacée — la fiche prendra le jour de sa validation.
+         */
+        public string|Optional|null $issuedOn = new Optional(),
     ) {}
 
     /** @return array<string, mixed> */
