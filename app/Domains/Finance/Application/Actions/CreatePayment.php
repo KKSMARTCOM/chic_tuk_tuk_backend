@@ -5,6 +5,7 @@ namespace App\Domains\Finance\Application\Actions;
 use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\Payment;
+use App\Models\VehicleContract;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -48,6 +49,19 @@ final class CreatePayment
         }
 
         ($this->checkPaymentData)($data);
+
+        // La date doit tomber dans le CONTRAT VÉHICULE, qui porte les fiches — pas dans le
+        // contrat de l'agent : un agent parti règle souvent son arriéré après son départ,
+        // pendant que le contrat véhicule continue (2026-10-01).
+        if ($isContract && ! empty($data['vehicle_contract_id'])) {
+            $vehicleContract = VehicleContract::findOrFail($data['vehicle_contract_id']);
+            $date = Carbon::parse($data['payment_date'])->startOfDay();
+            if ($date->lt($vehicleContract->start_date) || ($vehicleContract->end_date !== null && $date->gt($vehicleContract->end_date))) {
+                $end = $vehicleContract->end_date?->format('d/m/Y');
+                throw ValidationException::withMessages(['payment_date' => 'La date est hors du contrat véhicule (du '
+                    .$vehicleContract->start_date->format('d/m/Y').($end ? " au {$end}" : ', en cours').') : aucune fiche ne compterait ce paiement.']);
+            }
+        }
 
         // Il naît validé, encaissé à sa date : mêmes garde-fous qu'une validation (spec
         // 2026-10-01, §4.4), sous le champ de la date du formulaire.

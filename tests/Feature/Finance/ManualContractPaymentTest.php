@@ -106,4 +106,27 @@ class ManualContractPaymentTest extends TestCase
         $this->api()->postJson('/api/v1/admin/payments', $this->body($agent->driver, ['driver_contract_id' => $agent->id, 'payment_date' => '2026-04-10']))
             ->assertCreated();
     }
+
+    public function test_a_late_payment_after_the_agents_contract_but_inside_the_vehicle_contract_is_accepted(): void
+    {
+        // Le cas C : l'agent parti règle son arriéré pendant que le contrat véhicule continue.
+        $vehicleContract = VehicleContract::factory()->create(['start_date' => '2026-03-01']);
+        $ended = DriverContract::factory()->forVehicleContract($vehicleContract)->create(['start_date' => '2026-03-02', 'end_date' => '2026-04-15', 'status' => 'ended']);
+
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-05-12']))
+            ->assertCreated();
+    }
+
+    public function test_a_date_outside_the_vehicle_contract_is_refused(): void
+    {
+        $vehicleContract = VehicleContract::factory()->create(['start_date' => '2026-03-01', 'end_date' => '2026-06-30', 'status' => 'completed']);
+        $ended = DriverContract::factory()->forVehicleContract($vehicleContract)->create(['start_date' => '2026-03-02', 'end_date' => '2026-06-30', 'status' => 'ended']);
+
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-07-10']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['payment_date' => 'La date est hors du contrat véhicule (du 01/03/2026 au 30/06/2026) : aucune fiche ne compterait ce paiement.']);
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-02-27']))
+            ->assertStatus(422)->assertJsonValidationErrors('payment_date');
+        $this->assertSame(0, Payment::count());
+    }
 }
