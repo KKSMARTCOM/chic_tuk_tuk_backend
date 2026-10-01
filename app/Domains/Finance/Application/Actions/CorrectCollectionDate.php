@@ -3,8 +3,10 @@
 namespace App\Domains\Finance\Application\Actions;
 
 use App\Models\Payment;
+use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Corriger la date d'encaissement d'un paiement validé, tant qu'aucune fiche validée ne le
@@ -17,16 +19,24 @@ final class CorrectCollectionDate
 
     public function __invoke(Payment $payment, Carbon $collectedOn): Payment
     {
-        if ($payment->status !== 'completed') {
-            throw new ApiException(409, 'PAYMENT_NOT_COLLECTED', 'Seul un paiement validé a une date d\'encaissement.');
-        }
-        if ($payment->remuneration_statement_id !== null) {
-            throw new ApiException(409, 'PAYMENT_IN_VALIDATED_STATEMENT', 'Ce paiement est compté dans une fiche de rémunération validée : annulez d\'abord la fiche.');
-        }
+        return DB::transaction(function () use ($payment, $collectedOn) {
+            // Le contrat véhicule d'abord, comme toute écriture qu'une fiche lit (2026-10-01).
+            if ($payment->vehicle_contract_id !== null) {
+                VehicleContract::query()->lockForUpdate()->find($payment->vehicle_contract_id);
+            }
+            $payment = Payment::query()->lockForUpdate()->findOrFail($payment->id);
 
-        ($this->checkCollectionDate)($payment, $collectedOn);
-        $payment->update(['collected_on' => $collectedOn->toDateString()]);
+            if ($payment->status !== 'completed') {
+                throw new ApiException(409, 'PAYMENT_NOT_COLLECTED', 'Seul un paiement validé a une date d\'encaissement.');
+            }
+            if ($payment->remuneration_statement_id !== null) {
+                throw new ApiException(409, 'PAYMENT_IN_VALIDATED_STATEMENT', 'Ce paiement est compté dans une fiche de rémunération validée : annulez d\'abord la fiche.');
+            }
 
-        return $payment->refresh();
+            ($this->checkCollectionDate)($payment, $collectedOn);
+            $payment->update(['collected_on' => $collectedOn->toDateString()]);
+
+            return $payment->refresh();
+        });
     }
 }

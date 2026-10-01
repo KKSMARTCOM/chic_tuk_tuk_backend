@@ -164,4 +164,53 @@ class PaymentCollectionDateTest extends TestCase
 
         $this->api()->postJson("/api/v1/admin/payments/{$march->id}/validate", ['collected_on' => '2026-04-10'])->assertOk();
     }
+
+    /** Les requêtes FOR UPDATE, dans l'ordre : « vc » pour le contrat véhicule, « payment » pour un paiement. */
+    private function lockOrder(callable $action): array
+    {
+        $order = [];
+        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$order) {
+            if (! str_contains(strtolower($query->sql), 'for update')) {
+                return;
+            }
+            if (str_contains($query->sql, '"vehicle_contracts"')) {
+                $order[] = 'vc';
+            } elseif (str_contains($query->sql, '"payments"')) {
+                $order[] = 'payment';
+            }
+        });
+        $action();
+
+        return $order;
+    }
+
+    public function test_validating_a_payment_locks_its_vehicle_contract(): void
+    {
+        // Revue du 2026-10-01 : sans verrou commun, un paiement validé pendant la validation
+        // d'une fiche du même contrat passait le garde-fou et glissait dans la fiche suivante.
+        $a = $this->pending('2026-03-02');
+
+        $order = $this->lockOrder(fn () => $this->api()->postJson("/api/v1/admin/payments/{$a->id}/validate", ['collected_on' => '2026-03-31'])->assertOk());
+
+        $this->assertContains('vc', $order);
+    }
+
+    public function test_the_batch_locks_vehicle_contracts_before_payments(): void
+    {
+        $a = $this->pending('2026-03-02');
+
+        $order = $this->lockOrder(fn () => $this->api()->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id], 'collected_on' => '2026-03-31'])->assertOk());
+
+        $this->assertSame('vc', $order[0] ?? null);
+        $this->assertContains('payment', $order);
+    }
+
+    public function test_correcting_a_date_locks_the_vehicle_contract(): void
+    {
+        $paid = Payment::factory()->onDay('2026-03-02')->create(['vehicle_contract_id' => $this->contract->id, 'collected_on' => '2026-10-01']);
+
+        $order = $this->lockOrder(fn () => $this->api()->patchJson("/api/v1/admin/payments/{$paid->id}/collected-on", ['collected_on' => '2026-03-31'])->assertOk());
+
+        $this->assertContains('vc', $order);
+    }
 }

@@ -9,8 +9,9 @@ use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -37,6 +38,9 @@ final class ValidateRemunerationStatement
             DB::select('SELECT pg_advisory_xact_lock(?)', [crc32('remuneration-'.$statement->monthKey())]);
 
             $statement = RemunerationStatement::query()->lockForUpdate()->findOrFail($statement->id);
+            // Le contrat véhicule, que verrouillent aussi la validation et la correction d'un
+            // paiement : un encaissement ne se glisse pas pendant qu'on fige la fiche (2026-10-01).
+            VehicleContract::query()->lockForUpdate()->find($statement->vehicle_contract_id);
             if ($statement->status !== 'draft') {
                 throw new ApiException(409, 'STATEMENT_NOT_DRAFT', 'Cette fiche n\'est plus un brouillon.');
             }

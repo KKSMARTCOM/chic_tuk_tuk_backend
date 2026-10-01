@@ -223,4 +223,18 @@ class ValidateRemunerationStatementTest extends TestCase
         $second = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
         $this->assertSame('FR-2026-03-002', app(ValidateRemunerationStatement::class)($second, User::factory()->create(), Carbon::parse('2026-04-03'), send: false)->number);
     }
+
+    public function test_validating_a_statement_locks_its_vehicle_contract(): void
+    {
+        $locked = false;
+        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$locked) {
+            if (str_contains($query->sql, '"vehicle_contracts"') && str_contains(strtolower($query->sql), 'for update')) {
+                $locked = true;
+            }
+        });
+
+        app(ValidateRemunerationStatement::class)($this->draft(), User::factory()->create());
+
+        $this->assertTrue($locked);
+    }
 }
