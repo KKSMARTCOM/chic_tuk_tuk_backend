@@ -68,4 +68,17 @@ class CancelRemunerationStatementTest extends TestCase
         }
         $this->assertSame('validated', $october->fresh()->status);
     }
+
+    public function test_cancelling_a_reconstituted_statement_does_not_notify_the_owner(): void
+    {
+        Carbon::setTestNow('2026-11-10 09:00:00');
+        $owner = User::factory()->create();
+        $contract = VehicleContract::factory()->forVehicle(Vehicle::factory()->create(['owner_id' => $owner->id]))->create(['start_date' => '2026-10-01']);
+        $statement = RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2026-10-01', 'delivery' => 'none', 'issued_on' => '2026-11-02']);
+
+        $replacement = app(CancelRemunerationStatement::class)($statement, User::factory()->create(), 'Erreur de reconstitution');
+
+        $this->assertDatabaseMissing('notifications', ['user_id' => $owner->id]);
+        $this->assertSame('2026-11-02', $replacement->issued_on->toDateString());
+    }
 }

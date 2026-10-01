@@ -15,6 +15,8 @@ final class UpdateRemunerationStatementData extends BaseData
         public ?float $openingSpotify = null,
         public ?float $openingManager = null,
         public ?string $note = null,
+        /** La date d'établissement, saisie pour une fiche reconstituée (2026-10-01). */
+        public ?string $issuedOn = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -28,6 +30,7 @@ final class UpdateRemunerationStatementData extends BaseData
             'opening_spotify' => ['nullable', 'numeric', 'min:0'],
             'opening_manager' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
+            'issued_on' => ['nullable', 'date_format:Y-m-d'],
         ];
     }
 }

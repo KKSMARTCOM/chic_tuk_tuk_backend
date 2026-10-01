@@ -6,6 +6,7 @@ use App\Domains\Finance\Domain\Enums\RemunerationStatementStatus;
 use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\RemunerationStatement;
 use App\Shared\Data\BaseData;
+use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 /**
@@ -39,6 +40,13 @@ final class RemunerationStatementDetailData extends BaseData
         public ?string $replacesId,
         public ?string $replacedById,
         public bool $hasPdf,
+        /** La date d'établissement (2026-10-01). */
+        public ?string $issuedOn = null,
+        #[LiteralTypeScriptType("'email' | 'none'")]
+        public string $delivery = 'email',
+        #[LiteralTypeScriptType("'ready' | 'preparing' | 'expired'")]
+        public string $pdfState = 'preparing',
+        public int $ownerDownloadCount = 0,
     ) {}
 
     /** @param  list<string>  $blocking */
@@ -70,6 +78,10 @@ final class RemunerationStatementDetailData extends BaseData
             replacesId: $statement->replaces_id,
             replacedById: RemunerationStatement::query()->where('replaces_id', $statement->id)->value('id'),
             hasPdf: $statement->pdf_path !== null,
+            issuedOn: $statement->issued_on?->toDateString(),
+            delivery: (string) ($statement->delivery ?? 'email'),
+            pdfState: $statement->pdfState(),
+            ownerDownloadCount: (int) $statement->owner_download_count,
         );
     }
 }

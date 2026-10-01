@@ -13,10 +13,12 @@ use App\Domains\Finance\Application\Data\CancelRemunerationStatementData;
 use App\Domains\Finance\Application\Data\GenerateRemunerationStatementsData;
 use App\Domains\Finance\Application\Data\RemunerationStatementDetailData;
 use App\Domains\Finance\Application\Data\UpdateRemunerationStatementData;
+use App\Domains\Finance\Application\Data\ValidateRemunerationStatementData;
 use App\Domains\Finance\Application\RemunerationStatementPdf;
 use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\RemunerationStatement;
 use App\Shared\Http\ApiException;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,10 +92,10 @@ final class RemunerationStatementController
         }
     }
 
-    public function validateStatement(Request $request, string $id): JsonResponse
+    public function validateStatement(Request $request, string $id, ValidateRemunerationStatementData $data): JsonResponse
     {
         try {
-            $statement = ($this->validate)($this->find($id), $request->user());
+            $statement = ($this->validate)($this->find($id), $request->user(), $data->issuedOn !== null ? Carbon::parse($data->issuedOn) : null, $data->send);
             $statement = $this->find($statement->id);
             $this->journal->remunerationStatementValidated($statement);
 
@@ -134,7 +136,7 @@ final class RemunerationStatementController
         $bytes = match (true) {
             $statement->status === 'draft' => $pdf->render(($this->build)($statement->contract, $statement->monthKey(), $statement), null, true, null),
             $statement->pdf_path !== null && Storage::disk('local')->exists($statement->pdf_path) => Storage::disk('local')->get($statement->pdf_path),
-            default => $pdf->render(StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->validated_at),
+            default => $pdf->render(StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->issued_on ?? $statement->validated_at),
         };
 
         return response($bytes, 200, [

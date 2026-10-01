@@ -656,7 +656,9 @@ final class ActivityJournal
         $this->record(
             ActivityEvent::RemunerationStatementValidated,
             $statement,
-            "a validé la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)}",
+            $statement->delivery === 'none'
+                ? "a validé sans l'envoyer la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)}"
+                : "a validé la fiche de rémunération {$statement->number} de {$this->statementOwner($statement)}",
         );
     }
 

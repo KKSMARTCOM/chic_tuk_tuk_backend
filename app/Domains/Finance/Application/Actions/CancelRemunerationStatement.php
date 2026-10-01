@@ -63,11 +63,15 @@ final class CancelRemunerationStatement
                 'opening_spotify' => $statement->opening_spotify,
                 'opening_manager' => $statement->opening_manager,
                 'note' => $statement->note,
+                'issued_on' => $statement->issued_on,
                 'replaces_id' => $statement->id,
             ]);
         });
 
-        $this->notifier->remunerationStatementCancelled($statement->fresh('contract.vehicle.owner'));
+        // Une fiche validée sans envoi n'a jamais été reçue : rien à annoncer (2026-10-01).
+        if ($statement->delivery === 'email') {
+            $this->notifier->remunerationStatementCancelled($statement->fresh('contract.vehicle.owner'));
+        }
 
         return $replacement;
     }

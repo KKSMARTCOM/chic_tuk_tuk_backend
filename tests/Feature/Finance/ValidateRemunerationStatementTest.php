@@ -156,4 +156,71 @@ class ValidateRemunerationStatementTest extends TestCase
             app(ValidateRemunerationStatement::class)->blockers($november, app(\App\Domains\Finance\Application\Actions\BuildStatementFigures::class)($this->contract, '2026-11', $november)),
         );
     }
+
+    public function test_a_reconstituted_statement_takes_its_issue_date_and_is_not_sent(): void
+    {
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        $draft = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
+
+        $validated = app(ValidateRemunerationStatement::class)($draft, User::factory()->create(), Carbon::parse('2026-04-03'), send: false);
+
+        $this->assertSame(['2026-04-03', 'none'], [$validated->issued_on->toDateString(), $validated->delivery]);
+        $this->assertSame('FR-2026-03-001', $validated->number);
+    }
+
+    public function test_an_ordinary_validation_is_issued_today_and_sent(): void
+    {
+        $validated = app(ValidateRemunerationStatement::class)($this->draft(), User::factory()->create());
+
+        $this->assertSame(['2026-11-02', 'email'], [$validated->issued_on->toDateString(), $validated->delivery]);
+    }
+
+    public function test_issue_date_rules(): void
+    {
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        $april = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-04-01']);
+        $validate = app(ValidateRemunerationStatement::class);
+
+        // Après la fin du mois, et pas dans le futur.
+        $this->assertArrayHasKey('issued_on', $validate->issueDateViolations($april, Carbon::parse('2026-04-30')));
+        $this->assertArrayHasKey('issued_on', $validate->issueDateViolations($april, Carbon::parse('2026-11-03')));
+        $this->assertSame([], $validate->issueDateViolations($april, Carbon::parse('2026-05-04')));
+
+        // Jamais avant la fiche validée du mois précédent : avril arrêté tard, le 10/06.
+        $april->update(['status' => 'validated', 'number' => 'FR-2026-04-001', 'issued_on' => '2026-06-10', 'figures' => []]);
+        $may = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-05-01']);
+        $this->assertSame(
+            ['issued_on' => 'La date d\'établissement ne peut pas précéder celle de la fiche du mois précédent (10/06/2026).'],
+            $validate->issueDateViolations($may, Carbon::parse('2026-06-01')),
+        );
+        $this->assertSame([], $validate->issueDateViolations($may, Carbon::parse('2026-06-10')));
+    }
+
+    public function test_a_wrong_issue_date_refuses_the_validation(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(ValidateRemunerationStatement::class)($this->draft(), User::factory()->create(), Carbon::parse('2026-10-15'));
+    }
+
+    public function test_the_draft_saves_its_issue_date(): void
+    {
+        $draft = $this->draft();
+
+        app(UpdateRemunerationStatement::class)($draft, new UpdateRemunerationStatementData(issuedOn: '2026-11-01'));
+        $this->assertSame('2026-11-01', $draft->refresh()->issued_on->toDateString());
+
+        $this->expectException(ValidationException::class);
+        app(UpdateRemunerationStatement::class)($draft, new UpdateRemunerationStatementData(issuedOn: '2026-10-20'));
+    }
+
+    public function test_a_number_is_never_reused_after_a_purge(): void
+    {
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        $first = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
+        app(ValidateRemunerationStatement::class)($first, User::factory()->create(), Carbon::parse('2026-04-03'), send: false);
+        RemunerationStatement::whereKey($first->id)->delete();
+
+        $second = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
+        $this->assertSame('FR-2026-03-002', app(ValidateRemunerationStatement::class)($second, User::factory()->create(), Carbon::parse('2026-04-03'), send: false)->number);
+    }
 }
