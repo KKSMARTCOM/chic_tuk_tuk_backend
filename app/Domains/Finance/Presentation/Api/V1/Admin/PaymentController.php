@@ -109,7 +109,8 @@ final class PaymentController
         return $this->guard($request, 'la validation groupée des paiements', 'Les paiements n\'ont pas pu être validés.', 'PAYMENTS_BATCH_VALIDATE_FAILED',
             function () use ($data, $validate) {
                 $count = $validate($data->paymentIds, Carbon::parse($data->collectedOn), $data->notifyDrivers);
-                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('amount');
+                // En net, comme la génération : le journal parle le langage des fiches.
+                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('net_amount');
                 $this->journal->paymentsValidatedInBatch($count, $total, $data->collectedOn);
 
                 return response()->json(['validated' => $count]);

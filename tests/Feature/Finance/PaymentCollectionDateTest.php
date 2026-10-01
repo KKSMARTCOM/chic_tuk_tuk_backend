@@ -142,4 +142,14 @@ class PaymentCollectionDateTest extends TestCase
         $a = $this->pending('2026-03-02');
         $this->api([])->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id], 'collected_on' => '2026-03-31'])->assertForbidden();
     }
+
+    public function test_the_batch_journal_totals_net_amounts_like_the_generation(): void
+    {
+        $a = Payment::factory()->onDay('2026-03-02')->status('pending')->create(['vehicle_contract_id' => $this->contract->id, 'amount' => 6112, 'net_amount' => 5871]);
+        $b = Payment::factory()->onDay('2026-03-03')->status('pending')->create(['vehicle_contract_id' => $this->contract->id, 'amount' => 6112, 'net_amount' => 5871]);
+
+        $this->api()->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id, $b->id], 'collected_on' => '2026-03-31'])->assertOk();
+
+        $this->assertEquals(11742, \Spatie\Activitylog\Models\Activity::where('event', 'payment.batch_validated')->sole()->properties['total']);
+    }
 }
