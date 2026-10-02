@@ -175,7 +175,7 @@
                                 <div class="mb-4">
                                     <!-- Carte -->
                                     <p class="text-xs text-gray-500 mb-1">
-                                        ℹ️ Une majoration de 1 000 FCFA s'applique en dehors de la tranche 7h–10h.
+                                        ℹ️ Une majoration de 1 000 FCFA s'applique en dehors de la tranche 6h–10h.
                                     </p>
 
                                     <label class="block text-gray-700 font-semibold mb-2">Date et heure <span
@@ -926,7 +926,7 @@
                     if (!time) return price;
                     const [h, m] = time.split(':').map(Number);
                     const minutes = h * 60 + m;
-                    const start = 7 * 60;
+                    const start = 6 * 60;
                     const end = 10 * 60;
                     const inNormalWindow = minutes >= start && minutes <= end;
                     return inNormalWindow ? price : price + 1000;
