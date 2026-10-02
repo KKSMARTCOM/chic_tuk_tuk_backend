@@ -166,6 +166,16 @@ class Booking extends Model
     }
 
     // Combinaison de la date et de l'heure de prise en charge pour affichage ou calculs
+    /**
+     * Le prix brut de l'aller, sans la majoration de son heure : ce qu'attend le champ
+     * prix du formulaire de modification, qui majore à l'enregistrement.
+     */
+    public function getRawPriceAttribute(): int
+    {
+        return app(\App\Services\PricingService::class)
+            ->removeTimeSurcharge((int) $this->base_price, $this->pickup_time);
+    }
+
     public function getPickupDateTimeAttribute()
     {
         $date = $this->pickup_date instanceof Carbon ? $this->pickup_date->format('Y-m-d') : $this->pickup_date;
