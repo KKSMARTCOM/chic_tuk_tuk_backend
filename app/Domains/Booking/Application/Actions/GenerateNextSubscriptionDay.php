@@ -100,6 +100,15 @@ final class GenerateNextSubscriptionDay
             if ($withReturn) {
                 $returnDate = $newPickupDate->copy()->setTimeFromTimeString($booking->return_time);
 
+                // ⚠️ Le parent ne porte que le prix de l'ALLER, majoré selon SON heure : le
+                // recopier sur le retour perdait la majoration du retour dès le 2e jour. Le
+                // prix du retour est celui du retour du premier jour, créé avec l'abonnement.
+                $firstReturn = Booking::where('parent_booking_id', $booking->id)
+                    ->where('trip_type', 'return')
+                    ->orderBy('pickup_date')
+                    ->orderBy('created_at')
+                    ->first();
+
                 Booking::create([
                     'from_location' => $booking->to_location,
                     'to_location' => $booking->from_location,
@@ -121,8 +130,8 @@ final class GenerateNextSubscriptionDay
                     'tourist_circuit_id' => $booking->tourist_circuit_id,
                     'promo_code_id' => $booking->promo_code_id,
                     'discount' => $booking->discount,
-                    'base_price' => $booking->base_price,
-                    'total_price' => $booking->total_price,
+                    'base_price' => $firstReturn->base_price ?? $booking->base_price,
+                    'total_price' => $firstReturn->total_price ?? $booking->total_price,
                     'status' => 'pending',
                     'is_recurring' => false,
                     'parent_booking_id' => $booking->id,
