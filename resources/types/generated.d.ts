@@ -55,6 +55,7 @@ week_days: App.Domains.Booking.Domain.Enums.WeekDays | null;
 special_requests: string | null;
 tourist_circuit_name: string | null;
 base_price: number;
+raw_price: number;
 total_price: number;
 discount: number;
 promo_code: string | null;

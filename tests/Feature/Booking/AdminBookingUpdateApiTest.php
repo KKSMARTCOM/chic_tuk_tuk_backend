@@ -170,6 +170,38 @@ class AdminBookingUpdateApiTest extends TestCase
         $this->assertSame(3000.0, (float) $booking->base_price);
     }
 
+    /**
+     * ⚠️ Le formulaire se remplissait avec `base_price`, majoration de l'heure comprise,
+     * que l'enregistrement majorait encore : un départ à 18h gagnait la majoration à
+     * chaque enregistrement, même sans toucher au prix. La fiche donne le prix BRUT.
+     */
+    public function test_enregistrer_le_prix_brut_de_la_fiche_ne_change_pas_le_prix(): void
+    {
+        $booking = $this->pending(['pickup_time' => '18:00:00', 'base_price' => 2000]);
+        [, $token] = $this->login(Profil::Admin, ['view-bookings', 'edit-bookings']);
+
+        $raw = $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertOk()
+            ->assertJsonPath('raw_price', 1000)
+            ->json('raw_price');
+
+        $this->header($token)->putJson("/api/v1/admin/bookings/{$booking->id}", $this->payload([
+            'pickup_time' => '18:00',
+            'base_price' => $raw,
+        ]))->assertOk();
+
+        $this->assertEquals(2000, $booking->refresh()->base_price);
+    }
+
+    public function test_dans_la_tranche_le_prix_brut_est_le_prix(): void
+    {
+        $booking = $this->pending(['pickup_time' => '07:00:00', 'base_price' => 1500]);
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson("/api/v1/admin/bookings/{$booking->id}")
+            ->assertJsonPath('raw_price', 1500);
+    }
+
     public function test_une_reservation_introuvable_donne_404(): void
     {
         [, $token] = $this->login(Profil::Admin, ['edit-bookings']);
