@@ -24,7 +24,12 @@
   table.b td { padding: 4px 8px; vertical-align: middle; }
   table.b td.tile { background: #1e6e4a; color: #fff; font-weight: 700; text-align: center; width: 110px; height: 40px; }
   .specimen { color: #b91c1c; font-weight: 700; font-size: 14px; border: 2px solid #b91c1c; padding: 8px; }
-  .legal { position: fixed; bottom: -70px; left: 0; right: 0; font-size: 8px; color: #333; }
+  /* ⚠️ dompdf place un bloc fixe d'après son HAUT : à -70 px, seule la première ligne tenait
+     dans la page et le reste tombait dessous (corrigé le 2026-10-02). Deux colonnes égales,
+     décalées vers la droite comme sur la fiche d'origine. */
+  .legal { position: fixed; bottom: -20px; left: 50px; width: 620px; font-size: 8.5px; color: #222; table-layout: fixed; border-collapse: collapse; }
+  .legal td { width: 310px; vertical-align: top; padding: 0; }
+  .legal td.left { padding-right: 12px; }
 </style></head>
 <body>
   <img class="watermark" src="{{ $watermark }}" alt="">
@@ -89,7 +94,7 @@
   {{-- Deux colonnes, comme la fiche d'origine : la société à gauche, le siège et les numéros à droite. --}}
   @php($company = config('remuneration.company'))
   <table class="legal"><tr>
-    <td style="vertical-align: top; width: 55%">@foreach (array_slice($company, 0, 3) as $line){{ $line }}<br>@endforeach</td>
-    <td style="vertical-align: top">@foreach (array_slice($company, 3) as $line){{ $line }}<br>@endforeach</td>
+    <td class="left">@foreach (array_slice($company, 0, 3) as $line){{ $line }}<br>@endforeach</td>
+    <td>@foreach (array_slice($company, 3) as $line){{ $line }}<br>@endforeach</td>
   </tr></table>
 </body></html>
