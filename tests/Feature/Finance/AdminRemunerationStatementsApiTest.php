@@ -228,4 +228,18 @@ class AdminRemunerationStatementsApiTest extends TestCase
             ->assertForbidden();
         $this->assertSame('validated', $statement->refresh()->status);
     }
+
+    public function test_switched_off_a_statement_is_not_sent(): void
+    {
+        config(['remuneration.owner_visible' => false]);
+        $statement = RemunerationStatement::factory()->validated()->create(['delivery' => 'none', 'pdf_path' => 'statements/x.pdf']);
+
+        $this->asBearer($this->login(['validate-remuneration-statements']))
+            ->postJson("/api/v1/admin/remuneration-statements/{$statement->id}/send")
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'STATEMENTS_HIDDEN_FROM_OWNERS');
+
+        $this->assertSame('none', $statement->refresh()->delivery);
+        Queue::assertNothingPushed();
+    }
 }

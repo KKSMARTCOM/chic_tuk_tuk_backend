@@ -263,4 +263,24 @@ class ValidateRemunerationStatementTest extends TestCase
 
         $this->assertContains('La date d\'établissement ne peut pas précéder celle de la fiche du mois précédent (20/10/2026).', $validate->blockers($september, $figures));
     }
+
+    /**
+     * Interrupteur éteint (spec 2026-10-02, §3.2) : la fiche partirait vers un propriétaire
+     * qui ne peut pas la voir. La validation sans envoi, geste de la reconstitution, passe.
+     */
+    public function test_switched_off_only_validation_without_sending_passes(): void
+    {
+        config(['remuneration.owner_visible' => false]);
+        $statement = $this->draft();
+        $by = User::factory()->create();
+
+        $this->assertSame('STATEMENTS_HIDDEN_FROM_OWNERS', $this->refusalCode(
+            fn () => app(ValidateRemunerationStatement::class)($statement, $by, null, true),
+        ));
+        $this->assertSame('draft', $statement->refresh()->status);
+
+        $validated = app(ValidateRemunerationStatement::class)($statement, $by, null, false);
+        $this->assertSame('validated', $validated->status);
+        $this->assertSame('none', $validated->delivery);
+    }
 }

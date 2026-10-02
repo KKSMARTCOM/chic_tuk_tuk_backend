@@ -991,6 +991,13 @@ contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, pro
   `SendRemunerationStatement`. Passe `delivery` à `email`, efface `sent_at` — sans quoi
   `IssueRemunerationStatement` ne repartirait pas — et relance la tâche, qui reprend le PDF
   rangé : rien n'est recalculé. Refusé en 409 sur une fiche non validée ou un PDF effacé.
+- **L'interrupteur des fiches côté propriétaire** (2026-10-02,
+  `REMUNERATION_OWNER_VISIBLE`, `true` par défaut) : éteint en production le temps de la
+  reconstitution. Une seule lecture, `RemunerationStatement::visibleToOwners()`. Éteint :
+  les routes propriétaire des fiches en 404, le récapitulatif sans mois `validated` ni
+  `review_pending` (tout mois clos en `before_statements`), `latest_statement` et
+  `charges_deducted` à `null`, et toute validation AVEC envoi comme tout envoi refusés en
+  409 `STATEMENTS_HIDDEN_FROM_OWNERS`. « Valider sans envoyer » reste ouvert.
 - ⚠️ **Le numéro vient de `remuneration_statement_numbers`**, un compteur par mois qui ne
   recule jamais : compter les fiches réattribuerait un numéro après
   `DELETE /admin/remuneration-statements/cancelled` (`purge-remuneration-statements`, une

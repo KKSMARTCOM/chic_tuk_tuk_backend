@@ -15,6 +15,9 @@ final class SendRemunerationStatement
 {
     public function __invoke(RemunerationStatement $statement): RemunerationStatement
     {
+        if (! RemunerationStatement::visibleToOwners()) {
+            throw new ApiException(409, 'STATEMENTS_HIDDEN_FROM_OWNERS', 'Les fiches sont cachées aux propriétaires le temps de la reconstitution : aucune ne part.');
+        }
         $statement->refresh();
         if ($statement->status !== 'validated') {
             throw new ApiException(409, 'STATEMENT_NOT_VALIDATED', 'Seule une fiche validée s\'envoie.');
