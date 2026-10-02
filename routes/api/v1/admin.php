@@ -316,6 +316,7 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::middleware('permission:validate-remuneration-statements')->group(function () {
             Route::post('/remuneration-statements/{id}/validate', [RemunerationStatementController::class, 'validateStatement'])->name('remuneration-statements.validate');
+            Route::post('/remuneration-statements/{id}/send', [RemunerationStatementController::class, 'send'])->name('remuneration-statements.send');
             Route::post('/remuneration-statements/{id}/cancel', [RemunerationStatementController::class, 'cancel'])->name('remuneration-statements.cancel');
             Route::post('/remuneration-statements/{id}/pdf', [RemunerationStatementController::class, 'regeneratePdf'])->name('remuneration-statements.pdf.regenerate');
         });

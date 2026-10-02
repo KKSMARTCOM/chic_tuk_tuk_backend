@@ -47,6 +47,8 @@ final class RemunerationStatementDetailData extends BaseData
         #[LiteralTypeScriptType("'ready' | 'preparing' | 'expired'")]
         public string $pdfState = 'preparing',
         public int $ownerDownloadCount = 0,
+        /** L'adresse ACTUELLE du propriétaire, celle où partirait un envoi (2026-10-02). */
+        public ?string $ownerEmail = null,
     ) {}
 
     /** @param  list<string>  $blocking */
@@ -82,6 +84,7 @@ final class RemunerationStatementDetailData extends BaseData
             delivery: (string) ($statement->delivery ?? 'email'),
             pdfState: $statement->pdfState(),
             ownerDownloadCount: (int) $statement->owner_download_count,
+            ownerEmail: $statement->contract?->vehicle?->owner?->email,
         );
     }
 }
