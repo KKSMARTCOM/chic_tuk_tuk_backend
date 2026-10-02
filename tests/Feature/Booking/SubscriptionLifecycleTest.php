@@ -73,6 +73,44 @@ class SubscriptionLifecycleTest extends TestCase
         $this->assertSame(1600.0, $recap['total_due']);
     }
 
+    /**
+     * ⚠️ Le parent ne porte que le prix de l'ALLER, majoration de son heure comprise. Les
+     * retours générés chaque soir le recopiaient : un aller à 7h (heures normales) et un
+     * retour à 16h (majoré) donnaient un retour majoré le premier jour seulement, puis au
+     * prix de l'aller. Le prix du retour est celui du retour du premier jour.
+     */
+    public function test_le_retour_genere_garde_le_prix_du_retour_et_sa_majoration(): void
+    {
+        $parent = $this->makeParent([
+            'round_trip' => true,
+            'pickup_time' => '07:00:00',
+            'return_time' => '16:00:00',
+            'base_price' => 1500,
+            'total_price' => 12000,
+        ]);
+        $this->makeChild($parent, [
+            'trip_type' => 'return',
+            'pickup_date' => '2026-09-28',
+            'pickup_time' => '16:00:00',
+            'base_price' => 2500,
+            'total_price' => 12000,
+            'remaining_days' => 3,
+        ]);
+
+        Carbon::setTestNow('2026-09-28 01:00:05');
+        app(GenerateDueSubscriptionDays::class)();
+
+        $day2 = Booking::where('parent_booking_id', $parent->id)
+            ->whereDate('pickup_date', '2026-09-29')
+            ->get()
+            ->keyBy('trip_type');
+
+        $this->assertEquals(1500, $day2['go']->base_price);
+        $this->assertEquals(2500, $day2['return']->base_price);
+        $this->assertEquals(12000, $day2['return']->total_price);
+    }
+
+
     /** La commande ne doit pas pour autant générer au-delà du nombre de jours payés. */
     public function test_un_abonnement_arrive_au_bout_ne_genere_plus_rien(): void
     {
