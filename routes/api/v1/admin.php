@@ -311,13 +311,16 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::delete('/remuneration-statements/cancelled', [RemunerationStatementController::class, 'purgeCancelled'])
             ->middleware('permission:purge-remuneration-statements')->name('remuneration-statements.purge-cancelled');
 
+        // Annuler : l'administrateur seul (2026-10-02), quand l'utilisateur valide et envoie.
+        Route::post('/remuneration-statements/{id}/cancel', [RemunerationStatementController::class, 'cancel'])
+            ->middleware('permission:cancel-remuneration-statements')->name('remuneration-statements.cancel');
+
         Route::patch('/remuneration-statements/{id}', [RemunerationStatementController::class, 'update'])
             ->middleware('permission:edit-remuneration-statements')->name('remuneration-statements.update');
 
         Route::middleware('permission:validate-remuneration-statements')->group(function () {
             Route::post('/remuneration-statements/{id}/validate', [RemunerationStatementController::class, 'validateStatement'])->name('remuneration-statements.validate');
             Route::post('/remuneration-statements/{id}/send', [RemunerationStatementController::class, 'send'])->name('remuneration-statements.send');
-            Route::post('/remuneration-statements/{id}/cancel', [RemunerationStatementController::class, 'cancel'])->name('remuneration-statements.cancel');
             Route::post('/remuneration-statements/{id}/pdf', [RemunerationStatementController::class, 'regeneratePdf'])->name('remuneration-statements.pdf.regenerate');
         });
 

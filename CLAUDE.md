@@ -951,8 +951,11 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
   (`IssueRemunerationStatement`, 3 essais) : PDF, notification, e-mail avec la fiche en
   pièce jointe. Relançable — un PDF rangé n'est pas refait, une fiche envoyée
   (`sent_at`) ne repart pas.
-- **Permissions** : `view-`, `edit-` (générer, ajuster) et `validate-remuneration-statements`
-  (valider, envoyer, annuler), ces dernières à l'administrateur seul dans le seeder.
+- **Permissions** : `view-`, `edit-` (générer, ajuster), `validate-remuneration-statements`
+  (valider, envoyer ou renvoyer, régénérer le PDF) — les trois au rôle `utilisateur` depuis
+  le 2026-10-02 — et `cancel-remuneration-statements` (annuler), détachée de la validation
+  ce jour-là et laissée à l'administrateur seul, comme `purge-remuneration-statements`.
+  **Rejouer le seeder après déploiement.**
 - Le document s'appelle « Fiche de rémunération », jamais « facture ».
 
 ## La reconstitution des fiches (2026-10-01)

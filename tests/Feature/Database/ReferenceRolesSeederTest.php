@@ -264,17 +264,23 @@ class ReferenceRolesSeederTest extends TestCase
         $this->assertSame(5, Role::query()->count());
     }
 
-    public function test_les_fiches_de_remuneration_vont_a_l_administrateur_seul(): void
+    /**
+     * Les fiches s'ouvrent à l'utilisateur le 2026-10-02 — consulter, préparer, valider et
+     * envoyer —, sur décision : les actions restent tracées au journal. Annuler et vider
+     * restent à l'administrateur seul.
+     */
+    public function test_utilisateur_manages_statements_but_only_admin_cancels_and_purges(): void
     {
         $this->semer();
 
-        $permissions = ['view-remuneration-statements', 'edit-remuneration-statements', 'validate-remuneration-statements'];
         $admin = Role::query()->where('name', 'admin')->firstOrFail();
         $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
 
-        // Relire et ajuster se délègue depuis l'écran des rôles, sur décision : le seeder
-        // n'en donne rien à l'utilisateur.
-        foreach ($permissions as $permission) {
+        foreach (['view-remuneration-statements', 'edit-remuneration-statements', 'validate-remuneration-statements'] as $permission) {
+            $this->assertTrue($admin->hasPermissionTo($permission), "admin doit porter {$permission}");
+            $this->assertTrue($user->hasPermissionTo($permission), "utilisateur doit porter {$permission}");
+        }
+        foreach (['cancel-remuneration-statements', 'purge-remuneration-statements'] as $permission) {
             $this->assertTrue($admin->hasPermissionTo($permission), "admin doit porter {$permission}");
             $this->assertFalse($user->hasPermissionTo($permission), "utilisateur ne doit pas porter {$permission}");
         }

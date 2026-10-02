@@ -134,7 +134,7 @@ class AdminRemunerationStatementsApiTest extends TestCase
     public function test_generate_then_cancel(): void
     {
         VehicleContract::factory()->create(['start_date' => '2026-10-01']);
-        $token = $this->login(['edit-remuneration-statements', 'validate-remuneration-statements']);
+        $token = $this->login(['edit-remuneration-statements', 'validate-remuneration-statements', 'cancel-remuneration-statements']);
 
         $this->asBearer($token)->postJson('/api/v1/admin/remuneration-statements/generate', ['month' => '2026-10'])
             ->assertOk()->assertJsonPath('created', 1);
@@ -216,5 +216,16 @@ class AdminRemunerationStatementsApiTest extends TestCase
         $this->asBearer($token)->postJson("/api/v1/admin/remuneration-statements/{$expired->id}/send")
             ->assertStatus(409)->assertJsonPath('code', 'STATEMENT_PDF_EXPIRED');
         Queue::assertNothingPushed();
+    }
+
+    /** Valider ne suffit plus pour annuler : l'annulation est à l'administrateur seul (2026-10-02). */
+    public function test_cancelling_needs_its_own_permission(): void
+    {
+        $statement = RemunerationStatement::factory()->validated()->create();
+
+        $this->asBearer($this->login(['validate-remuneration-statements']))
+            ->postJson("/api/v1/admin/remuneration-statements/{$statement->id}/cancel", ['reason' => 'Erreur'])
+            ->assertForbidden();
+        $this->assertSame('validated', $statement->refresh()->status);
     }
 }
