@@ -202,27 +202,20 @@ class AdminPaymentsApiTest extends TestCase
             ->assertJsonPath('code', 'INVALID_LIST_QUERY');
     }
 
-    public function test_the_detail_and_the_driver_file_summarise_commissions(): void
+    /** Les commissions de la situation de l'agent : les paiements annulés ne comptent pas. */
+    public function test_the_detail_summarises_the_driver_commissions(): void
     {
         $contract = $this->contractedDriver();
         $this->commission($contract->driver, 1000);
         $payment = Payment::factory()->create(['driver_id' => $contract->driver_id, 'payment_type' => 'commission', 'amount' => 300]);
         Payment::factory()->status('cancelled')->create(['driver_id' => $contract->driver_id, 'payment_type' => 'commission', 'amount' => 200]);
 
-        $token = $this->login(['view-payments']);
-
-        $this->asBearer($token)->getJson("/api/v1/admin/payments/{$payment->id}")
+        $this->asBearer($this->login(['view-payments']))->getJson("/api/v1/admin/payments/{$payment->id}")
             ->assertOk()
             ->assertJsonPath('payment.id', $payment->id)
-            ->assertJsonPath('driver_summary.total_due', 1000)
-            ->assertJsonPath('driver_summary.total_paid', 300)
-            ->assertJsonPath('driver_summary.balance_due', 700);
-
-        $this->asBearer($token)->getJson("/api/v1/admin/drivers/{$contract->driver_id}/payments")
-            ->assertOk()
-            ->assertJsonPath('summary.balance_due', 700)
-            ->assertJsonCount(2, 'payments')
-            ->assertJsonCount(1, 'commissions');
+            ->assertJsonPath('driver_situation.commissions.due', 1000)
+            ->assertJsonPath('driver_situation.commissions.paid', 300)
+            ->assertJsonPath('driver_situation.commissions.balance', 700);
     }
 
     public function test_payable_drivers_are_those_under_active_contract(): void

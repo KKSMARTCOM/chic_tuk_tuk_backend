@@ -5,6 +5,8 @@ namespace App\Domains\Finance\Application\Actions;
 use App\Domains\Finance\Application\Data\AdminCommissionData;
 use App\Domains\Finance\Application\Data\AdminCommissionPageData;
 use App\Domains\Finance\Application\Data\AdminCommissionStatsData;
+use App\Domains\Finance\Application\Data\AdminPaymentDriverOptionData;
+use App\Models\Driver;
 use App\Models\Commission;
 use App\Shared\Data\PaginationData;
 use App\Shared\Http\ListQuery;
@@ -15,7 +17,7 @@ use Spatie\QueryBuilder\QueryBuilder;
 final class ListCommissions
 {
     /**
-     * @param  array<string, mixed>  $params  `filter[driver_id|search]`, `sort` (amount, date,
+     * @param  array<string, mixed>  $params  `filter[driver_id|status|search]`, `sort` (amount, date,
      *                                         created_at), `page`, `per_page`
      */
     public function __invoke(array $params = []): AdminCommissionPageData
@@ -32,6 +34,13 @@ final class ListCommissions
                 totalRevenue: (float) $stats['total_revenue'],
                 totalCount: (int) $stats['total_count'],
             ),
+            // Les agents du filtre, comme la liste des paiements (2026-10-02) : les commissions
+            // dues d'un agent se lisent ici depuis le retrait de « Voir tous ses paiements ».
+            drivers: Driver::with('user')->get()
+                ->sortBy(fn (Driver $driver) => $driver->user?->name)
+                ->map(fn (Driver $driver) => AdminPaymentDriverOptionData::fromModel($driver))
+                ->values()
+                ->all(),
         );
     }
 
@@ -41,6 +50,8 @@ final class ListCommissions
         return ListQuery::build(Commission::query()->with(['driver.user', 'booking']), $params, fn (QueryBuilder $query) => $query
             ->allowedFilters([
                 ListQuery::exact('driver_id'),
+                // `active` : due ; `cancelled` : annulée (2026-10-02).
+                ListQuery::exact('status'),
                 // Groupé (2026-09-26) : sans parenthèses, le `orWhereHas` échappait au filtre
                 // d'agent, et un numéro de course d'un autre agent remontait quand même.
                 ListQuery::search(fn (Builder $q, string $search) => $q->where(fn (Builder $inner) => $inner

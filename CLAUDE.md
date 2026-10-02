@@ -510,9 +510,13 @@ annulation. ⚠️ **Une commission s'ANNULE, elle ne se supprime plus** (décid
 porte `delete-commissions`, réservée à l'administrateur ; la route Blade « destroy »
 n'exigeait aucune permission et effaçait la ligne.
 
-**Les paiements** (`/admin/payments*`, `/admin/drivers/{driver}/payments`, domaine
-`Finance`, P2) — liste avec ses sept compteurs, fiche, création, modification, validation,
-annulation, suppression, détail par agent. ⚠️ Le Blade n'exigeait **aucune** permission
+**Les paiements** (`/admin/payments*`, domaine `Finance`, P2) — liste avec ses sept
+compteurs, fiche, création, modification, validation, annulation, suppression. La fiche
+porte la **situation de l'agent** (`BuildDriverSituation`, 2026-10-02) : commissions dues
+et payées, paiements du contrat agent EN COURS (à défaut le dernier) — validés, en
+attente, en retard —, et revenu d'abonnement ; le dossier agent porte la même.
+`/admin/drivers/{driver}/payments` a été retirée ce jour-là : la liste filtrée par agent la
+remplace, et les commissions se filtrent par agent et par statut (`active` = due). ⚠️ Le Blade n'exigeait **aucune** permission
 sur la ressource, la validation ni l'annulation : `view-`, `create-`, `edit-` (qui couvre
 validation et annulation) et `delete-payments`, la dernière réservée à l'administrateur.
 Décidé le 2026-09-26 :

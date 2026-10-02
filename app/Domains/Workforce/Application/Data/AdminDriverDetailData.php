@@ -2,7 +2,9 @@
 
 namespace App\Domains\Workforce\Application\Data;
 
+use App\Domains\Finance\Application\Actions\BuildDriverSituation;
 use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
+use App\Domains\Finance\Application\Data\AdminDriverSituationData;
 use App\Domains\Finance\Application\Actions\SummarizeDriverCommissions;
 use App\Domains\Workforce\Application\Actions\ComputeDriverBookingStats;
 use App\Models\Driver;
@@ -38,6 +40,8 @@ final class AdminDriverDetailData extends BaseData
         public ?AdminDriverActiveContractData $activeContract,
         /** @var array<int, AdminDriverRecentBookingData> */
         public array $recentBookings,
+        /** Commissions, paiements de contrat, abonnements (2026-10-02), comme sur la fiche d'un paiement. */
+        public AdminDriverSituationData $situation,
     ) {}
 
     public static function fromModel(
@@ -45,6 +49,7 @@ final class AdminDriverDetailData extends BaseData
         ComputeDriverBookingStats $computeBookingStats,
         SummarizeDriverCommissions $summarizeCommissions,
         ComputeDriverSubscriptionRevenue $computeRevenue,
+        BuildDriverSituation $buildSituation,
     ): self {
         $user = $driver->user;
         $activeContract = $driver->activeDriverContract?->load(['vehicle.owner', 'vehicleContract']);
@@ -81,6 +86,7 @@ final class AdminDriverDetailData extends BaseData
                 ? AdminDriverActiveContractData::fromModel($activeContract, $vehicle)
                 : null,
             recentBookings: $recentBookings->map(fn ($b) => AdminDriverRecentBookingData::fromModel($b))->all(),
+            situation: $buildSituation($driver->id),
         );
     }
 }

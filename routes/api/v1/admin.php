@@ -262,7 +262,7 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::middleware('permission:view-payments')->group(function () {
             Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
             Route::get('/payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
-            Route::get('/drivers/{driver}/payments', [PaymentController::class, 'driverPayments'])->name('drivers.payments');
+            // « Voir tous ses paiements » retirée le 2026-10-02 : la liste filtrée par agent la remplace.
         });
 
         Route::post('/payments', [PaymentController::class, 'store'])

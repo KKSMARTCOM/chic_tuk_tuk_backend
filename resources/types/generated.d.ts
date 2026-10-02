@@ -390,23 +390,42 @@ export type AdminCommissionPageData = {
 commissions: Array<App.Domains.Finance.Application.Data.AdminCommissionData>;
 pagination: App.Shared.Data.PaginationData;
 stats: App.Domains.Finance.Application.Data.AdminCommissionStatsData;
+drivers: Array<App.Domains.Finance.Application.Data.AdminPaymentDriverOptionData>;
 };
 export type AdminCommissionStatsData = {
 total_revenue: number;
 total_count: number;
 };
-export type AdminDriverPaymentSummaryData = {
-driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData;
-total_due: number;
-total_paid: number;
-balance_due: number;
-payments_count: number;
-commissions_count: number;
+export type AdminDriverCommissionSituationData = {
+due: number;
+paid: number;
+balance: number;
+active_count: number;
+driver_earning: number;
 };
-export type AdminDriverPaymentsData = {
-summary: App.Domains.Finance.Application.Data.AdminDriverPaymentSummaryData;
-payments: Array<App.Domains.Finance.Application.Data.AdminPaymentData>;
-commissions: Array<App.Domains.Finance.Application.Data.AdminCommissionData>;
+export type AdminDriverContractSituationData = {
+vehicle_number: string | null;
+start_date: string;
+is_active: boolean;
+validated_count: number;
+validated_amount: number;
+pending_count: number;
+pending_amount: number;
+late_count: number;
+late_amount: number;
+last_collected_on: string | null;
+};
+export type AdminDriverSituationData = {
+commissions: App.Domains.Finance.Application.Data.AdminDriverCommissionSituationData;
+contract: App.Domains.Finance.Application.Data.AdminDriverContractSituationData | null;
+subscriptions: App.Domains.Finance.Application.Data.AdminDriverSubscriptionSituationData;
+};
+export type AdminDriverSubscriptionSituationData = {
+count: number;
+completed_bookings: number;
+due: number;
+paid: number;
+balance: number;
 };
 export type AdminPaymentData = {
 id: string;
@@ -435,7 +454,7 @@ can_correct_collection_date: boolean;
 };
 export type AdminPaymentDetailData = {
 payment: App.Domains.Finance.Application.Data.AdminPaymentData;
-driver_summary: App.Domains.Finance.Application.Data.AdminDriverPaymentSummaryData;
+driver_situation: App.Domains.Finance.Application.Data.AdminDriverSituationData;
 };
 export type AdminPaymentDriverContractOptionData = {
 id: string;
@@ -1341,6 +1360,7 @@ commission_stats: App.Domains.Workforce.Application.Data.AdminDriverCommissionSt
 subscription_revenue: App.Domains.Workforce.Application.Data.AdminDriverSubscriptionRevenueData;
 active_contract: App.Domains.Workforce.Application.Data.AdminDriverActiveContractData | null;
 recent_bookings: Array<App.Domains.Workforce.Application.Data.AdminDriverRecentBookingData>;
+situation: App.Domains.Finance.Application.Data.AdminDriverSituationData;
 };
 export type AdminDriverLeaveDetailData = {
 id: string;

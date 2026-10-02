@@ -2,7 +2,6 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
-use App\Domains\Finance\Application\Data\AdminDriverPaymentSummaryData;
 use App\Domains\Finance\Application\Data\AdminPaymentData;
 use App\Domains\Finance\Application\Data\AdminPaymentDetailData;
 use App\Models\Payment;
@@ -10,7 +9,7 @@ use App\Models\Payment;
 /** La fiche d'un paiement — ex-Admin\PaymentController::show(). */
 final class ShowPaymentDetail
 {
-    public function __construct(private readonly FindDriverPayments $findDriverPayments) {}
+    public function __construct(private readonly BuildDriverSituation $buildSituation) {}
 
     public function __invoke(string $paymentId): AdminPaymentDetailData
     {
@@ -18,7 +17,7 @@ final class ShowPaymentDetail
 
         return new AdminPaymentDetailData(
             payment: AdminPaymentData::fromModel($payment),
-            driverSummary: AdminDriverPaymentSummaryData::fromStats(($this->findDriverPayments)($payment->driver_id)),
+            driverSituation: ($this->buildSituation)($payment->driver_id),
         );
     }
 }
