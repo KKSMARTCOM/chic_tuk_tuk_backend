@@ -28,6 +28,9 @@ final class ValidateRemunerationStatement
 
     public function __invoke(RemunerationStatement $statement, User $by, ?Carbon $issuedOn = null, bool $send = true): RemunerationStatement
     {
+        if ($send && ! RemunerationStatement::visibleToOwners()) {
+            throw new ApiException(409, 'STATEMENTS_HIDDEN_FROM_OWNERS', 'Les fiches sont cachées aux propriétaires le temps de la reconstitution : validez sans envoyer.');
+        }
         if (! RemunerationBranding::isComplete()) {
             throw new ApiException(409, 'STATEMENT_BRANDING_MISSING', 'Le cachet ou la signature sont introuvables sur le serveur : la fiche partirait non signée.');
         }

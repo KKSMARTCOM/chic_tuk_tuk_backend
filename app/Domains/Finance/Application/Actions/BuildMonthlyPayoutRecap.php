@@ -26,18 +26,23 @@ final class BuildMonthlyPayoutRecap
     {
         $calculator = ContractMonthCalculator::for($contract);
         $firstMonth = (string) config('remuneration.first_month');
-        $statements = $contract->remunerationStatements()->where('status', 'validated')->get()
-            ->keyBy(fn (RemunerationStatement $s) => $s->monthKey());
+        // Interrupteur éteint (spec 2026-10-02, §3.2) : aucune fiche, et tout mois clos
+        // montre ses recettes validées sans solde, comme avant les fiches.
+        $visible = RemunerationStatement::visibleToOwners();
+        $statements = $visible
+            ? $contract->remunerationStatements()->where('status', 'validated')->get()
+                ->keyBy(fn (RemunerationStatement $s) => $s->monthKey())
+            : collect();
 
         return collect($calculator->monthKeys())
-            ->map(function (string $key) use ($calculator, $contract, $firstMonth, $statements) {
+            ->map(function (string $key) use ($calculator, $contract, $firstMonth, $statements, $visible) {
                 $month = $calculator->month($key);
                 $statement = $statements->get($key);
 
                 [$status, $money, $estimate] = match (true) {
                     $statement !== null => ['validated', StatementFigures::fromArray($statement->figures), false],
                     $month->isCurrent => ['current', ($this->figures)($contract, $key), true],
-                    $key >= $firstMonth => ['review_pending', null, false],
+                    $visible && $key >= $firstMonth => ['review_pending', null, false],
                     default => ['before_statements', null, false],
                 };
 

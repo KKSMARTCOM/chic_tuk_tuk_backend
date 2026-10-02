@@ -63,6 +63,16 @@ class RemunerationStatement extends Model
         return $this->month->format('Y-m');
     }
 
+    /**
+     * Les fiches sont-elles ouvertes aux propriétaires ? (spec 2026-10-02, §3.2) Éteint, le
+     * propriétaire n'en voit aucune et aucune ne lui part ; l'administration, elle, les
+     * prépare et les valide sans envoi.
+     */
+    public static function visibleToOwners(): bool
+    {
+        return filter_var(config('remuneration.owner_visible'), FILTER_VALIDATE_BOOLEAN);
+    }
+
     /** `expired` : effacé au bout d'un an ; `preparing` : la tâche en file ne l'a pas encore produit. */
     public function pdfState(): string
     {

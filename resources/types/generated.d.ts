@@ -992,7 +992,7 @@ progress_percentage: number;
 remaining_amount: number;
 paid_amount: number;
 pending_amount: number;
-charges_deducted: number;
+charges_deducted: number | null;
 revenue_progress: number;
 pauses: App.Domains.Fleet.Application.Data.OwnerContractPauseSummaryData;
 };

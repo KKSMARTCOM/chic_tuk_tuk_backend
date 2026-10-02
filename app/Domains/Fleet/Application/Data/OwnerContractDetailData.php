@@ -5,6 +5,7 @@ namespace App\Domains\Fleet\Application\Data;
 use App\Domains\Finance\Application\Data\StatementFiguresData;
 use App\Domains\Finance\Domain\ContractMonthCalculator;
 use App\Domains\Finance\Domain\StatementFigures;
+use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
 use App\Models\VehicleContractTerm;
 use App\Shared\Data\BaseData;
@@ -56,7 +57,9 @@ final class OwnerContractDetailData extends BaseData
         // Lu dans les réglages, jamais copié sur le contrat : une durée qui n'est plus
         // proposée n'en a pas.
         $invested = VehicleContractTerm::query()->where('months', $months)->value('invested_amount');
-        $latest = $contract->remunerationStatements()->where('status', 'validated')->orderByDesc('month')->first();
+        $latest = RemunerationStatement::visibleToOwners()
+            ? $contract->remunerationStatements()->where('status', 'validated')->orderByDesc('month')->first()
+            : null;
 
         return new self(
             contractMonths: $months,

@@ -26,6 +26,7 @@ final class StatementController
     public function index(Request $request, string $id): JsonResponse
     {
         try {
+            $this->ensureVisible();
             $vehicle = Vehicle::query()->where('owner_id', $request->user()->id)->findOrFail($id);
 
             return response()->json(RemunerationStatement::query()
@@ -45,6 +46,7 @@ final class StatementController
     public function pdf(Request $request, string $id): Response|JsonResponse
     {
         try {
+            $this->ensureVisible();
             $statement = RemunerationStatement::query()
                 ->where('status', 'validated')
                 ->whereHas('contract.vehicle', fn ($q) => $q->where('owner_id', $request->user()->id))
@@ -80,6 +82,14 @@ final class StatementController
         } catch (\Throwable $e) {
             return $this->failure($e, $request, 'le PDF d\'une fiche de rémunération',
                 'Votre fiche n\'a pas pu être téléchargée. Réessayez.', 'OWNER_STATEMENT_PDF_FAILED');
+        }
+    }
+
+    /** Interrupteur éteint : 404, comme une fiche qui n'existe pas (spec 2026-10-02, §3.2). */
+    private function ensureVisible(): void
+    {
+        if (! RemunerationStatement::visibleToOwners()) {
+            throw (new ModelNotFoundException)->setModel(RemunerationStatement::class);
         }
     }
 

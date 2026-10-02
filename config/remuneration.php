@@ -14,6 +14,11 @@ return [
     // Le propriétaire a déjà reçu sa fiche par e-mail : trois téléchargements suffisent.
     'owner_download_limit' => (int) env('REMUNERATION_OWNER_DOWNLOAD_LIMIT', 3),
 
+    // ⚠️ Éteint en production le temps de la reconstitution des fiches (spec 2026-10-02,
+    // §3.2) : le propriétaire ne voit aucune fiche, et aucune ne lui part. Lu par
+    // `RemunerationStatement::visibleToOwners()`, jamais directement.
+    'owner_visible' => env('REMUNERATION_OWNER_VISIBLE', true),
+
     // ⚠️ Hors du dépôt : le cachet et la signature permettent de produire un document au
     // nom de la société. Sur le serveur, ce dossier est sur un volume persistant.
     'branding_dir' => storage_path('app/private/branding'),
