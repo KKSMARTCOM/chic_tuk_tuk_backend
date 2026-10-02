@@ -5,6 +5,7 @@ namespace App\Domains\Booking\Application\Data;
 use App\Domains\Booking\Application\Data\Concerns\DescribesBookingKind;
 use App\Domains\Booking\Application\Data\Concerns\MapsBookingSchedule;
 use App\Domains\Booking\Domain\BookingLifecycle;
+use App\Domains\Booking\Domain\PriceCalculator;
 use App\Models\Booking;
 use App\Domains\Booking\Domain\Enums\BookingStatus;
 use App\Shared\Data\BaseData;
@@ -84,6 +85,8 @@ final class AdminBookingDetailData extends BaseData
 
         // ----- L'argent ------------------------------------------------------
         public float $basePrice,
+        /** Le prix sans la majoration de l'heure de départ : ce qu'attend le formulaire de modification. */
+        public int $rawPrice,
         public float $totalPrice,
         public float $discount,
         public ?string $promoCode,
@@ -214,6 +217,7 @@ final class AdminBookingDetailData extends BaseData
             touristCircuitName: $booking->touristCircuit?->name,
 
             basePrice: (float) $booking->base_price,
+            rawPrice: app(PriceCalculator::class)->removeTimeSurcharge((int) $booking->base_price, $booking->pickup_time),
             totalPrice: (float) $booking->total_price,
             discount: (float) ($booking->discount ?? 0),
             promoCode: $booking->promoCode?->code,
