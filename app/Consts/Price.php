@@ -9,6 +9,6 @@ class Price
     public const MINIMUM_PRICE  = 1000;
 
     const TIME_SURCHARGE = 1000;
-    const NORMAL_WINDOW_START_HOUR = 7;
+    const NORMAL_WINDOW_START_HOUR = 6;
     const NORMAL_WINDOW_END_HOUR = 10;
 }

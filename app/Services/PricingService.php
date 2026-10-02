@@ -67,6 +67,19 @@ class PricingService
         return $this->isNormalPriceWindow($time) ? $price : $price + Price::TIME_SURCHARGE;
     }
 
+    /**
+     * Le prix brut d'une course, avant majoration : l'inverse de `applyTimeSurcharge`. Le
+     * prix enregistré la contient déjà, et c'est le prix brut que l'enregistrement attend.
+     */
+    public function removeTimeSurcharge(int $price, $time): int
+    {
+        if (!$time || $this->isNormalPriceWindow($time)) {
+            return $price;
+        }
+
+        return max(0, $price - Price::TIME_SURCHARGE);
+    }
+
     private function isNormalPriceWindow($time): bool
     {
         $minutes = $this->extractMinutesSinceMidnight($time);
