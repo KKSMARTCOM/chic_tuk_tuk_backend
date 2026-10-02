@@ -118,6 +118,26 @@ class OwnerStatementsSwitchTest extends TestCase
         $this->assertTrue($months['2026-11']['is_estimate']);
     }
 
+    /**
+     * Le mois en cours, interrupteur éteint : ses jours et ses recettes validées, mais ni
+     * solde ni recouvré ni charges — ils dépendent des fiches antérieures, que la
+     * reconstitution valide une à une (décidé le 2026-10-02 après relecture).
+     */
+    public function test_switched_off_the_current_month_shows_no_balance(): void
+    {
+        Payment::factory()->onDay('2026-11-03')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 6_000]);
+        $this->off();
+
+        $november = collect($this->fetch("/api/v1/owner/vehicles/{$this->vehicle->id}/payments")->assertOk()->json())->firstWhere('month', '2026-11');
+
+        $this->assertSame('current', $november['status']);
+        $this->assertTrue($november['is_estimate']);
+        $this->assertEquals(6_000, $november['revenue']);
+        $this->assertNull($november['balance_due']);
+        $this->assertNull($november['recovered']);
+        $this->assertNull($november['charges_deducted']);
+    }
+
     public function test_switched_off_the_overview_carries_no_sheet_figures(): void
     {
         $this->off();

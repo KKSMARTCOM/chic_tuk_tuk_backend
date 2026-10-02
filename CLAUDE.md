@@ -995,7 +995,8 @@ contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, pro
   `REMUNERATION_OWNER_VISIBLE`, `true` par défaut) : éteint en production le temps de la
   reconstitution. Une seule lecture, `RemunerationStatement::visibleToOwners()`. Éteint :
   les routes propriétaire des fiches en 404, le récapitulatif sans mois `validated` ni
-  `review_pending` (tout mois clos en `before_statements`), `latest_statement` et
+  `review_pending` (tout mois clos en `before_statements`, le mois en cours sans solde,
+  recouvré ni charges : ils dépendent des fiches antérieures), `latest_statement` et
   `charges_deducted` à `null`, et toute validation AVEC envoi comme tout envoi refusés en
   409 `STATEMENTS_HIDDEN_FROM_OWNERS`. « Valider sans envoyer » reste ouvert.
 - ⚠️ **Le numéro vient de `remuneration_statement_numbers`**, un compteur par mois qui ne
