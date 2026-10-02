@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Application\Data;
 
 use App\Domains\Finance\Domain\ContractMonthCalculator;
+use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
 use App\Shared\Data\BaseData;
 
@@ -25,7 +26,7 @@ final class OwnerContractSummaryData extends BaseData
         /** Les paiements encore en attente de validation. */
         public float $pendingAmount,
         /** Les charges prélevées par les fiches de rémunération validées. */
-        public float $chargesDeducted,
+        public ?float $chargesDeducted,
         /** Payé sur le revenu cible, en pourcentage, plafonné à 100. */
         public int $revenueProgress,
         public OwnerContractPauseSummaryData $pauses,
@@ -41,8 +42,11 @@ final class OwnerContractSummaryData extends BaseData
 
         $paid = (float) $contract->payments()->where('status', 'completed')->sum('net_amount');
         $pending = (float) $contract->payments()->where('status', 'pending')->sum('net_amount');
-        $deducted = (float) $contract->remunerationStatements()->where('status', 'validated')->get()
-            ->sum(fn ($s) => (float) ($s->figures['deducted_total'] ?? 0));
+        // Interrupteur éteint (spec 2026-10-02, §3.2) : null, et le front masque la tuile.
+        $deducted = RemunerationStatement::visibleToOwners()
+            ? (float) $contract->remunerationStatements()->where('status', 'validated')->get()
+                ->sum(fn ($s) => (float) ($s->figures['deducted_total'] ?? 0))
+            : null;
 
         return new self(
             contractMonths: (int) $contract->contract_months,
