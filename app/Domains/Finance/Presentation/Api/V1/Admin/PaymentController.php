@@ -11,7 +11,6 @@ use App\Domains\Finance\Application\Actions\DeletePayment;
 use App\Domains\Finance\Application\Actions\ListPayableDrivers;
 use App\Domains\Finance\Application\Actions\ListPayments;
 use App\Domains\Finance\Application\Actions\PurgeCancelledPayments;
-use App\Domains\Finance\Application\Actions\ShowDriverPayments;
 use App\Domains\Finance\Application\Actions\ShowPaymentDetail;
 use App\Domains\Finance\Application\Actions\UpdatePayment;
 use App\Domains\Finance\Application\Actions\ValidatePayment;
@@ -61,16 +60,6 @@ final class PaymentController
     {
         return $this->guard($request, 'la fiche du paiement', 'Ce paiement n\'a pas pu être chargé. Réessayez.', 'ADMIN_PAYMENT_FAILED',
             fn () => response()->json($show($paymentId)));
-    }
-
-    public function driverPayments(Request $request, string $driverId, ShowDriverPayments $show): JsonResponse
-    {
-        return $this->guard($request, 'les paiements de l\'agent', 'Les paiements de cet agent n\'ont pas pu être chargés. Réessayez.', 'DRIVER_PAYMENTS_FAILED',
-            function () use ($driverId, $show) {
-                Driver::findOrFail($driverId);
-
-                return response()->json($show($driverId));
-            });
     }
 
     public function store(Request $request, CreatePaymentData $data, ShowPaymentDetail $show, CreatePayment $create): JsonResponse
