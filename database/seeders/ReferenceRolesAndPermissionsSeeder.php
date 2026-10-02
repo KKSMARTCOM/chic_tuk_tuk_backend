@@ -104,7 +104,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         // envoyer reste à l'administrateur seul.
         'view-remuneration-statements' => ['Voir les fiches de rémunération', 'Consulter les fiches de rémunération des propriétaires'],
         'edit-remuneration-statements' => ['Préparer les fiches de rémunération', 'Générer les brouillons, ajuster les prélèvements et la note'],
-        'validate-remuneration-statements' => ['Valider les fiches de rémunération', 'Valider, envoyer et annuler une fiche de rémunération'],
+        'validate-remuneration-statements' => ['Valider les fiches de rémunération', 'Valider, envoyer ou renvoyer une fiche de rémunération, et régénérer son PDF'],
+        // Détachée de la validation le 2026-10-02 : l'utilisateur valide, l'administrateur seul annule.
+        'cancel-remuneration-statements' => ['Annuler les fiches de rémunération', 'Annuler une fiche validée, que remplace un brouillon'],
         'purge-remuneration-statements' => ['Vider les fiches annulées', 'Supprimer définitivement les fiches de rémunération annulées et leurs PDF'],
 
         // Réglages
@@ -288,6 +290,11 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'view-owners',
                 'view-payments',
                 'view-promo-codes',
+                // Fiches ouvertes le 2026-10-02 : consulter, préparer, valider et envoyer —
+                // annuler et vider restent à l'administrateur.
+                'view-remuneration-statements',
+                'edit-remuneration-statements',
+                'validate-remuneration-statements',
                 'view-reports',
                 'view-testimonials',
                 'view-users',
