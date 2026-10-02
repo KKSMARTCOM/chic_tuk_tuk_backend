@@ -92,6 +92,7 @@ enum ActivityEvent: string
     case RemunerationStatementsGenerated = 'remuneration_statement.generated';
     case RemunerationStatementValidated = 'remuneration_statement.validated';
     case RemunerationStatementSent = 'remuneration_statement.sent';
+    case RemunerationStatementSendRequested = 'remuneration_statement.send_requested';
     case RemunerationStatementCancelled = 'remuneration_statement.cancelled';
     case RemunerationStatementsPurged = 'remuneration_statement.purged';
 
@@ -168,6 +169,7 @@ enum ActivityEvent: string
             self::RemunerationStatementsGenerated => 'Fiches de rémunération générées',
             self::RemunerationStatementValidated => 'Fiche de rémunération validée',
             self::RemunerationStatementSent => 'Fiche de rémunération envoyée',
+            self::RemunerationStatementSendRequested => 'Envoi d\'une fiche de rémunération demandé',
             self::RemunerationStatementCancelled => 'Fiche de rémunération annulée',
             self::RemunerationStatementsPurged => 'Fiches annulées vidées',
             self::PricingUpdated => 'Tarifs modifiés',

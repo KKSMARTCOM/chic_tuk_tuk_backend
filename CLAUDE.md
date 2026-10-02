@@ -979,6 +979,11 @@ contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, pro
   `PATCH /admin/payments/{id}/collected-on`.
 - **« Valider sans envoyer »** (`send: false`, `delivery = none`) : PDF produit, ni
   notification ni e-mail ; son annulation ne prévient pas le propriétaire.
+- **Envoyer, ou renvoyer, une fiche validée** (2026-10-02) :
+  `POST /admin/remuneration-statements/{id}/send` (`validate-remuneration-statements`),
+  `SendRemunerationStatement`. Passe `delivery` à `email`, efface `sent_at` — sans quoi
+  `IssueRemunerationStatement` ne repartirait pas — et relance la tâche, qui reprend le PDF
+  rangé : rien n'est recalculé. Refusé en 409 sur une fiche non validée ou un PDF effacé.
 - ⚠️ **Le numéro vient de `remuneration_statement_numbers`**, un compteur par mois qui ne
   recule jamais : compter les fiches réattribuerait un numéro après
   `DELETE /admin/remuneration-statements/cancelled` (`purge-remuneration-statements`, une

@@ -8,6 +8,7 @@ use App\Domains\Finance\Application\Actions\CancelRemunerationStatement;
 use App\Domains\Finance\Application\Actions\GenerateRemunerationStatements;
 use App\Domains\Finance\Application\Actions\ListRemunerationStatements;
 use App\Domains\Finance\Application\Actions\PurgeCancelledStatements;
+use App\Domains\Finance\Application\Actions\SendRemunerationStatement;
 use App\Domains\Finance\Application\Actions\UpdateRemunerationStatement;
 use App\Domains\Finance\Application\Actions\ValidateRemunerationStatement;
 use App\Domains\Finance\Application\Data\CancelRemunerationStatementData;
@@ -122,6 +123,24 @@ final class RemunerationStatementController
         } catch (\Throwable $e) {
             return $this->failure($e, $request, 'l\'annulation de la fiche de rémunération',
                 'Cette fiche de rémunération n\'a pas pu être annulée.', 'ADMIN_REMUNERATION_CANCEL_FAILED');
+        }
+    }
+
+    /** Envoyer une fiche validée sans envoi, ou la renvoyer à la demande du propriétaire (2026-10-02). */
+    public function send(Request $request, string $id, SendRemunerationStatement $send): JsonResponse
+    {
+        try {
+            $statement = $this->find($id);
+            $resend = $statement->sent_at !== null;
+            $send($statement);
+            $this->journal->remunerationStatementSendRequested($statement, $resend);
+
+            return response()->json($this->detail($this->find($id)));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'l\'envoi de la fiche de rémunération',
+                'Cette fiche de rémunération n\'a pas pu être envoyée.', 'ADMIN_REMUNERATION_SEND_FAILED');
         }
     }
 

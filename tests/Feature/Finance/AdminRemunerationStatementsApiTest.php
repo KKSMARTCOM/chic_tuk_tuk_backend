@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Finance;
 
+use App\Domains\Finance\Application\Jobs\IssueRemunerationStatement;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
@@ -161,5 +162,59 @@ class AdminRemunerationStatementsApiTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
 
         $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+    // ----- Envoyer, ou renvoyer, une fiche validée (2026-10-02) ----------------------------
+
+    public function test_a_statement_validated_without_sending_can_be_sent(): void
+    {
+        $statement = RemunerationStatement::factory()->validated()->create(['delivery' => 'none', 'pdf_path' => 'statements/x.pdf']);
+
+        $this->asBearer($this->login(['validate-remuneration-statements']))
+            ->postJson("/api/v1/admin/remuneration-statements/{$statement->id}/send")
+            ->assertOk()
+            ->assertJsonPath('id', $statement->id)
+            ->assertJsonPath('delivery', 'email')
+            ->assertJsonPath('owner_email', $statement->contract->vehicle?->owner?->email);
+
+        $this->assertSame('email', $statement->refresh()->delivery);
+        Queue::assertPushed(IssueRemunerationStatement::class, fn ($job) => $job->statementId === $statement->id);
+        $this->assertTrue(Activity::query()->where('event', 'remuneration_statement.send_requested')->exists());
+    }
+
+    /** Un propriétaire qui redemande sa fiche : `sent_at` s'efface, sinon la tâche ne repartirait pas. */
+    public function test_a_sent_statement_can_be_sent_again(): void
+    {
+        $statement = RemunerationStatement::factory()->validated()->create(['sent_at' => now()->subMonth(), 'pdf_path' => 'statements/x.pdf']);
+
+        $this->asBearer($this->login(['validate-remuneration-statements']))
+            ->postJson("/api/v1/admin/remuneration-statements/{$statement->id}/send")
+            ->assertOk();
+
+        $this->assertNull($statement->refresh()->sent_at);
+        Queue::assertPushed(IssueRemunerationStatement::class);
+    }
+
+    public function test_sending_needs_the_validate_permission(): void
+    {
+        $statement = RemunerationStatement::factory()->validated()->create();
+
+        $this->asBearer($this->login(['edit-remuneration-statements']))
+            ->postJson("/api/v1/admin/remuneration-statements/{$statement->id}/send")
+            ->assertForbidden();
+        Queue::assertNothingPushed();
+    }
+
+    public function test_only_a_validated_statement_with_its_pdf_is_sent(): void
+    {
+        $token = $this->login(['validate-remuneration-statements']);
+        $draft = RemunerationStatement::factory()->create();
+        $expired = RemunerationStatement::factory()->validated()->create(['pdf_path' => null, 'pdf_purged_at' => now()]);
+
+        $this->asBearer($token)->postJson("/api/v1/admin/remuneration-statements/{$draft->id}/send")
+            ->assertStatus(409)->assertJsonPath('code', 'STATEMENT_NOT_VALIDATED');
+        $this->asBearer($token)->postJson("/api/v1/admin/remuneration-statements/{$expired->id}/send")
+            ->assertStatus(409)->assertJsonPath('code', 'STATEMENT_PDF_EXPIRED');
+        Queue::assertNothingPushed();
     }
 }

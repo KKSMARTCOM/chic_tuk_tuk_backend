@@ -694,6 +694,17 @@ final class ActivityJournal
         );
     }
 
+    /** Envoyer une fiche validée sans envoi, ou la renvoyer : l'envoi lui-même suit, en file. */
+    public function remunerationStatementSendRequested(RemunerationStatement $statement, bool $resend): void
+    {
+        $this->record(
+            ActivityEvent::RemunerationStatementSendRequested,
+            $statement,
+            ($resend ? 'a renvoyé' : 'a envoyé').
+                " la fiche de rémunération {$statement->number} à {$this->statementOwner($statement)}",
+        );
+    }
+
     /** @param  list<string>  $numbers */
     public function cancelledStatementsPurged(array $numbers): void
     {
