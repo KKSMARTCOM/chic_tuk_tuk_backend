@@ -26,7 +26,9 @@ return [
         'KOKA MOBILITY SARL',
         'Société à Responsabilité Limitée - CAPITAL : 1 000 000 FCFA',
         'Importation de motocycles et accessoires, Transports, Tourisme et Voyages, Services',
-        'Siège : Ilot : 3101, Quartier : Agla Hlazounto, COTONOU, BÉNIN',
+        // La fiche d'origine passe la ville à la ligne : on la suit.
+        'Siège : Ilot : 3101, Quartier : Agla Hlazounto,',
+        'COTONOU, BÉNIN',
         'Tél : +229 0196051569',
         'IFU 3202598323524 - N° RCCM RB/COT/25 B 41498',
     ],
