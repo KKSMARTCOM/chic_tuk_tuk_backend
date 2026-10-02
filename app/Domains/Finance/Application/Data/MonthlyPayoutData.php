@@ -16,6 +16,10 @@ use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
  * | mois clos ≥ `first_month`, sans fiche | `review_pending`    | les jours seulement ; montants à `null`    |
  * | mois clos < `first_month`             | `before_statements` | les jours et les recettes validées ; solde à `null` |
  *
+ * Interrupteur des fiches éteint (`RemunerationStatement::visibleToOwners()`, 2026-10-02) :
+ * aucune fiche ni `review_pending` — tout mois clos en `before_statements` —, et le mois en
+ * cours ne porte que ses jours et ses recettes validées, sans solde.
+ *
  * ⚠️ Un mois clos sans fiche validée ne montre AUCUN solde : le propriétaire ne doit pas
  * lire un montant que la relecture peut encore changer. Le report du déficit
  * (2026-09-29) a disparu : le compte de charges des fiches le remplace.

@@ -27,7 +27,9 @@ final class BuildMonthlyPayoutRecap
         $calculator = ContractMonthCalculator::for($contract);
         $firstMonth = (string) config('remuneration.first_month');
         // Interrupteur éteint (spec 2026-10-02, §3.2) : aucune fiche, et tout mois clos
-        // montre ses recettes validées sans solde, comme avant les fiches.
+        // montre ses recettes validées sans solde, comme avant les fiches. Le mois en cours
+        // aussi : son estimation dépend des fiches antérieures, que la reconstitution valide
+        // une à une — le solde bougerait devant le propriétaire à chaque relecture.
         $visible = RemunerationStatement::visibleToOwners();
         $statements = $visible
             ? $contract->remunerationStatements()->where('status', 'validated')->get()
@@ -41,7 +43,7 @@ final class BuildMonthlyPayoutRecap
 
                 [$status, $money, $estimate] = match (true) {
                     $statement !== null => ['validated', StatementFigures::fromArray($statement->figures), false],
-                    $month->isCurrent => ['current', ($this->figures)($contract, $key), true],
+                    $month->isCurrent => ['current', $visible ? ($this->figures)($contract, $key) : null, true],
                     $visible && $key >= $firstMonth => ['review_pending', null, false],
                     default => ['before_statements', null, false],
                 };
@@ -57,7 +59,7 @@ final class BuildMonthlyPayoutRecap
                     immobilizationDays: $money?->immobilizationDays ?? $month->immobilizationDays,
                     pendingCount: $money?->pendingCount ?? $month->pendingCount,
                     pendingAmount: $money?->pendingAmount ?? $month->pendingAmount,
-                    revenue: $money?->revenue ?? ($status === 'before_statements' ? $month->validatedAmount : null),
+                    revenue: $money?->revenue ?? ($money === null && $status !== 'review_pending' ? $month->validatedAmount : null),
                     recovered: $money?->recovered,
                     chargesDeducted: $money?->deductedTotal,
                     balanceDue: $money?->balanceDue,
