@@ -447,7 +447,10 @@ et annulation de pause, par `VehicleService`, partagé avec le Blade. Décidé l
 les trois charges par défaut, tirés des réglages (`vehicle_contract_terms`,
 `vehicle_contract_charge_defaults`). Le front ne les recopie plus.
 
-**Les contrats propriétaire-véhicule** (`/admin/vehicle-contracts*`, domaine `Fleet`, F3)
+**Les contrats propriétaire-véhicule** — affichés « **Contrats propriétaires** » dans
+l'administration depuis le 2026-10-05 (menu, écrans, messages de l'API, libellés du journal ;
+les noms techniques `vehicle-contracts`, `VehicleContract` ne changent pas, et les lignes déjà
+écrites du journal gardent leur phrase) — (`/admin/vehicle-contracts*`, domaine `Fleet`, F3)
 — liste, fiche, création (depuis la fiche d'un véhicule), modification, suppression, par
 `VehicleContractService`, partagé avec le Blade. Décidé le 2026-09-26 :
 

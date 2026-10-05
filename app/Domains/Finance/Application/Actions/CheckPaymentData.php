@@ -102,7 +102,7 @@ final class CheckPaymentData
                     throw new ApiException(
                         409,
                         'PAYMENT_EXCEEDS_BALANCE',
-                        "Le montant saisi ({$data['amount']}) dépasse le solde restant du contrat véhicule ({$remaining})."
+                        "Le montant saisi ({$data['amount']}) dépasse le solde restant du contrat propriétaire ({$remaining})."
                     );
                 }
 

@@ -255,4 +255,12 @@ class ActivityJournalFleetFinanceTest extends TestCase
         $this->assertSame('Fiches de rémunération', ActivityEvent::RemunerationStatementValidated->group());
         $this->assertSame('Fiche de rémunération validée', ActivityEvent::RemunerationStatementValidated->label());
     }
+
+    /** « Contrat propriétaire » remplace « Contrat véhicule » dans l'administration (2026-10-05). */
+    public function test_les_contrats_s_appellent_contrats_proprietaires(): void
+    {
+        $this->assertSame('Contrat propriétaire créé', ActivityEvent::VehicleContractCreated->label());
+        $this->assertSame('Contrat propriétaire modifié', ActivityEvent::VehicleContractUpdated->label());
+        $this->assertSame('Contrat propriétaire supprimé', ActivityEvent::VehicleContractDeleted->label());
+    }
 }

@@ -58,7 +58,7 @@ final class UpdateDriverContract
                     throw new ApiException(
                         409,
                         'VEHICLE_WITHOUT_CONTRACT',
-                        "Le véhicule {$vehicle->vehicle_number} n'a pas de contrat véhicule actif."
+                        "Le véhicule {$vehicle->vehicle_number} n'a pas de contrat propriétaire actif."
                     );
                 }
 

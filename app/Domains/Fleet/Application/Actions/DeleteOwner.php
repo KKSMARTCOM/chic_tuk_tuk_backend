@@ -36,7 +36,7 @@ final class DeleteOwner
                 throw new ApiException(
                     409,
                     'OWNER_NOT_DELETABLE',
-                    'Impossible de supprimer ce propriétaire : il a des véhicules ou des contrats véhicule. Désactivez son compte à la place.'
+                    'Impossible de supprimer ce propriétaire : il a des véhicules ou des contrats propriétaires. Désactivez son compte à la place.'
                 );
             }
         }

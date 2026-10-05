@@ -38,7 +38,7 @@ final class VehicleContractController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'la liste des contrats véhicule',
+            return $this->failure($e, $request, 'la liste des contrats propriétaires',
                 'La liste des contrats n\'a pas pu être chargée. Réessayez.', 'ADMIN_VEHICLE_CONTRACTS_FAILED');
         }
     }
@@ -50,7 +50,7 @@ final class VehicleContractController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'la fiche du contrat véhicule',
+            return $this->failure($e, $request, 'la fiche du contrat propriétaire',
                 'La fiche de ce contrat n\'a pas pu être chargée. Réessayez.', 'ADMIN_VEHICLE_CONTRACT_FAILED');
         }
     }
@@ -69,7 +69,7 @@ final class VehicleContractController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'la création du contrat véhicule',
+            return $this->failure($e, $request, 'la création du contrat propriétaire',
                 'Ce contrat n\'a pas pu être créé.', 'VEHICLE_CONTRACT_CREATE_FAILED');
         }
     }
@@ -89,7 +89,7 @@ final class VehicleContractController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'la modification du contrat véhicule',
+            return $this->failure($e, $request, 'la modification du contrat propriétaire',
                 'Ce contrat n\'a pas pu être modifié.', 'VEHICLE_CONTRACT_UPDATE_FAILED');
         }
     }
@@ -105,7 +105,7 @@ final class VehicleContractController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'la suppression du contrat véhicule',
+            return $this->failure($e, $request, 'la suppression du contrat propriétaire',
                 'Ce contrat n\'a pas pu être supprimé.', 'VEHICLE_CONTRACT_DELETE_FAILED');
         }
     }
@@ -117,7 +117,7 @@ final class VehicleContractController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'les valeurs par défaut des contrats véhicule',
+            return $this->failure($e, $request, 'les valeurs par défaut des contrats propriétaires',
                 'Les valeurs par défaut du contrat n\'ont pas pu être chargées. Réessayez.', 'VEHICLE_CONTRACT_DEFAULTS_FAILED');
         }
     }

@@ -41,7 +41,7 @@ final class CreateRenewalContract
         $remainingMonths = max(0, $vehicleContract->contract_months - $monthsUsed);
 
         if ($remainingMonths <= 0) {
-            throw new \Exception('Ce contrat véhicule ne dispose plus de temps restant pour une reconduction.');
+            throw new \Exception('Ce contrat propriétaire ne dispose plus de temps restant pour une reconduction.');
         }
 
         // La durée demandée ne peut pas être inférieure à 1 mois et ne peut pas dépasser le temps restant sur le contrat
