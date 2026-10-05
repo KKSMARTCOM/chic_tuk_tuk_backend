@@ -11,7 +11,8 @@ use App\Shared\Data\BaseData;
  *
  * ⚠️ Les deux ne mesurent pas la même chose : le solde compte les jours de pause
  * d'AGENT (au calendrier, par `ContractMonthCalculator`, depuis le 2026-09-30), tandis
- * que l'historique liste les lignes de `vehicle_pauses`, immobilisations comprises.
+ * que l'historique liste les pauses du véhicule, immobilisations comprises, et les
+ * pauses d'agent qui n'en ont pas (`VehiclePauseData::historyOf`).
  */
 final class OwnerVehiclePausesData extends BaseData
 {
@@ -21,16 +22,14 @@ final class OwnerVehiclePausesData extends BaseData
         public array $items,
     ) {}
 
-    /** Attend un véhicule ayant chargé `pauses` et `activeVehicleContract`. */
+    /** Attend un véhicule ayant chargé `pauses`, `driverContracts.leaveRequests` et `activeVehicleContract`. */
     public static function fromModel(Vehicle $vehicle): self
     {
         $contract = $vehicle->activeVehicleContract;
 
         return new self(
             summary: $contract ? OwnerContractPauseSummaryData::fromContract($contract, ContractMonthCalculator::for($contract)) : null,
-            items: $vehicle->pauses
-                ->map(fn ($pause) => VehiclePauseData::fromModel($pause))
-                ->all(),
+            items: VehiclePauseData::historyOf($vehicle),
         );
     }
 }

@@ -5,7 +5,6 @@ namespace App\Domains\Fleet\Application\Data;
 use App\Models\DriverContract;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
-use App\Models\VehiclePause;
 use App\Shared\Data\BaseData;
 use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 
@@ -58,11 +57,7 @@ final class AdminVehicleDetailData extends BaseData
             currentDriver: $vehicle->activeDriverContract
                 ? AdminVehicleCurrentDriverData::fromContract($vehicle->activeDriverContract)
                 : null,
-            pauses: $vehicle->pauses
-                ->sortByDesc('start_date')
-                ->map(fn (VehiclePause $p) => VehiclePauseData::fromModel($p))
-                ->values()
-                ->all(),
+            pauses: VehiclePauseData::historyOf($vehicle),
         );
     }
 }

@@ -3,11 +3,14 @@
 namespace Tests\Feature\Fleet;
 
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Models\DriverContract;
+use App\Models\LeaveRequest;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -148,5 +151,79 @@ class OwnerVehiclePausesTest extends TestCase
             ->assertJsonPath('summary.pause_overrun', 3);
 
         Carbon::setTestNow();
+    }
+
+    /**
+     * Une pause d'agent saisie après coup (`AddHistoricalLeave`) ne crée pas de pause
+     * véhicule : la liste la lisait seulement dans `vehicle_pauses`, et la manquait alors
+     * que le solde la compte (défaut du 2026-10-05).
+     */
+    public function test_les_pauses_d_agent_sans_pause_vehicule_figurent_dans_l_historique(): void
+    {
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-01-01']);
+        $agentContract = DriverContract::factory()->forVehicleContract($contract)->create();
+
+        // Pause d'agent ordinaire : sa pause véhicule automatique la représente déjà.
+        $autoPause = VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-05-04', 'end_date' => '2026-05-06',
+            'reason_type' => 'agent_leave', 'is_auto' => true,
+            'reason_notes' => 'Suite à la demande de pause de l’agent.',
+        ]);
+        LeaveRequest::factory()->create([
+            'driver_id' => $agentContract->driver_id, 'driver_contract_id' => $agentContract->id,
+            'start_date' => '2026-05-04', 'end_date' => '2026-05-06', 'vehicle_pause_id' => $autoPause->id,
+        ]);
+        // Saisie après coup : aucune pause véhicule.
+        $historical = LeaveRequest::factory()->create([
+            'driver_id' => $agentContract->driver_id, 'driver_contract_id' => $agentContract->id,
+            'start_date' => '2026-07-10', 'end_date' => '2026-07-16',
+        ]);
+        // Pause véhicule disparue : la pause d'agent reste comptée au solde.
+        $orphan = LeaveRequest::factory()->create([
+            'driver_id' => $agentContract->driver_id, 'driver_contract_id' => $agentContract->id,
+            'start_date' => '2026-03-02', 'end_date' => '2026-03-03', 'vehicle_pause_id' => (string) Str::uuid(),
+        ]);
+        // Ni une demande en attente, ni une demande refusée, ni la pause d'un autre véhicule.
+        LeaveRequest::factory()->pending()->create([
+            'driver_id' => $agentContract->driver_id, 'driver_contract_id' => $agentContract->id,
+        ]);
+        LeaveRequest::factory()->create([
+            'driver_id' => $agentContract->driver_id, 'driver_contract_id' => $agentContract->id,
+            'status' => 'rejected', 'start_date' => '2026-06-01', 'end_date' => '2026-06-02',
+        ]);
+        $elsewhere = DriverContract::factory()->create();
+        LeaveRequest::factory()->create([
+            'driver_id' => $elsewhere->driver_id, 'driver_contract_id' => $elsewhere->id,
+            'start_date' => '2026-06-15', 'end_date' => '2026-06-16',
+        ]);
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-04-01', 'end_date' => '2026-04-02', 'reason_type' => 'technical',
+        ]);
+
+        $items = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/pauses")
+            ->assertOk()
+            ->json('items');
+
+        $this->assertSame(
+            ['2026-07-10', '2026-05-04', '2026-04-01', '2026-03-02'],
+            array_column($items, 'start_date'),
+        );
+        $this->assertSame([
+            'id' => $historical->id,
+            'start_date' => '2026-07-10',
+            'end_date' => '2026-07-16',
+            'reason_type' => 'agent_leave',
+            'reason_label' => 'Pause agent',
+            // Le motif personnel de l'agent ne regarde pas le propriétaire.
+            'reason_notes' => null,
+            'is_auto' => true,
+            // Même formule que les pauses véhicule : les deux bornes au calendrier.
+            'days_count' => 7,
+        ], $items[0]);
+        $this->assertSame($autoPause->id, $items[1]['id']);
+        $this->assertSame($orphan->id, $items[3]['id']);
     }
 }

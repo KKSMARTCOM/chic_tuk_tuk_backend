@@ -2,9 +2,12 @@
 
 namespace App\Domains\Fleet\Application\Data;
 
+use App\Models\LeaveRequest;
+use App\Models\Vehicle;
 use App\Models\VehiclePause;
 use App\Shared\Data\BaseData;
 use App\Domains\Fleet\Domain\Enums\VehiclePauseReason;
+use Carbon\Carbon;
 use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
 
 final class VehiclePauseData extends BaseData
@@ -35,9 +38,63 @@ final class VehiclePauseData extends BaseData
             // substitue now() à une date de fin absente, donc il renvoie un autre
             // nombre que celui affiché aujourd'hui. Les deux formules coexistent dans
             // le code ; celle de l'écran est figée ici.
-            daysCount: $pause->end_date
-                ? (int) $pause->start_date->diffInDays($pause->end_date) + 1
-                : null,
+            daysCount: self::daysCount($pause->start_date, $pause->end_date),
         );
+    }
+
+    /**
+     * L'historique des pauses d'un véhicule, de la plus récente à la plus ancienne.
+     *
+     * ⚠️ `vehicle_pauses` ne suffit pas : une pause d'agent saisie après coup
+     * (`AddHistoricalLeave`) n'a jamais de pause véhicule, alors que le solde la compte
+     * (`ContractMonthCalculator`). Ces pauses d'agent s'ajoutent donc aux lignes, comme
+     * celles dont la pause véhicule a disparu ; une pause d'agent dont la pause véhicule
+     * automatique existe n'apparaît qu'une fois, par celle-ci.
+     *
+     * Attend un véhicule ayant chargé `pauses` et `driverContracts.leaveRequests`.
+     *
+     * @return list<self>
+     */
+    public static function historyOf(Vehicle $vehicle): array
+    {
+        $vehiclePauseIds = $vehicle->pauses->pluck('id')->all();
+
+        $agentLeaves = $vehicle->driverContracts
+            ->flatMap(fn ($contract) => $contract->leaveRequests)
+            ->filter(fn (LeaveRequest $leave) => in_array($leave->status, ['ongoing', 'completed'], true)
+                && ! in_array($leave->vehicle_pause_id, $vehiclePauseIds, true))
+            ->map(fn (LeaveRequest $leave) => self::fromAgentLeave($leave));
+
+        return $vehicle->pauses
+            ->map(fn (VehiclePause $pause) => self::fromModel($pause))
+            ->concat($agentLeaves)
+            ->sortByDesc('startDate')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Une pause d'agent sans pause véhicule, présentée comme la pause automatique
+     * qu'elle aurait créée. Son motif reste vide : le propriétaire n'a pas à lire celui
+     * de l'agent, et `is_auto` tient la ligne à l'écart des actions de l'administration
+     * sur les pauses véhicule.
+     */
+    public static function fromAgentLeave(LeaveRequest $leave): self
+    {
+        return new self(
+            id: $leave->id,
+            startDate: $leave->start_date->toDateString(),
+            endDate: $leave->end_date?->toDateString(),
+            reasonType: VehiclePauseReason::AgentLeave->value,
+            reasonLabel: VehiclePauseReason::AgentLeave->label(),
+            reasonNotes: null,
+            isAuto: true,
+            daysCount: self::daysCount($leave->start_date, $leave->end_date),
+        );
+    }
+
+    private static function daysCount(Carbon $start, ?Carbon $end): ?int
+    {
+        return $end ? (int) $start->diffInDays($end) + 1 : null;
     }
 }

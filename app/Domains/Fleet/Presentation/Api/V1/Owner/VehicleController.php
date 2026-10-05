@@ -74,10 +74,7 @@ final class VehicleController
     {
         try {
             $vehicle = $this->owned($request, $id);
-            $vehicle->load([
-                'pauses' => fn ($query) => $query->orderByDesc('start_date'),
-                'activeVehicleContract',
-            ]);
+            $vehicle->load(['pauses', 'driverContracts.leaveRequests', 'activeVehicleContract']);
 
             return response()->json(OwnerVehiclePausesData::fromModel($vehicle));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

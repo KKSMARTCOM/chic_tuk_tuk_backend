@@ -17,6 +17,7 @@ final class ShowVehicleDetail
                 'vehicleContracts',
                 'activeDriverContract.driver.user',
                 'driverContracts.driver.user',
+                'driverContracts.leaveRequests',
                 'pauses',
                 'activePause',
             ])

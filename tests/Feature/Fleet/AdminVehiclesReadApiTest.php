@@ -5,6 +5,7 @@ namespace Tests\Feature\Fleet;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Driver;
 use App\Models\DriverContract;
+use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -198,6 +199,38 @@ class AdminVehiclesReadApiTest extends TestCase
 
         $this->assertEquals(60_000, $response->json('contract.total_paid'));
         $this->assertEquals(40_000, $response->json('contract.remaining_amount'));
+    }
+
+    /**
+     * Une pause d'agent saisie après coup n'a pas de pause véhicule : la fiche la
+     * manquait, comme l'historique du propriétaire (défaut du 2026-10-05).
+     */
+    public function test_the_detail_lists_agent_pauses_that_have_no_vehicle_pause(): void
+    {
+        $token = $this->login(['view-vehicles']);
+        $vehicle = Vehicle::factory()->create(['owner_id' => $this->owner()->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create();
+        $agentContract = DriverContract::factory()->forVehicleContract($contract)->create();
+
+        $historical = LeaveRequest::factory()->create([
+            'driver_id' => $agentContract->driver_id, 'driver_contract_id' => $agentContract->id,
+            'start_date' => '2026-07-10', 'end_date' => '2026-07-16',
+        ]);
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => '2026-08-01', 'end_date' => '2026-08-02', 'reason_type' => 'technical',
+        ]);
+
+        $this->asBearer($token)->getJson("/api/v1/admin/vehicles/{$vehicle->id}")
+            ->assertOk()
+            ->assertJsonCount(2, 'pauses')
+            ->assertJsonPath('pauses.1.id', $historical->id)
+            ->assertJsonPath('pauses.1.reason_type', 'agent_leave')
+            ->assertJsonPath('pauses.1.reason_notes', null)
+            // `is_auto` et la date de fin tiennent la ligne à l'écart des boutons
+            // « Annuler » et « Terminer aujourd'hui », qui attendent une pause véhicule.
+            ->assertJsonPath('pauses.1.is_auto', true)
+            ->assertJsonPath('pauses.1.end_date', '2026-07-16')
+            ->assertJsonPath('active_pause', null);
     }
 
     public function test_an_unknown_vehicle_is_a_404(): void
