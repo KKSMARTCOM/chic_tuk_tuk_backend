@@ -4,7 +4,6 @@ namespace App\Domains\Finance\Application\Actions;
 
 use App\Domains\Finance\Application\Jobs\IssueRemunerationStatement;
 use App\Domains\Finance\Domain\ChargeLedger;
-use App\Domains\Finance\Domain\RemunerationBranding;
 use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
@@ -30,9 +29,6 @@ final class ValidateRemunerationStatement
     {
         if ($send && ! RemunerationStatement::visibleToOwners()) {
             throw new ApiException(409, 'STATEMENTS_HIDDEN_FROM_OWNERS', 'Les fiches sont cachées aux propriétaires le temps de la reconstitution : validez sans envoyer.');
-        }
-        if (! RemunerationBranding::isComplete()) {
-            throw new ApiException(409, 'STATEMENT_BRANDING_MISSING', 'Le cachet ou la signature sont introuvables sur le serveur : la fiche partirait non signée.');
         }
 
         DB::transaction(function () use (&$statement, $by, $issuedOn, $send) {
@@ -120,9 +116,6 @@ final class ValidateRemunerationStatement
         }
         if ($this->monthIsNotOver($statement)) {
             $blockers[] = 'Le mois n\'est pas terminé : ses chiffres ne sont que partiels.';
-        }
-        if (! RemunerationBranding::isComplete()) {
-            $blockers[] = 'Le cachet ou la signature sont introuvables sur le serveur.';
         }
         // Une date d'établissement saisie peut être devenue invalide depuis (la fiche du mois
         // précédent revalidée plus tard) : l'écran le dit avant le clic (2026-10-01).

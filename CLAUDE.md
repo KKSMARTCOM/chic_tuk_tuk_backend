@@ -48,7 +48,7 @@ php artisan app:process-recurring-bookings
 php artisan app:generate-daily
 php artisan app:activate-leave-pauses
 php artisan app:generate-remuneration-statements --month=2026-10
-php artisan app:check-remuneration-branding
+php artisan app:regenerate-remuneration-pdfs  # --dry-run : refait les PDF des fiches validées
 php artisan app:purge-remuneration-pdfs      # chaque nuit à 3 h : PDF de plus d'un an
 php artisan app:audit-contract-payments      # lecture seule, avant une reconstitution
 ```
@@ -447,7 +447,10 @@ et annulation de pause, par `VehicleService`, partagé avec le Blade. Décidé l
 les trois charges par défaut, tirés des réglages (`vehicle_contract_terms`,
 `vehicle_contract_charge_defaults`). Le front ne les recopie plus.
 
-**Les contrats propriétaire-véhicule** (`/admin/vehicle-contracts*`, domaine `Fleet`, F3)
+**Les contrats propriétaire-véhicule** — affichés « **Contrats propriétaires** » dans
+l'administration depuis le 2026-10-05 (menu, écrans, messages de l'API, libellés du journal ;
+les noms techniques `vehicle-contracts`, `VehicleContract` ne changent pas, et les lignes déjà
+écrites du journal gardent leur phrase) — (`/admin/vehicle-contracts*`, domaine `Fleet`, F3)
 — liste, fiche, création (depuis la fiche d'un véhicule), modification, suppression, par
 `VehicleContractService`, partagé avec le Blade. Décidé le 2026-09-26 :
 
@@ -860,7 +863,7 @@ fiche validée — l'aperçu n'en recalcule aucun.
 - `app:generate-daily {--date=}` → `GenerateDailyContractPayments` (lun-ven, hors jours couverts par une pause véhicule)
 - `app:activate-leave-pauses` → `CreateAgentLeavePause` : les pauses véhicule des agents en pause
 - `app:generate-remuneration-statements {--month=}` → `GenerateRemunerationStatements` : les brouillons des fiches de rémunération d'un mois (par défaut le mois écoulé)
-- `app:check-remuneration-branding` : le cachet et la signature des fiches sont-ils en place ?
+- `app:regenerate-remuneration-pdfs {--dry-run}` : refait le PDF des fiches VALIDÉES dont le PDF est encore rangé, depuis leurs chiffres figés (même numéro, date, chemin) ; ne touche ni `pdf_generated_at`, ni le compteur de téléchargements, et n'envoie rien
 - `app:purge-remuneration-pdfs` : efface les PDF de fiches générés depuis plus de `remuneration.pdf_retention_days` jours ; la fiche reste
 - `app:audit-contract-payments` : LECTURE SEULE — plus ancien contrat, paiements sans mois, sans contrat, sur un jour d'arrêt, en double sur un même contrat véhicule (deux agents compris), en attente d'un mois passé
 
@@ -941,11 +944,12 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
   aucune fiche avant ce mois, et ses paiements antérieurs ne comptent jamais en recouvré.
   Les cumuls d'une fiche partent de cet historique ; ses charges sont réputées prélevées,
   moins le reste d'ouverture saisi sur la PREMIÈRE fiche du contrat.
-- **Cachet et signature hors dépôt** : `storage/app/private/branding/` (`cachet.png`,
-  `signature.png`), sur un volume persistant en staging. Absents, le PDF porte « SPÉCIMEN —
-  non signé » et la validation est refusée (`STATEMENT_BRANDING_MISSING`).
-  `app:check-remuneration-branding` dit ce qui manque. Le logo et le filigrane, publics,
-  sont versionnés dans `resources/pdf/remuneration-statement/`.
+- ⚠️ **Ni cachet, ni signature, ni ligne « Le gérant »** depuis le 2026-10-05 : le bas de
+  la fiche s'arrête à « Fait à Cotonou, le … », et la validation n'attend plus rien du
+  serveur (`STATEMENT_BRANDING_MISSING`, `app:check-remuneration-branding`, les réglages
+  `branding_dir` et `signatory` ont disparu). Le logo a perdu son monogramme « ka » le même
+  jour ; logo et filigrane sont versionnés dans `resources/pdf/remuneration-statement/`.
+  Les anciens PDF se refont par `app:regenerate-remuneration-pdfs`.
 - **Le PDF** (dompdf, `RemunerationStatementPdf`, gabarit
   `resources/views/pdf/remuneration-statement.blade.php`, police Montserrat embarquée) est
   rangé sur le disque privé, `statements/2026/FR-2026-10-001.pdf`, et ne sort que par les

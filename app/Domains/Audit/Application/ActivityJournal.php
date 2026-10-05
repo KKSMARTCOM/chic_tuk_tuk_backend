@@ -650,7 +650,7 @@ final class ActivityJournal
      */
     public function contractTermsUpdated(array $before, array $after): void
     {
-        $this->record(ActivityEvent::ContractTermsUpdated, null, 'a modifié les réglages des contrats véhicule', $this->changes($before, $after));
+        $this->record(ActivityEvent::ContractTermsUpdated, null, 'a modifié les réglages des contrats propriétaires', $this->changes($before, $after));
     }
 
     // ----- Fiches de rémunération --------------------------------------------------------

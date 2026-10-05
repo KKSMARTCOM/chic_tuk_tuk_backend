@@ -58,7 +58,7 @@ final class CreatePayment
             $date = Carbon::parse($data['payment_date'])->startOfDay();
             if ($date->lt($vehicleContract->start_date) || ($vehicleContract->end_date !== null && $date->gt($vehicleContract->end_date))) {
                 $end = $vehicleContract->end_date?->format('d/m/Y');
-                throw ValidationException::withMessages(['payment_date' => 'La date est hors du contrat véhicule (du '
+                throw ValidationException::withMessages(['payment_date' => 'La date est hors du contrat propriétaire (du '
                     .$vehicleContract->start_date->format('d/m/Y').($end ? " au {$end}" : ', en cours').') : aucune fiche ne compterait ce paiement.']);
             }
         }

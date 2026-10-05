@@ -125,7 +125,7 @@ class ManualContractPaymentTest extends TestCase
 
         $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-07-10']))
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['payment_date' => 'La date est hors du contrat véhicule (du 01/03/2026 au 30/06/2026) : aucune fiche ne compterait ce paiement.']);
+            ->assertJsonValidationErrors(['payment_date' => 'La date est hors du contrat propriétaire (du 01/03/2026 au 30/06/2026) : aucune fiche ne compterait ce paiement.']);
         $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-02-27']))
             ->assertStatus(422)->assertJsonValidationErrors('payment_date');
         $this->assertSame(0, Payment::count());

@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Shared\Http\ListQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use App\Shared\Http\ApiException;
+use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
 use Spatie\QueryBuilder\QueryBuilder;
 
@@ -14,7 +16,9 @@ use Spatie\QueryBuilder\QueryBuilder;
  * Les réservations, vues de l'administration — ex-Admin\BookingController::index().
  *
  * Les trois filtres du Blade : le statut, une recherche libre, et le sens du tri par date
- * de création — sous la convention commune des listes depuis le 2026-09-28.
+ * de création — sous la convention commune des listes depuis le 2026-09-28. Depuis le
+ * 2026-10-05, le TYPE (`filter[kind]=subscription|single`) et l'AGENT
+ * (`filter[driver_id]`, les courses qu'il a prises).
  *
  * ⚠️ La liste est PAGINÉE depuis le 2026-09-22. Elle ne l'était pas, contrairement à
  * celle des pauses : une flotte se compte en dizaines d'agents, mais les réservations
@@ -34,7 +38,7 @@ final class ListAdminBookings
     private const SEARCHABLE = ['booking_number', 'phone', 'from_location', 'to_location'];
 
     /**
-     * @param  array<string, mixed>  $params  `filter[status|search]`, `sort` (created_at — `-created_at`
+     * @param  array<string, mixed>  $params  `filter[status|search|kind|driver_id]`, `sort` (created_at — `-created_at`
      *                                         par défaut —, booking_number, base_price, pickup_at,
      *                                         client_name, driver_name), `page`, `per_page`
      * @return LengthAwarePaginator<Booking>
@@ -54,6 +58,10 @@ final class ListAdminBookings
         return ListQuery::paginate(ListQuery::build($bookings, $params, fn (QueryBuilder $query) => $query
             ->allowedFilters([
                 ListQuery::exact('status'),
+                // L'agent qui a PRIS la course : une journée d'abonnement qui lui est
+                // réservée (`subscription_driver_id`) sans être acceptée n'est pas la sienne.
+                ListQuery::exact('driver_id'),
+                AllowedFilter::callback('kind', fn (Builder $q, $value) => self::filterKind($q, (string) $value)),
                 ListQuery::search(fn (Builder $q, string $search) => $q->where(function (Builder $inner) use ($search) {
                     foreach (self::SEARCHABLE as $column) {
                         $inner->orWhere($column, 'LIKE', "%{$search}%");
@@ -79,5 +87,24 @@ final class ListAdminBookings
                 )),
             ])
             ->defaultSort('-created_at')), $params);
+    }
+
+    /**
+     * Abonnement = le parent (`is_recurring`) et ses journées (parent récurrent) ; course
+     * unique = tout le reste, retour d'une course simple compris. La règle de
+     * `DescribesBookingKind`, la colonne « Type » de l'écran, traduite en SQL.
+     */
+    private static function filterKind(Builder $query, string $kind): void
+    {
+        $subscription = fn (Builder $q) => $q
+            ->where('is_recurring', true)
+            ->orWhereHas('parentBooking', fn (Builder $parent) => $parent->where('is_recurring', true));
+
+        match ($kind) {
+            '' => null,
+            'subscription' => $query->where($subscription),
+            'single' => $query->whereNot($subscription),
+            default => throw new ApiException(400, 'INVALID_LIST_QUERY', 'Ce tri ou ce filtre n\'est pas proposé par cette liste.'),
+        };
     }
 }

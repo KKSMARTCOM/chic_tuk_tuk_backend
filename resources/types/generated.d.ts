@@ -94,6 +94,10 @@ can_edit: boolean;
 can_transfer_subscription: boolean;
 can_terminate_subscription: boolean;
 };
+export type AdminBookingDriverOptionData = {
+id: string;
+name: string | null;
+};
 export type AdminBookingListItemData = {
 id: string;
 booking_number: string;
@@ -123,6 +127,7 @@ current_page: number;
 last_page: number;
 per_page: number;
 total: number;
+drivers: Array<App.Domains.Booking.Application.Data.AdminBookingDriverOptionData>;
 };
 export type AdminDashboardData = {
 total_bookings: number;

@@ -460,4 +460,69 @@ class AdminBookingsApiTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('code', 'BOOKING_NOT_DELETABLE');
     }
+
+    // ----- Les filtres du type et de l'agent (2026-10-05) ---------------------
+
+    /** Les identifiants des courses que rend la liste, triés. */
+    private function ids(string $token, string $query): array
+    {
+        return collect($this->header($token)->getJson('/api/v1/admin/bookings?'.$query)->assertOk()->json('data'))
+            ->pluck('id')->sort()->values()->all();
+    }
+
+    /** @param  Booking[]  $bookings */
+    private function sorted(Booking ...$bookings): array
+    {
+        return collect($bookings)->pluck('id')->sort()->values()->all();
+    }
+
+    public function test_le_type_separe_les_abonnements_des_courses_uniques(): void
+    {
+        $parent = Booking::factory()->subscriptionParent()->create();
+        $day = Booking::factory()->subscriptionChild($parent)->create();
+        $single = Booking::factory()->roundTrip()->create();
+        $return = Booking::factory()->returnOf($single)->create();
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->assertSame($this->sorted($parent, $day), $this->ids($token, 'filter[kind]=subscription'));
+        // Le retour d'une course simple est une course unique, comme la colonne « Type ».
+        $this->assertSame($this->sorted($single, $return), $this->ids($token, 'filter[kind]=single'));
+        $this->assertCount(4, $this->ids($token, 'filter[kind]='));
+    }
+
+    public function test_un_type_inconnu_est_refuse(): void
+    {
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->header($token)->getJson('/api/v1/admin/bookings?filter[kind]=navette')
+            ->assertStatus(400)->assertJsonPath('code', 'INVALID_LIST_QUERY');
+    }
+
+    public function test_l_agent_filtre_les_courses_qu_il_a_prises(): void
+    {
+        $awa = Driver::factory()->create();
+        $koffi = Driver::factory()->create();
+        $first = Booking::factory()->confirmed($awa)->create();
+        $second = Booking::factory()->completed($awa)->create();
+        $other = Booking::factory()->confirmed($koffi)->create();
+        // Une journée d'abonnement réservée à Awa mais pas encore acceptée : pas la sienne.
+        $parent = Booking::factory()->subscriptionParent()->create();
+        Booking::factory()->subscriptionChild($parent)->linkedToSubscriptionDriver($awa)->create();
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $this->assertSame($this->sorted($first, $second), $this->ids($token, "filter[driver_id]={$awa->id}"));
+        $this->assertSame($this->sorted($other), $this->ids($token, "filter[driver_id]={$koffi->id}&filter[kind]=single"));
+    }
+
+    public function test_les_agents_du_filtre_viennent_avec_la_page(): void
+    {
+        Driver::factory()->for(User::factory()->profil(Profil::Driver)->state(['name' => 'Zoé Agbo']))->create();
+        Driver::factory()->for(User::factory()->profil(Profil::Driver)->state(['name' => 'Awa Dossou']))->create();
+        [, $token] = $this->login(Profil::Admin, ['view-bookings']);
+
+        $drivers = $this->header($token)->getJson('/api/v1/admin/bookings')->assertOk()->json('drivers');
+
+        $this->assertSame(['Awa Dossou', 'Zoé Agbo'], array_column($drivers, 'name'));
+        $this->assertSame(['id', 'name'], array_keys($drivers[0]));
+    }
 }

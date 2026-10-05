@@ -26,7 +26,7 @@ final class VehicleContractSettingsController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'la lecture des réglages des contrats véhicule',
+            return $this->failure($e, $request, 'la lecture des réglages des contrats propriétaires',
                 'Les réglages des contrats n\'ont pas pu être chargés. Réessayez.', 'CONTRACT_SETTINGS_READ_FAILED');
         }
     }
@@ -47,7 +47,7 @@ final class VehicleContractSettingsController
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            return $this->failure($e, $request, 'l\'enregistrement des réglages des contrats véhicule',
+            return $this->failure($e, $request, 'l\'enregistrement des réglages des contrats propriétaires',
                 'Les réglages des contrats n\'ont pas pu être enregistrés. Réessayez.', 'CONTRACT_SETTINGS_UPDATE_FAILED');
         }
     }

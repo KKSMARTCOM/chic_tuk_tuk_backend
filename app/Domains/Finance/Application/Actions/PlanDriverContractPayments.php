@@ -25,7 +25,7 @@ final class PlanDriverContractPayments
         $contract->loadMissing('vehicleContract');
         $vehicleContract = $contract->vehicleContract;
         if ($vehicleContract === null || $vehicleContract->daily_amount === null) {
-            throw new ApiException(409, 'CONTRACT_WITHOUT_DAILY_AMOUNT', 'Le contrat véhicule de cet agent n\'a pas de versement journalier : corrigez le contrat d\'abord.');
+            throw new ApiException(409, 'CONTRACT_WITHOUT_DAILY_AMOUNT', 'Le contrat propriétaire de cet agent n\'a pas de versement journalier : corrigez le contrat d\'abord.');
         }
 
         $start = $contract->start_date->gt($vehicleContract->start_date) ? $contract->start_date : $vehicleContract->start_date;

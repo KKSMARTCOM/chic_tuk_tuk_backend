@@ -23,7 +23,6 @@
   table.a tr.strong td { font-weight: 700; }
   table.b td { padding: 4px 8px; vertical-align: middle; }
   table.b td.tile { background: #1e6e4a; color: #fff; font-weight: 700; text-align: center; width: 110px; height: 40px; }
-  .specimen { color: #b91c1c; font-weight: 700; font-size: 14px; border: 2px solid #b91c1c; padding: 8px; }
   /* ⚠️ dompdf place un bloc fixe d'après son HAUT : à -70 px, seule la première ligne tenait
      dans la page et le reste tombait dessous (corrigé le 2026-10-02). Deux colonnes égales,
      décalées vers la droite comme sur la fiche d'origine. */
@@ -78,18 +77,8 @@
     </tr>
   </table>
 
-  <table style="width: 100%; margin-top: 24px"><tr>
-    <td style="vertical-align: top">Fait à {{ config('remuneration.city') }}, le {{ $issuedOn->format('d/m/Y') }}</td>
-    <td style="text-align: right; width: 260px">
-      @if ($signed)
-        <img src="{{ $stamp }}" alt="" style="width: 130px">
-        <img src="{{ $signature }}" alt="" style="width: 90px; margin-left: -110px">
-      @else
-        <span class="specimen">{{ $draft ? 'BROUILLON' : 'SPÉCIMEN' }} — non signé</span>
-      @endif
-      <br>Le gérant, {{ config('remuneration.signatory') }}
-    </td>
-  </tr></table>
+  {{-- Ni cachet, ni signature, ni ligne « Le gérant » (2026-10-05) : la date seule. --}}
+  <p style="margin-top: 24px">Fait à {{ config('remuneration.city') }}, le {{ $issuedOn->format('d/m/Y') }}</p>
 
   {{-- Deux colonnes, comme la fiche d'origine : la société à gauche, le siège et les numéros à droite. --}}
   @php($company = config('remuneration.company'))

@@ -12,14 +12,16 @@ use Illuminate\Support\Facades\File;
  * Le PDF d'une fiche de rémunération, fidèle à la fiche manuelle d'origine (spec §5.6).
  *
  * Les images passent en `data:` URI : dompdf n'a aucun fichier à ouvrir hors de son
- * `chroot`, et le cachet, qui vit hors du dépôt, n'a pas à y être copié. `html()` existe
- * pour les tests : on vérifie le contenu sans décoder un PDF.
+ * `chroot`. `html()` existe pour les tests : on vérifie le contenu sans décoder un PDF.
+ *
+ * Ni cachet ni signature depuis le 2026-10-05 : brouillon ou fiche validée, le bas de la
+ * fiche ne porte que la date.
  */
 final class RemunerationStatementPdf
 {
     public function html(StatementFigures $figures, ?string $number, bool $draft, ?Carbon $issuedOn): string
     {
-        $image = fn (?string $path) => $path ? 'data:image/png;base64,'.base64_encode((string) file_get_contents($path)) : null;
+        $image = fn (string $path) => 'data:image/png;base64,'.base64_encode((string) file_get_contents($path));
 
         return view('pdf.remuneration-statement', [
             'f' => $figures,
@@ -27,11 +29,6 @@ final class RemunerationStatementPdf
             'draft' => $draft,
             'issuedOn' => $issuedOn ?? Carbon::now(),
             'monthLabel' => mb_strtoupper(Carbon::parse($figures->month.'-01')->locale('fr')->translatedFormat('F Y')),
-            // ⚠️ Un brouillon n'est JAMAIS signé : un aperçu téléchargé serait sinon un
-            // document au nom de la société, sur des chiffres qui peuvent encore changer.
-            'signed' => ! $draft && RemunerationBranding::isComplete(),
-            'stamp' => $draft ? null : $image(RemunerationBranding::stampPath()),
-            'signature' => $draft ? null : $image(RemunerationBranding::signaturePath()),
             'logo' => $image(RemunerationBranding::logoPath()),
             'watermark' => $image(RemunerationBranding::watermarkPath()),
             'fonts' => resource_path('fonts'),
