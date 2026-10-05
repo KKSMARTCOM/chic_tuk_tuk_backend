@@ -19,12 +19,7 @@ return [
     // `RemunerationStatement::visibleToOwners()`, jamais directement.
     'owner_visible' => env('REMUNERATION_OWNER_VISIBLE', true),
 
-    // ⚠️ Hors du dépôt : le cachet et la signature permettent de produire un document au
-    // nom de la société. Sur le serveur, ce dossier est sur un volume persistant.
-    'branding_dir' => storage_path('app/private/branding'),
-
     'city' => 'Cotonou',
-    'signatory' => env('REMUNERATION_SIGNATORY', 'Kevin AHIAVEE'),
 
     // Les mentions légales du pied de page, reprises de la fiche d'origine.
     'company' => [

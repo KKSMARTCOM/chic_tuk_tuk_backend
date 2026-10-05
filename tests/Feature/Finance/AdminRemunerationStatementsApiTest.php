@@ -11,7 +11,6 @@ use App\Models\VehicleContract;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Spatie\Activitylog\Models\Activity;
@@ -32,11 +31,7 @@ class AdminRemunerationStatementsApiTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow('2026-11-02 09:00:00');
-        $dir = storage_path('framework/testing/branding');
-        config(['remuneration.first_month' => '2026-10', 'remuneration.branding_dir' => $dir]);
-        File::ensureDirectoryExists($dir);
-        File::put($dir.'/cachet.png', 'x');
-        File::put($dir.'/signature.png', 'x');
+        config(['remuneration.first_month' => '2026-10']);
         Queue::fake();
     }
 

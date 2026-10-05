@@ -14,7 +14,6 @@ use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -29,11 +28,7 @@ class ValidateRemunerationStatementTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow('2026-11-02 09:00:00');
-        $dir = storage_path('framework/testing/branding');
-        config(['remuneration.first_month' => '2026-10', 'remuneration.branding_dir' => $dir]);
-        File::ensureDirectoryExists($dir);
-        File::put($dir.'/cachet.png', 'x');
-        File::put($dir.'/signature.png', 'x');
+        config(['remuneration.first_month' => '2026-10']);
         Queue::fake();
         $this->contract = VehicleContract::factory()->create(['start_date' => '2026-10-01']);
     }
@@ -103,11 +98,10 @@ class ValidateRemunerationStatementTest extends TestCase
         $this->assertSame('STATEMENT_PREVIOUS_NOT_VALIDATED', $this->refusalCode(fn () => $this->validate($november)));
     }
 
-    public function test_validation_is_refused_without_the_stamp_and_signature(): void
+    /** La fiche ne porte plus ni cachet ni signature (2026-10-05) : rien à attendre du serveur. */
+    public function test_validation_needs_no_stamp_nor_signature(): void
     {
-        File::delete(config('remuneration.branding_dir').'/signature.png');
-
-        $this->assertSame('STATEMENT_BRANDING_MISSING', $this->refusalCode(fn () => $this->validate($this->draft())));
+        $this->assertSame('validated', $this->validate($this->draft())->status);
     }
 
     public function test_a_validated_statement_cannot_be_edited(): void
