@@ -4,6 +4,7 @@ namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
+use App\Models\LeaveRequest;
 use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
@@ -47,7 +48,7 @@ final class EndDriverContract
             );
         }
 
-        return DB::transaction(function () use ($contract, $data) {
+        return DB::transaction(function () use ($contract, $data, $endDate) {
             $contract->update([
                 'status' => 'ended',
                 'end_date' => $data['end_date'] ?? now()->toDateString(),
@@ -71,7 +72,7 @@ final class EndDriverContract
                 'vehicle_id' => $contract->vehicle_id,
                 'vehicle_contract_id' => $contract->vehicle_contract_id,
                 'driver_contract_id' => $contract->id,
-                'start_date' => $data['end_date'] ?? now()->toDateString(),
+                'start_date' => $this->firstDayWithoutAgent($contract, $endDate)->toDateString(),
                 'end_date' => null, // sera fermée à la création du prochain contrat agent
                 'reason_type' => 'agent_change',
                 'reason_notes' => $data['end_reason'].(! empty($data['end_notes']) ? ' — '.$data['end_notes'] : ''),
@@ -80,5 +81,29 @@ final class EndDriverContract
 
             return $contract->refresh();
         });
+    }
+
+    /**
+     * Le premier jour où le véhicule est sans agent (règle du 2026-10-06).
+     *
+     * L'agent garde le tricycle jusqu'au bout : le jour où il le dépose est DÛ, et le
+     * véhicule n'est sans agent qu'à partir du lendemain. Sauf s'il sortait d'une pause :
+     * il la consomme, la rupture tombe le jour ouvré suivant, et ce jour n'est pas dû.
+     */
+    private function firstDayWithoutAgent(DriverContract $contract, Carbon $endDate): Carbon
+    {
+        $previousBusinessDay = $endDate->copy()->subDay();
+        while ($previousBusinessDay->isWeekend()) {
+            $previousBusinessDay->subDay();
+        }
+
+        $leftAPause = LeaveRequest::query()
+            ->where('driver_contract_id', $contract->id)
+            ->whereIn('status', ['ongoing', 'completed'])
+            ->whereDate('start_date', '<=', $endDate)
+            ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $previousBusinessDay))
+            ->exists();
+
+        return $leftAPause ? $endDate->copy() : $endDate->copy()->addDay();
     }
 }

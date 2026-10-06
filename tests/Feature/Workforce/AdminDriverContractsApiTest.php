@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Workforce;
 
+use App\Domains\Finance\Application\Actions\PlanDriverContractPayments;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
@@ -10,6 +11,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -358,6 +360,60 @@ class AdminDriverContractsApiTest extends TestCase
 
         $this->assertSame('active', $contract->fresh()->status);
         $this->assertDatabaseMissing('vehicle_pauses', ['driver_contract_id' => $contract->id]);
+    }
+
+    private function endOn(DriverContract $contract, string $date): void
+    {
+        $this->asBearer($this->login(['edit-contracts']))
+            ->postJson("/api/v1/admin/driver-contracts/{$contract->id}/end", [
+                'end_date' => $date,
+                'end_reason' => 'demission',
+            ])
+            ->assertOk();
+    }
+
+    /** @return list<string> */
+    private function dueOn(DriverContract $contract, string $date): array
+    {
+        return app(PlanDriverContractPayments::class)($contract->fresh(), Carbon::parse($date), Carbon::parse($date))->toGenerate();
+    }
+
+    /**
+     * Règle du 2026-10-06 : l'agent garde le tricycle jusqu'au bout. Le jour où il le
+     * dépose est dû s'il n'était pas en pause : le véhicule n'est sans agent qu'à partir du
+     * lendemain.
+     */
+    public function test_the_last_day_is_due_when_the_agent_was_not_on_pause(): void
+    {
+        Carbon::setTestNow('2026-10-07 09:00:00');
+        $contract = $this->activeContract(['start_date' => '2026-07-01']);
+
+        $this->endOn($contract, '2026-10-06');
+
+        $this->assertSame('2026-10-07', VehiclePause::where('driver_contract_id', $contract->id)->firstOrFail()->start_date->toDateString());
+        $this->assertSame(['2026-10-06'], $this->dueOn($contract, '2026-10-06'));
+        Carbon::setTestNow();
+    }
+
+    /**
+     * Après une pause, l'agent qui ne reprend pas rompt le jour ouvré suivant, qui n'est
+     * pas dû : le véhicule est sans agent dès ce jour-là.
+     */
+    public function test_the_last_day_is_not_due_right_after_a_pause(): void
+    {
+        Carbon::setTestNow('2026-10-07 09:00:00');
+        $contract = $this->activeContract(['start_date' => '2026-07-01']);
+        // Jeudi 1er et vendredi 2 octobre ; la rupture tombe le lundi 5.
+        LeaveRequest::factory()->create([
+            'driver_id' => $contract->driver_id, 'driver_contract_id' => $contract->id,
+            'start_date' => '2026-10-01', 'end_date' => '2026-10-02', 'requested_days' => 2, 'effective_days' => 2,
+        ]);
+
+        $this->endOn($contract, '2026-10-05');
+
+        $this->assertSame('2026-10-05', VehiclePause::where('driver_contract_id', $contract->id)->where('reason_type', 'agent_change')->firstOrFail()->start_date->toDateString());
+        $this->assertSame([], $this->dueOn($contract, '2026-10-05'));
+        Carbon::setTestNow();
     }
 
     public function test_an_ended_contract_is_not_ended_twice(): void

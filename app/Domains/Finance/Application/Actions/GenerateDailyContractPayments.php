@@ -31,8 +31,12 @@ final class GenerateDailyContractPayments
         $today = $date ?? Carbon::today();
         $result = ['generated' => 0, 'skipped' => 0, 'errors' => []];
 
+        // Un contrat terminé ce jour-là, ou dont la fin est à venir, doit encore ce jour :
+        // le dernier jour est dû quand l'agent n'était pas en pause (règle du 2026-10-06).
+        // Le classement des jours écarte ensuite ce qui sort du contrat.
         $contracts = DriverContract::with(['driver', 'vehicleContract'])
-            ->where('status', 'active')
+            ->where(fn ($query) => $query->where('status', 'active')
+                ->orWhere(fn ($ended) => $ended->where('status', 'ended')->whereDate('end_date', '>=', $today)))
             ->whereHas('vehicleContract', fn ($q) => $q->where('status', 'active'))
             ->get();
 

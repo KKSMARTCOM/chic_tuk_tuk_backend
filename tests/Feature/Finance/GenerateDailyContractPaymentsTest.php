@@ -79,6 +79,25 @@ class GenerateDailyContractPaymentsTest extends TestCase
         $this->assertSame(1, $this->generateOn('2026-07-15'));
     }
 
+    /**
+     * Le dernier jour d'un contrat est dû quand l'agent n'était pas en pause (règle du
+     * 2026-10-06). La génération ne lisait que les contrats ACTIFS : un contrat terminé
+     * dans la journée perdait ce jour.
+     */
+    public function test_a_contract_ended_today_still_gets_its_last_day(): void
+    {
+        DriverContract::query()->update(['status' => 'ended', 'end_date' => '2026-07-15']);
+
+        $this->assertSame(1, $this->generateOn('2026-07-15'));
+    }
+
+    public function test_a_contract_ended_before_gets_nothing(): void
+    {
+        DriverContract::query()->update(['status' => 'ended', 'end_date' => '2026-07-14']);
+
+        $this->assertSame(0, $this->generateOn('2026-07-15'));
+    }
+
     public function test_still_no_payment_on_a_weekend(): void
     {
         $this->assertSame(0, $this->generateOn('2026-07-18'));
