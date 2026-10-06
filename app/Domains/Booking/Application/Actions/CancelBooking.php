@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  * de la méthode :
  *
  *   CAS 1 — enfant d'abonnement : annulée, et une copie `pending` est créée, qui
- *           conserve subscription_driver_id — donc toujours le même agent.
+ *           conserve subscription_driver_id — donc toujours le même agent — et, pour
+ *           une course révoquée, son état révoqué : elle revient à tous.
  *   CAS 2 — abonnement parent : parent et enfants annulés, parent recréé SANS titulaire
  *           (visible de tous), course retour cachée recréée si aller-retour. La course
  *           retour du J1 n'est supprimée que s'il n'existe aucun enfant J2+.
@@ -79,6 +80,13 @@ final class CancelBooking
                     'is_recurring'           => $booking->is_recurring,
                     'parent_booking_id'      => $booking->parent_booking_id,
                     'subscription_driver_id' => $booking->subscription_driver_id, // toujours A
+                    // ⚠️ Une course RÉVOQUÉE n'a plus de titulaire : reprise par un autre
+                    // agent puis annulée, sa copie doit rester révoquée, donc visible de
+                    // tous. Sans ces trois champs, elle n'était visible d'aucun agent
+                    // (défaut du 2026-10-06).
+                    'is_revoked'             => $booking->is_revoked,
+                    'revoked_at'             => $booking->revoked_at,
+                    'revoked_by'             => $booking->revoked_by,
                     'user_id'                => $booking->user_id,
                     'client_name'            => $booking->client_name,
                     'next_recurring_date'    => null,

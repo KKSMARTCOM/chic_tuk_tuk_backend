@@ -3,6 +3,7 @@
 namespace Tests\Feature\Booking\Characterization;
 
 use App\Domains\Booking\Application\Actions\CancelBooking;
+use App\Domains\Booking\Application\Actions\ListAvailableBookings;
 use App\Models\Booking;
 use App\Models\Driver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,6 +47,34 @@ class CancelBookingTest extends TestCase
         $this->assertSame($titulaire->id, $copie->subscription_driver_id);
         $this->assertNull($copie->driver_id);
         $this->assertSame($parent->id, $copie->parent_booking_id);
+    }
+
+    /**
+     * Défaut du 2026-10-06 : une course révoquée par son titulaire A, acceptée par B puis
+     * annulée par B, était recopiée sans titulaire ET sans `is_revoked` — visible d'aucun
+     * agent. La copie reste révoquée : A y a renoncé, elle revient à tous.
+     */
+    public function test_cas_1_une_course_revoquee_reprise_puis_annulee_revient_a_tous(): void
+    {
+        $titulaire = Driver::factory()->create();
+        $repreneur = Driver::factory()->create();
+        $autre = Driver::factory()->create();
+        $parent = Booking::factory()->subscriptionParent()->linkedToSubscriptionDriver($titulaire)->create();
+        $enfant = Booking::factory()->subscriptionChild($parent)->revoked()
+            ->create(['revoked_by' => $titulaire->id, 'driver_id' => $repreneur->id, 'status' => 'confirmed']);
+
+        app(CancelBooking::class)($enfant->id, $repreneur->id, 'Empêchement');
+
+        $copie = Booking::where('parent_booking_id', $parent->id)->where('status', 'pending')->where('id', '!=', $enfant->id)->firstOrFail();
+        $this->assertTrue($copie->is_revoked, 'la copie doit rester révoquée');
+        $this->assertSame($titulaire->id, $copie->revoked_by);
+        $this->assertNull($copie->subscription_driver_id);
+        foreach ([$titulaire, $repreneur, $autre] as $agent) {
+            $this->assertTrue(
+                app(ListAvailableBookings::class)($agent->id)->contains('id', $copie->id),
+                'la copie doit être visible de tous les agents',
+            );
+        }
     }
 
     public function test_cas_2_parent_sans_enfants_supprime_puis_recree_la_course_retour(): void
