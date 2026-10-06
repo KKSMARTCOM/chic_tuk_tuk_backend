@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\EndVehiclePauseBeforeAgentStart;
 use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
 use App\Models\DriverContract;
@@ -13,6 +14,8 @@ use App\Models\Vehicle;
  */
 final class CreateRenewalContract
 {
+    public function __construct(private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause) {}
+
     public function __invoke(Driver $driver, array $data): void
     {
         $vehicle = Vehicle::findOrFail($data['renewal_vehicle_id']);
@@ -59,8 +62,8 @@ final class CreateRenewalContract
         // Validation règles métier (1 véhicule = 1 agent)
         VehicleAssignmentRules::assertAssignable($vehicle);
 
-        // Clôturer la pause active du véhicule si existante
-        $vehicle->activePause?->update(['end_date' => $data['renewal_start_date']]);
+        // Clôturer la pause active du véhicule si existante, la veille de l'arrivée
+        ($this->endVehiclePause)($vehicle, $data['renewal_start_date']);
 
         // Mettre le status du véhicule à actif
         $vehicle->update(['is_active' => true]);

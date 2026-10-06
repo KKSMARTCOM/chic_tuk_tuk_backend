@@ -258,6 +258,28 @@ class AdminLeaveWritesTest extends TestCase
             ->assertJsonPath('code', 'LEAVE_END_BEFORE_START');
     }
 
+    /**
+     * Une fin dans le futur n'est pas une fin : le 2026-10-01, une pause d'un jour a été
+     * clôturée au 16 octobre (la date de retour prévue), ce qui a compté 22 jours et
+     * bloqué les paiements de l'agent suivant jusqu'à cette date.
+     */
+    public function test_une_fin_dans_le_futur_est_refusee(): void
+    {
+        $agent = $this->agent();
+        $pause = LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $agent->id,
+            'driver_contract_id' => $agent->activeDriverContract->id,
+            'start_date' => now()->subDays(3)->toDateString(),
+        ]);
+
+        $this->entete($this->admin())
+            ->patchJson("/api/v1/admin/leaves/{$pause->id}/end", ['end_date' => now()->addDay()->toDateString()])
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'LEAVE_END_IN_FUTURE');
+
+        $this->assertSame('ongoing', $pause->fresh()->status);
+    }
+
     public function test_cloturer_une_pause_deja_terminee_est_refuse(): void
     {
         $agent = $this->agent();

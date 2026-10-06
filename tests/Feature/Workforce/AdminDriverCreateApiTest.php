@@ -2,12 +2,15 @@
 
 namespace Tests\Feature\Workforce;
 
+use App\Domains\Finance\Application\Actions\PlanDriverContractPayments;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
+use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -194,6 +197,105 @@ class AdminDriverCreateApiTest extends TestCase
 
         $response->assertJsonPath('active_contract.vehicle_number', 'T-RECOND');
         $response->assertJsonPath('active_contract.contract_months', 14);
+    }
+
+    // ----- La pause du véhicule à l'arrivée de l'agent --------------------------
+
+    /** Le véhicule d'un agent parti le lundi 5 octobre 2026 : pause « changement d'agent » ouverte. */
+    private function vehicleLeftByAnAgent(): array
+    {
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id, 'is_active' => false]);
+        $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create([
+            'contract_months' => 24, 'start_date' => '2026-01-05',
+        ]);
+        $former = DriverContract::factory()->forVehicleContract($vehicleContract)->create([
+            'status' => 'ended', 'start_date' => '2026-01-05', 'end_date' => '2026-10-05',
+        ]);
+        $pause = VehiclePause::factory()->forContract($vehicleContract)->ongoing()->create([
+            'driver_contract_id' => $former->id,
+            'start_date' => '2026-10-05',
+            'reason_type' => 'agent_change',
+            'is_auto' => true,
+        ]);
+
+        return [$owner, $vehicle, $pause];
+    }
+
+    private function firstDayIsToGenerate(Vehicle $vehicle, string $day): void
+    {
+        $contract = DriverContract::where('vehicle_id', $vehicle->id)->where('status', 'active')->firstOrFail();
+        $plan = app(PlanDriverContractPayments::class)($contract, Carbon::parse($day), Carbon::parse($day));
+
+        $this->assertSame([$day], $plan->toGenerate(), "le premier jour de l'agent n'est pas à payer");
+    }
+
+    /**
+     * La pause du véhicule se ferme la VEILLE de l'arrivée de l'agent. Fermée le jour même,
+     * elle couvrait ce jour, classé « immobilisation » : le premier jour de chaque nouvel
+     * agent n'était jamais payé.
+     */
+    public function test_un_nouveau_contrat_ferme_la_pause_du_vehicule_la_veille(): void
+    {
+        Carbon::setTestNow('2026-10-07 09:00:00');
+        [$owner, $vehicle, $pause] = $this->vehicleLeftByAnAgent();
+        [, $token] = $this->connecter(Profil::Admin, ['create-drivers']);
+
+        $this->entete($token)
+            ->postJson('/api/v1/admin/drivers', $this->payload([
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'contract_months' => 24,
+                'start_date' => '2026-10-07',
+            ]))
+            ->assertCreated();
+
+        $this->assertSame('2026-10-06', $pause->fresh()->end_date->toDateString());
+        $this->firstDayIsToGenerate($vehicle, '2026-10-07');
+        Carbon::setTestNow();
+    }
+
+    public function test_une_reconduction_ferme_la_pause_du_vehicule_la_veille(): void
+    {
+        Carbon::setTestNow('2026-10-07 09:00:00');
+        [$owner, $vehicle, $pause] = $this->vehicleLeftByAnAgent();
+        [, $token] = $this->connecter(Profil::Admin, ['create-drivers']);
+
+        $this->entete($token)
+            ->postJson('/api/v1/admin/drivers', $this->payload([
+                'contract_mode' => 'renewal',
+                'renewal_owner_id' => $owner->id,
+                'renewal_vehicle_id' => $vehicle->id,
+                'renewal_contract_months' => 14,
+                'renewal_start_date' => '2026-10-07',
+            ]))
+            ->assertCreated();
+
+        $this->assertSame('2026-10-06', $pause->fresh()->end_date->toDateString());
+        $this->firstDayIsToGenerate($vehicle, '2026-10-07');
+        Carbon::setTestNow();
+    }
+
+    /** Une pause qui commence le jour même de l'arrivée n'a immobilisé aucun jour : elle disparaît. */
+    public function test_une_pause_commencee_le_jour_de_l_arrivee_disparait(): void
+    {
+        Carbon::setTestNow('2026-10-05 09:00:00');
+        [$owner, $vehicle, $pause] = $this->vehicleLeftByAnAgent();
+        [, $token] = $this->connecter(Profil::Admin, ['create-drivers']);
+
+        $this->entete($token)
+            ->postJson('/api/v1/admin/drivers', $this->payload([
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'contract_months' => 24,
+                'start_date' => '2026-10-05',
+            ]))
+            ->assertCreated();
+
+        $this->assertModelMissing($pause);
+        $this->assertTrue($vehicle->fresh()->is_active);
+        $this->firstDayIsToGenerate($vehicle, '2026-10-05');
+        Carbon::setTestNow();
     }
 
     public function test_un_telephone_deja_utilise_est_refuse(): void

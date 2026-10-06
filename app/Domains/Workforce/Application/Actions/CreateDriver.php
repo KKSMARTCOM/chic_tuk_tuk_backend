@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\EndVehiclePauseBeforeAgentStart;
 use App\Domains\Workforce\Application\Data\CreateDriverData;
 use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\Hash;
 /** Créer un agent — ex-Admin\DriverController::store(). */
 final class CreateDriver
 {
-    public function __construct(private readonly CreateRenewalContract $createRenewalContract) {}
+    public function __construct(
+        private readonly CreateRenewalContract $createRenewalContract,
+        private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause,
+    ) {}
 
     public function __invoke(CreateDriverData $data): User
     {
@@ -90,8 +94,8 @@ final class CreateDriver
         // Validation règles métier (1 véhicule = 1 agent)
         VehicleAssignmentRules::assertAssignable($vehicle);
 
-        // Clôturer la pause active du véhicule si existante
-        $vehicle->activePause?->update(['end_date' => $data['start_date'] ?? now()->toDateString()]);
+        // Clôturer la pause active du véhicule si existante, la veille de l'arrivée
+        ($this->endVehiclePause)($vehicle, $data['start_date'] ?? now()->toDateString());
 
         DriverContract::create([
             'driver_id' => $driver->id,
