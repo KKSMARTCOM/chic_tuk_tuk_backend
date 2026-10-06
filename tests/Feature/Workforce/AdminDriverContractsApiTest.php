@@ -154,6 +154,49 @@ class AdminDriverContractsApiTest extends TestCase
             ->assertJsonPath('owner.id', $contract->vehicle->owner_id);
     }
 
+    /**
+     * Une pause d'agent saisie après coup n'a pas de pause véhicule : la fiche, qui ne
+     * lisait que les pauses véhicule du contrat, la manquait (défaut du 2026-10-05).
+     */
+    public function test_the_detail_lists_agent_pauses_that_have_no_vehicle_pause(): void
+    {
+        $contract = $this->activeContract();
+        $autoPause = VehiclePause::factory()->create([
+            'vehicle_id' => $contract->vehicle_id,
+            'vehicle_contract_id' => $contract->vehicle_contract_id,
+            'driver_contract_id' => $contract->id,
+            'start_date' => '2026-08-03', 'end_date' => '2026-08-04',
+            'reason_type' => 'agent_leave', 'is_auto' => true,
+        ]);
+        LeaveRequest::factory()->create([
+            'driver_id' => $contract->driver_id, 'driver_contract_id' => $contract->id,
+            'start_date' => '2026-08-03', 'end_date' => '2026-08-04', 'vehicle_pause_id' => $autoPause->id,
+        ]);
+        $historical = LeaveRequest::factory()->create([
+            'driver_id' => $contract->driver_id, 'driver_contract_id' => $contract->id,
+            'start_date' => '2026-09-14', 'end_date' => '2026-09-15',
+        ]);
+        // La pause d'un autre agent du même véhicule n'est pas celle de ce contrat.
+        $other = DriverContract::factory()->create([
+            'vehicle_id' => $contract->vehicle_id,
+            'vehicle_contract_id' => $contract->vehicle_contract_id,
+            'status' => 'ended',
+        ]);
+        LeaveRequest::factory()->create([
+            'driver_id' => $other->driver_id, 'driver_contract_id' => $other->id,
+            'start_date' => '2026-07-01', 'end_date' => '2026-07-02',
+        ]);
+
+        $this->asBearer($this->login(['view-contracts']))
+            ->getJson("/api/v1/admin/driver-contracts/{$contract->id}")
+            ->assertOk()
+            ->assertJsonCount(2, 'pauses')
+            ->assertJsonPath('pauses.0.id', $historical->id)
+            ->assertJsonPath('pauses.0.reason_type', 'agent_leave')
+            ->assertJsonPath('pauses.0.is_auto', true)
+            ->assertJsonPath('pauses.1.id', $autoPause->id);
+    }
+
     // ----- Modification ------------------------------------------------------------------
 
     public function test_a_contract_without_history_is_updated(): void

@@ -9,7 +9,6 @@ use App\Domains\Fleet\Application\Data\AdminVehicleContractMonthData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractPartyData;
 use App\Domains\Fleet\Application\Data\VehiclePauseData;
 use App\Models\DriverContract;
-use App\Models\VehiclePause;
 
 /**
  * La fiche d'un contrat propriétaire-véhicule — ex-Admin\VehicleContractController::show().
@@ -25,8 +24,8 @@ final class ShowVehicleContractDetail
     {
         $contract = ListVehicleContracts::query()
             ->with([
-                'driverContracts' => fn ($query) => $query->withCount('payments')->with('driver.user')->orderByDesc('start_date'),
-                'pauses' => fn ($query) => $query->orderByDesc('start_date'),
+                'driverContracts' => fn ($query) => $query->withCount('payments')->with(['driver.user', 'leaveRequests'])->orderByDesc('start_date'),
+                'pauses',
             ])
             ->findOrFail($contractId);
 
@@ -50,9 +49,10 @@ final class ShowVehicleContractDetail
             driverContracts: $contract->driverContracts
                 ->map(fn (DriverContract $driverContract) => AdminVehicleContractDriverData::fromModel($driverContract))
                 ->all(),
-            pauses: $contract->pauses
-                ->map(fn (VehiclePause $pause) => VehiclePauseData::fromModel($pause))
-                ->all(),
+            pauses: VehiclePauseData::history(
+                $contract->pauses,
+                $contract->driverContracts->flatMap(fn (DriverContract $driverContract) => $driverContract->leaveRequests),
+            ),
             currentDriver: $activeDriverUser
                 ? AdminVehicleContractPartyData::fromUser($activeDriverContract->driver_id, $activeDriverUser)
                 : null,

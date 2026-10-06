@@ -14,7 +14,8 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
  *
  * `totalPaid` et les mois ne comptent que les paiements VALIDÉS, au montant payé par
  * l'agent : le Blade additionnait aussi les paiements annulés ou échoués (2026-09-26).
- * `pauses` sont les pauses VÉHICULE liées au contrat, comme au Blade.
+ * `pauses` sont les pauses VÉHICULE liées au contrat, comme au Blade, plus les pauses
+ * d'agent du contrat qui n'en ont pas (`VehiclePauseData::history`, 2026-10-06).
  */
 final class AdminDriverContractDetailData extends BaseData
 {

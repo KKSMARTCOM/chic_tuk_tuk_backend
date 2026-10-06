@@ -7,7 +7,6 @@ use App\Domains\Fleet\Application\Data\AdminVehicleContractPartyData;
 use App\Domains\Fleet\Application\Data\VehiclePauseData;
 use App\Domains\Workforce\Application\Data\AdminDriverContractDetailData;
 use App\Domains\Workforce\Application\Data\AdminDriverContractListItemData;
-use App\Models\VehiclePause;
 
 /**
  * La fiche d'un contrat agent — ex-Admin\DriverContractController::show().
@@ -24,7 +23,8 @@ final class ShowDriverContractDetail
             ->with([
                 'vehicle.owner',
                 'vehicleContract',
-                'vehiclePauses' => fn ($query) => $query->orderByDesc('start_date'),
+                'vehiclePauses',
+                'leaveRequests',
             ])
             ->findOrFail($contractId);
 
@@ -47,9 +47,7 @@ final class ShowDriverContractDetail
             paymentsByMonth: $paymentsByMonth
                 ->map(fn ($row) => new AdminVehicleContractMonthData($row->month, (float) $row->total))
                 ->all(),
-            pauses: $contract->vehiclePauses
-                ->map(fn (VehiclePause $pause) => VehiclePauseData::fromModel($pause))
-                ->all(),
+            pauses: VehiclePauseData::history($contract->vehiclePauses, $contract->leaveRequests),
             vehicleColor: $contract->vehicle?->color,
             owner: $owner ? AdminVehicleContractPartyData::fromUser($owner->id, $owner) : null,
             vehicleContractId: $vehicleContract?->id,

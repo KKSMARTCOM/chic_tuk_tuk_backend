@@ -45,29 +45,49 @@ final class VehiclePauseData extends BaseData
     /**
      * L'historique des pauses d'un véhicule, de la plus récente à la plus ancienne.
      *
-     * ⚠️ `vehicle_pauses` ne suffit pas : une pause d'agent saisie après coup
-     * (`AddHistoricalLeave`) n'a jamais de pause véhicule, alors que le solde la compte
-     * (`ContractMonthCalculator`). Ces pauses d'agent s'ajoutent donc aux lignes, comme
-     * celles dont la pause véhicule a disparu ; une pause d'agent dont la pause véhicule
-     * automatique existe n'apparaît qu'une fois, par celle-ci.
-     *
      * Attend un véhicule ayant chargé `pauses` et `driverContracts.leaveRequests`.
      *
      * @return list<self>
      */
     public static function historyOf(Vehicle $vehicle): array
     {
-        $vehiclePauseIds = $vehicle->pauses->pluck('id')->all();
+        return self::history(
+            $vehicle->pauses,
+            $vehicle->driverContracts->flatMap(fn ($contract) => $contract->leaveRequests),
+        );
+    }
 
-        $agentLeaves = $vehicle->driverContracts
-            ->flatMap(fn ($contract) => $contract->leaveRequests)
-            ->filter(fn (LeaveRequest $leave) => in_array($leave->status, ['ongoing', 'completed'], true)
-                && ! in_array($leave->vehicle_pause_id, $vehiclePauseIds, true))
-            ->map(fn (LeaveRequest $leave) => self::fromAgentLeave($leave));
+    /**
+     * Des pauses véhicule et des pauses d'agent du même périmètre (un véhicule, un
+     * contrat propriétaire, un contrat agent), réunies de la plus récente à la plus
+     * ancienne.
+     *
+     * ⚠️ `vehicle_pauses` ne suffit pas : une pause d'agent saisie après coup
+     * (`AddHistoricalLeave`) n'a jamais de pause véhicule, alors que le solde la compte
+     * (`ContractMonthCalculator`). Ces pauses d'agent s'ajoutent donc aux lignes, comme
+     * celles dont la pause véhicule a disparu (défaut du 2026-10-05). Une pause d'agent
+     * dont la pause véhicule automatique existe n'apparaît qu'une fois, par celle-ci —
+     * même si cette pause véhicule est rattachée ailleurs.
+     *
+     * @param  iterable<VehiclePause>  $vehiclePauses
+     * @param  iterable<LeaveRequest>  $agentLeaves
+     * @return list<self>
+     */
+    public static function history(iterable $vehiclePauses, iterable $agentLeaves): array
+    {
+        $agentLeaves = collect($agentLeaves)
+            ->filter(fn (LeaveRequest $leave) => in_array($leave->status, ['ongoing', 'completed'], true));
 
-        return $vehicle->pauses
+        $linkedIds = $agentLeaves->pluck('vehicle_pause_id')->filter()->unique();
+        $existingIds = $linkedIds->isEmpty()
+            ? []
+            : VehiclePause::query()->whereIn('id', $linkedIds)->pluck('id')->all();
+
+        return collect($vehiclePauses)
             ->map(fn (VehiclePause $pause) => self::fromModel($pause))
-            ->concat($agentLeaves)
+            ->concat($agentLeaves
+                ->reject(fn (LeaveRequest $leave) => in_array($leave->vehicle_pause_id, $existingIds, true))
+                ->map(fn (LeaveRequest $leave) => self::fromAgentLeave($leave)))
             ->sortByDesc('startDate')
             ->values()
             ->all();

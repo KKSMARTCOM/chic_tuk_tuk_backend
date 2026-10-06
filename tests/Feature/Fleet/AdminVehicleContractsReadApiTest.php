@@ -5,6 +5,7 @@ namespace Tests\Feature\Fleet;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Driver;
 use App\Models\DriverContract;
+use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -166,6 +167,47 @@ class AdminVehicleContractsReadApiTest extends TestCase
             [['month' => '2026-08', 'total' => 6_000], ['month' => '2026-07', 'total' => 2_000]],
             $response->json('payments_by_month'),
         );
+    }
+
+    /**
+     * Une pause d'agent saisie après coup n'a pas de pause véhicule : la fiche la
+     * manquait, comme l'historique du propriétaire (défaut du 2026-10-05). Les pauses de
+     * tous les agents du contrat comptent, celles d'un autre contrat non.
+     */
+    public function test_the_detail_lists_agent_pauses_that_have_no_vehicle_pause(): void
+    {
+        $contract = VehicleContract::factory()->create();
+        $current = DriverContract::factory()->forVehicleContract($contract)->create();
+        $former = DriverContract::factory()->forVehicleContract($contract)->create(['status' => 'ended']);
+
+        $autoPause = VehiclePause::factory()->forContract($contract)->create([
+            'driver_contract_id' => $current->id,
+            'start_date' => '2026-08-03', 'end_date' => '2026-08-04',
+            'reason_type' => 'agent_leave', 'is_auto' => true,
+        ]);
+        LeaveRequest::factory()->create([
+            'driver_id' => $current->driver_id, 'driver_contract_id' => $current->id,
+            'start_date' => '2026-08-03', 'end_date' => '2026-08-04', 'vehicle_pause_id' => $autoPause->id,
+        ]);
+        $historical = LeaveRequest::factory()->create([
+            'driver_id' => $former->driver_id, 'driver_contract_id' => $former->id,
+            'start_date' => '2026-06-10', 'end_date' => '2026-06-11',
+        ]);
+        $elsewhere = DriverContract::factory()->create();
+        LeaveRequest::factory()->create([
+            'driver_id' => $elsewhere->driver_id, 'driver_contract_id' => $elsewhere->id,
+            'start_date' => '2026-07-01', 'end_date' => '2026-07-02',
+        ]);
+
+        $this->asBearer($this->login(['view-contracts']))
+            ->getJson("/api/v1/admin/vehicle-contracts/{$contract->id}")
+            ->assertOk()
+            ->assertJsonCount(2, 'pauses')
+            ->assertJsonPath('pauses.0.id', $autoPause->id)
+            ->assertJsonPath('pauses.1.id', $historical->id)
+            ->assertJsonPath('pauses.1.reason_type', 'agent_leave')
+            ->assertJsonPath('pauses.1.reason_notes', null)
+            ->assertJsonPath('pauses.1.is_auto', true);
     }
 
     public function test_an_unknown_contract_is_a_404(): void
