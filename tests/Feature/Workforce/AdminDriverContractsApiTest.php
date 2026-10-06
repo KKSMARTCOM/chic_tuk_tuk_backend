@@ -339,6 +339,27 @@ class AdminDriverContractsApiTest extends TestCase
         ]);
     }
 
+    /**
+     * Deux contrats de production se sont terminés AVANT d'avoir commencé (début 09/09, fin
+     * 02/09) : tous les jours travaillés sortaient du contrat, et la pause « changement
+     * d'agent » commençait avant l'arrivée de l'agent (constaté le 2026-10-06).
+     */
+    public function test_a_contract_does_not_end_before_it_starts(): void
+    {
+        $contract = $this->activeContract(['start_date' => '2026-09-09']);
+
+        $this->asBearer($this->login(['edit-contracts']))
+            ->postJson("/api/v1/admin/driver-contracts/{$contract->id}/end", [
+                'end_date' => '2026-09-02',
+                'end_reason' => 'demission',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'DRIVER_CONTRACT_END_BEFORE_START');
+
+        $this->assertSame('active', $contract->fresh()->status);
+        $this->assertDatabaseMissing('vehicle_pauses', ['driver_contract_id' => $contract->id]);
+    }
+
     public function test_an_ended_contract_is_not_ended_twice(): void
     {
         // Défaut corrigé : une seconde clôture créait une seconde pause véhicule.

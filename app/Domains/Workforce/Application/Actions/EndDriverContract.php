@@ -6,6 +6,7 @@ use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
 use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -33,6 +34,17 @@ final class EndDriverContract
     {
         if ($contract->status !== 'active') {
             throw new ApiException(409, 'DRIVER_CONTRACT_NOT_ACTIVE', 'Ce contrat est déjà terminé.');
+        }
+
+        // ⚠️ Corrigé le 2026-10-06 : deux contrats de production se sont terminés avant
+        // d'avoir commencé, ce qui sortait tous leurs jours du contrat.
+        $endDate = Carbon::parse($data['end_date'] ?? now()->toDateString())->startOfDay();
+        if ($endDate->lt($contract->start_date->copy()->startOfDay())) {
+            throw new ApiException(
+                422,
+                'DRIVER_CONTRACT_END_BEFORE_START',
+                'La date de fin ne peut pas précéder le début du contrat ('.$contract->start_date->format('d/m/Y').').'
+            );
         }
 
         return DB::transaction(function () use ($contract, $data) {
