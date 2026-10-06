@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 /** Créer le contrat d'un véhicule — ex-Admin\VehicleContractController::store(). */
 final class CreateVehicleContract
 {
+    public function __construct(private readonly CheckContractTotal $checkTotal) {}
+
     public function __invoke(CreateVehicleContractData $data): VehicleContract
     {
         return $this->createContract($data->toServicePayload());
@@ -28,6 +30,8 @@ final class CreateVehicleContract
      */
     private function createContract(array $data): VehicleContract
     {
+        ($this->checkTotal)((int) $data['contract_months'], $data['total_amount']);
+
         return DB::transaction(function () use ($data) {
             $vehicle = Vehicle::query()->lockForUpdate()->findOrFail($data['vehicle_id']);
             VehicleContractRules::assertCanCarryAnActiveContract($vehicle);

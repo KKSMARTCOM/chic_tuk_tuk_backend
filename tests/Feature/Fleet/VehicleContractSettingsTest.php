@@ -74,7 +74,9 @@ class VehicleContractSettingsTest extends TestCase
             ->postJson('/api/v1/admin/vehicle-contracts', [
                 'vehicle_id' => $vehicle->id,
                 'contract_months' => $months,
-                'total_amount' => 3_000_000,
+                // Le total suit le réglage de la durée (2026-10-06) ; une durée non proposée
+                // n'en a pas, et se fait refuser pour elle-même.
+                'total_amount' => VehicleContractTerm::query()->where('months', $months)->value('total_amount') ?? 3_000_000,
                 'start_date' => '2026-10-01',
             ]);
     }
@@ -195,7 +197,7 @@ class VehicleContractSettingsTest extends TestCase
     public function test_a_contract_keeps_a_duration_that_is_no_longer_offered(): void
     {
         $vehicle = Vehicle::factory()->create();
-        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['contract_months' => 30, 'daily_amount' => 5691, 'daily_tax' => 229]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['contract_months' => 30, 'total_amount' => 3_604_872, 'daily_amount' => 5691, 'daily_tax' => 229]);
         VehicleContractTerm::query()->where('months', 30)->delete();
 
         $this->asBearer($this->login(['edit-contracts']))

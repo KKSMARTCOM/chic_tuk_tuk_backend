@@ -146,6 +146,15 @@ class ReferenceRolesSeederTest extends TestCase
         $this->assertFalse($admin->permissions->contains('name', 'manage-contracts'));
     }
 
+    /** Négocier le total d'un contrat, hors réglage de sa durée : l'administrateur seul (2026-10-06). */
+    public function test_only_admin_negotiates_a_contract_amount(): void
+    {
+        $this->semer();
+
+        $this->assertTrue(Role::query()->where('name', 'admin')->firstOrFail()->hasPermissionTo('override-contract-amount'));
+        $this->assertFalse(Role::query()->where('name', 'utilisateur')->firstOrFail()->hasPermissionTo('override-contract-amount'));
+    }
+
     public function test_only_admin_cancels_a_commission(): void
     {
         $this->semer();

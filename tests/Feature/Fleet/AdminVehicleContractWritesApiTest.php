@@ -112,6 +112,72 @@ class AdminVehicleContractWritesApiTest extends TestCase
         $this->assertSame(1, VehicleContract::query()->where('vehicle_id', $vehicle->id)->count());
     }
 
+    // ----- Le montant total suit la durée (2026-10-06) -------------------------------------
+    //
+    // Quatre contrats de production avaient un total qui ne correspondait pas à leur durée :
+    // il se saisissait librement. Il suit désormais le réglage de la durée ; seul un
+    // administrateur (`override-contract-amount`) en impose un autre, pour un contrat négocié.
+
+    public function test_without_override_permission_a_new_total_must_follow_the_duration(): void
+    {
+        $vehicle = Vehicle::factory()->create();
+
+        $this->asBearer($this->login(['create-contracts']))
+            ->postJson('/api/v1/admin/vehicle-contracts', $this->contractPayload(['vehicle_id' => $vehicle->id, 'total_amount' => 3_500_000]))
+            ->assertForbidden()
+            ->assertJsonPath('code', 'CONTRACT_AMOUNT_LOCKED');
+
+        $this->assertSame(0, VehicleContract::query()->where('vehicle_id', $vehicle->id)->count());
+    }
+
+    public function test_an_administrator_negotiates_a_total(): void
+    {
+        $vehicle = Vehicle::factory()->create();
+
+        $this->asBearer($this->login(['create-contracts', 'override-contract-amount']))
+            ->postJson('/api/v1/admin/vehicle-contracts', $this->contractPayload(['vehicle_id' => $vehicle->id, 'total_amount' => 3_500_000]))
+            ->assertCreated();
+
+        $this->assertEquals(3_500_000, VehicleContract::query()->where('vehicle_id', $vehicle->id)->value('total_amount'));
+    }
+
+    public function test_a_duration_change_brings_the_total_of_the_new_duration(): void
+    {
+        $contract = VehicleContract::factory()->create(['contract_months' => 24, 'total_amount' => 3_100_000]);
+        $token = $this->login(['edit-contracts']);
+
+        // L'ancien total sous la nouvelle durée : refusé.
+        $this->asBearer($token)
+            ->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->contractPayload(['total_amount' => 3_100_000, 'status' => 'active']))
+            ->assertForbidden()
+            ->assertJsonPath('code', 'CONTRACT_AMOUNT_LOCKED');
+        $this->assertSame(24, $contract->fresh()->contract_months);
+
+        // Le total du réglage de 30 mois, que le formulaire préremplit : accepté.
+        $this->asBearer($token)
+            ->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->contractPayload(['status' => 'active']))
+            ->assertOk();
+        $this->assertEquals(3_604_872, $contract->fresh()->total_amount);
+    }
+
+    public function test_an_unchanged_duration_keeps_a_negotiated_total_but_only_an_administrator_changes_it(): void
+    {
+        $contract = VehicleContract::factory()->create(['contract_months' => 30, 'total_amount' => 3_500_000]);
+
+        $this->asBearer($this->login(['edit-contracts']))
+            ->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->contractPayload(['total_amount' => 3_500_000, 'notes' => 'Relu', 'status' => 'active']))
+            ->assertOk();
+
+        $this->asBearer($this->login(['edit-contracts']))
+            ->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->contractPayload(['total_amount' => 3_400_000, 'status' => 'active']))
+            ->assertForbidden();
+
+        $this->asBearer($this->login(['edit-contracts', 'override-contract-amount']))
+            ->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->contractPayload(['total_amount' => 3_400_000, 'status' => 'active']))
+            ->assertOk();
+        $this->assertEquals(3_400_000, $contract->fresh()->total_amount);
+    }
+
     // ----- Modification ------------------------------------------------------------------
 
     public function test_an_update_keeps_the_end_date(): void

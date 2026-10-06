@@ -19,7 +19,10 @@ use Illuminate\Support\Facades\Hash;
  */
 final class CreateOwner
 {
-    public function __construct(private readonly ClaimVehicleForOwner $claimVehicle) {}
+    public function __construct(
+        private readonly ClaimVehicleForOwner $claimVehicle,
+        private readonly CheckContractTotal $checkTotal,
+    ) {}
 
     public function __invoke(CreateOwnerData $data): User
     {
@@ -67,6 +70,7 @@ final class CreateOwner
             // valeurs par défaut partout ailleurs.
             if ($vehicle && ! empty($data['contract_total_amount'])) {
                 $months = (int) ($data['contract_months'] ?? 24);
+                ($this->checkTotal)($months, $data['contract_total_amount']);
 
                 VehicleContract::create([
                     'vehicle_id' => $vehicle->id,

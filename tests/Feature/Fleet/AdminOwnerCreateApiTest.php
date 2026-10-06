@@ -167,6 +167,25 @@ class AdminOwnerCreateApiTest extends TestCase
         $this->assertEquals(229, $contract->daily_tax);
     }
 
+    /** Le total suit la durée ; seul un administrateur en impose un autre (2026-10-06). */
+    public function test_a_total_off_the_settings_needs_the_override_permission(): void
+    {
+        $payload = $this->payload([
+            'vehicle' => ['mode' => 'new', 'vehicle_number' => 'BJ-1234-AB', 'vehicle_type' => 'tricycle',
+                'contract' => $this->contract(['total_amount' => 3_500_000])],
+        ]);
+
+        $this->asBearer($this->login(['create-owners']))->postJson('/api/v1/admin/owners', $payload)
+            ->assertForbidden()
+            ->assertJsonPath('code', 'CONTRACT_AMOUNT_LOCKED');
+        $this->assertSame(0, VehicleContract::query()->count());
+        $this->assertFalse(User::query()->where('phone', '96123456')->exists(), 'rien ne doit être créé');
+
+        $this->asBearer($this->login(['create-owners', 'override-contract-amount']))->postJson('/api/v1/admin/owners', $payload)
+            ->assertCreated();
+        $this->assertEquals(3_500_000, VehicleContract::query()->value('total_amount'));
+    }
+
     public function test_a_vehicle_requires_its_contract_at_creation(): void
     {
         $token = $this->login(['create-owners']);

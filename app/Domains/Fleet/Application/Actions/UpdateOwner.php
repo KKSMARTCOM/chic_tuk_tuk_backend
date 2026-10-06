@@ -16,7 +16,10 @@ use Illuminate\Support\Facades\DB;
  */
 final class UpdateOwner
 {
-    public function __construct(private readonly ClaimVehicleForOwner $claimVehicle) {}
+    public function __construct(
+        private readonly ClaimVehicleForOwner $claimVehicle,
+        private readonly CheckContractTotal $checkTotal,
+    ) {}
 
     public function __invoke(User $owner, UpdateOwnerData $data): User
     {
@@ -136,6 +139,8 @@ final class UpdateOwner
             // Contrat existant identifié → mise à jour. Il ne reprend les montants
             // journaliers des réglages que si sa durée change : sinon il garde les siens,
             // même si sa durée n'est plus proposée.
+            ($this->checkTotal)($months, $data['contract_total_amount'], $activeContract);
+
             if ($activeContract->contract_months !== $months) {
                 $contractData = [...$contractData, ...ContractTerms::dailyAmountsFor($months)];
             }
@@ -143,6 +148,7 @@ final class UpdateOwner
             $activeContract->update($contractData);
         } elseif (! $activeContract) {
             // Aucun contrat actif → création
+            ($this->checkTotal)($months, $data['contract_total_amount']);
             VehicleContract::create(array_merge($contractData, ContractTerms::dailyAmountsFor($months), [
                 'vehicle_id' => $vehicle->id,
                 'owner_id' => $ownerId,

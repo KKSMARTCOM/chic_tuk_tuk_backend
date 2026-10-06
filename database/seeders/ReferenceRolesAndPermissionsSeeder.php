@@ -90,6 +90,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'delete-contracts' => ['Supprimer un contrat', 'Supprimer un contrat véhicule ou agent'],
         'edit-contracts' => ['Modifier un contrat', 'Modifier un contrat véhicule ou agent'],
         'view-contracts' => ['Voir les contrats', 'Voir les contrats véhicule et agent'],
+        // Ajoutée le 2026-10-06, à l'administrateur seul : le total d'un contrat propriétaire
+        // suit le réglage de sa durée, sauf contrat négocié (`CheckContractTotal`).
+        'override-contract-amount' => ['Négocier le montant d\'un contrat', 'Imposer un montant total différent du réglage de la durée'],
 
 
         // Tableau de bord

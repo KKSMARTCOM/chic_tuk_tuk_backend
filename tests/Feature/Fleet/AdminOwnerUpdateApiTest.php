@@ -159,6 +159,28 @@ class AdminOwnerUpdateApiTest extends TestCase
         $this->assertSame(1, VehicleContract::query()->count(), 'le contrat actif est modifié, pas doublé');
     }
 
+    /** Le total suit la durée ; seul un administrateur en impose un autre (2026-10-06). */
+    public function test_changing_the_total_of_an_unchanged_duration_needs_the_override_permission(): void
+    {
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['contract_months' => 36, 'total_amount' => 4_049_100]);
+        $payload = $this->identity($owner, [
+            'vehicles' => [[
+                'id' => $vehicle->id, 'vehicle_number' => $vehicle->vehicle_number, 'vehicle_type' => 'tricycle', 'notes' => null,
+                'contract' => $this->contract(['total_amount' => 4_000_000]),
+            ]],
+        ]);
+
+        $this->update($this->login(['edit-owners']), $owner, $payload)
+            ->assertForbidden()
+            ->assertJsonPath('code', 'CONTRACT_AMOUNT_LOCKED');
+        $this->assertEquals(4_049_100, $contract->fresh()->total_amount);
+
+        $this->update($this->login(['edit-owners', 'override-contract-amount']), $owner, $payload)->assertOk();
+        $this->assertEquals(4_000_000, $contract->fresh()->total_amount);
+    }
+
     public function test_a_free_vehicle_without_contract_gets_one(): void
     {
         $token = $this->login(['edit-owners']);

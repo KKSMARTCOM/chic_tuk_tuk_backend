@@ -140,8 +140,11 @@ avec le mainteneur.
 ### User
 
 - profil : admin | client | driver | owner
-- Rôles Spatie : admin (64 permissions), utilisateur — ex-`lecteur` — (47), driver (7),
-  client (6), proprietaire (5) — 68 permissions au catalogue depuis le retrait de la section
+- Rôles Spatie, recomptés après seeder le 2026-10-06 : admin (73 permissions), utilisateur
+  — ex-`lecteur` — (50), driver (7), client (6), proprietaire (5) — 77 permissions au
+  catalogue. Dernier ajout : `override-contract-amount` (2026-10-06), à l'administrateur
+  seul — le total d'un contrat propriétaire suit le réglage de sa durée, sauf contrat
+  négocié (`CheckContractTotal`). Avant : 68 au catalogue après le retrait de la section
   « Tarifs » (2026-09-27), qui a emporté les quatre `*-pricing` — `driver` et `client`
   portaient `view-pricing` sans qu'aucune route ne l'exige. U2 (2026-09-26) avait
   retiré `create-`, `edit-` et `delete-permissions`, après l'ajout des `*-contracts`, de

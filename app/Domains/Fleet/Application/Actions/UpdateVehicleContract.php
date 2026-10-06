@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 /** Modifier un contrat véhicule — ex-Admin\VehicleContractController::update(). */
 final class UpdateVehicleContract
 {
+    public function __construct(private readonly CheckContractTotal $checkTotal) {}
+
     public function __invoke(VehicleContract $contract, UpdateVehicleContractData $data): VehicleContract
     {
         return $this->updateContract($contract, $data->toServicePayload());
@@ -47,6 +49,8 @@ final class UpdateVehicleContract
                 'spotify_premium' => $data['spotify_premium'] ?? $contract->spotify_premium,
                 'manager_remuneration' => $data['manager_remuneration'] ?? $contract->manager_remuneration,
             ];
+
+            ($this->checkTotal)((int) $updateData['contract_months'], $updateData['total_amount'], $contract);
 
             // Les montants journaliers restent ceux du contrat, sauf changement de durée :
             // ils suivent alors les réglages de la nouvelle.
