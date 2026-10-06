@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\EndVehiclePauseBeforeAgentStart;
 use App\Domains\Workforce\Application\Data\UpdateDriverData;
 use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
@@ -29,7 +30,10 @@ use Spatie\Permission\Models\Role;
  */
 final class UpdateDriver
 {
-    public function __construct(private readonly CreateRenewalContract $createRenewalContract) {}
+    public function __construct(
+        private readonly CreateRenewalContract $createRenewalContract,
+        private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause,
+    ) {}
 
     public function __invoke(Driver $driver, UpdateDriverData $data): User
     {
@@ -128,6 +132,10 @@ final class UpdateDriver
                     }
 
                     VehicleAssignmentRules::assertAssignable($vehicle);
+
+                    // La pause du véhicule se ferme la veille de l'arrivée : oubliée ici
+                    // jusqu'au 2026-10-06, elle restait ouverte et immobilisait l'agent.
+                    ($this->endVehiclePause)($vehicle, $data['existing_start_date']);
 
                     DriverContract::create([
                         'driver_id' => $user->driver->id,

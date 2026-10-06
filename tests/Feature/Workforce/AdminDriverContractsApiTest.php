@@ -258,6 +258,26 @@ class AdminDriverContractsApiTest extends TestCase
         $this->assertSame($target->activeVehicleContract->id, $contract->vehicle_contract_id);
     }
 
+    /** Le véhicule d'arrivée était en pause : elle se ferme la veille du début du contrat. */
+    public function test_changing_vehicle_ends_the_pause_of_the_new_vehicle_the_day_before(): void
+    {
+        $contract = $this->activeContract(['start_date' => '2026-09-09']);
+        $target = $this->freeVehicle();
+        $pause = VehiclePause::factory()->forContract($target->activeVehicleContract)->ongoing()->create([
+            'start_date' => '2026-09-02', 'reason_type' => 'agent_change', 'is_auto' => true,
+        ]);
+
+        $this->asBearer($this->login(['edit-contracts']))
+            ->putJson("/api/v1/admin/driver-contracts/{$contract->id}", [
+                'start_date' => '2026-09-09',
+                'contract_months' => 24,
+                'vehicle_id' => $target->id,
+            ])
+            ->assertOk();
+
+        $this->assertSame('2026-09-08', $pause->fresh()->end_date?->toDateString());
+    }
+
     public function test_a_vehicle_without_active_contract_or_already_driven_is_refused(): void
     {
         $contract = $this->activeContract();

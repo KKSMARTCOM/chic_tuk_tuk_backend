@@ -8,6 +8,8 @@ use App\Models\DriverContract;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
+use App\Models\VehiclePause;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -150,6 +152,37 @@ class AdminDriverUpdateApiTest extends TestCase
             ->assertOk();
 
         $response->assertJsonPath('active_contract.vehicle_number', 'T-ASSIGNE');
+    }
+
+    /**
+     * Affecter un agent existant ne fermait pas la pause du véhicule : la pause « changement
+     * d'agent » restait ouverte, et tous ses jours étaient classés immobilisation (constaté
+     * en production le 2026-10-06, pause ouverte depuis le 2 septembre).
+     */
+    public function test_le_mode_existing_ferme_la_pause_du_vehicule_la_veille(): void
+    {
+        Carbon::setTestNow('2026-09-09 09:00:00');
+        $driver = Driver::factory()->create();
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id, 'is_active' => false]);
+        $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create();
+        $pause = VehiclePause::factory()->forContract($vehicleContract)->ongoing()->create([
+            'start_date' => '2026-09-02', 'reason_type' => 'agent_change', 'is_auto' => true,
+        ]);
+
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload([
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'existing_contract_months' => 24,
+                'existing_start_date' => '2026-09-09',
+            ]))
+            ->assertOk();
+
+        $this->assertSame('2026-09-08', $pause->fresh()->end_date?->toDateString());
+        Carbon::setTestNow();
     }
 
     // ----- Sans contrat actif : mode renewal -------------------------------------

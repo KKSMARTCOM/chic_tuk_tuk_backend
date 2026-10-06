@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Fleet\Application\Actions\EndVehiclePauseBeforeAgentStart;
 use App\Domains\Workforce\Application\Data\UpdateDriverContractData;
 use App\Domains\Workforce\Domain\DriverContractRules;
 use App\Domains\Workforce\Domain\VehicleAssignmentRules;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 /** Modifier un contrat agent — ex-Admin\DriverContractController::update(). */
 final class UpdateDriverContract
 {
+    public function __construct(private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause) {}
+
     public function __invoke(DriverContract $contract, UpdateDriverContractData $data): DriverContract
     {
         $vehicle = $data->vehicleId ? Vehicle::findOrFail($data->vehicleId) : $contract->vehicle;
@@ -61,6 +64,9 @@ final class UpdateDriverContract
                         "Le véhicule {$vehicle->vehicle_number} n'a pas de contrat propriétaire actif."
                     );
                 }
+
+                // La pause du véhicule d'arrivée se ferme la veille du début (2026-10-06).
+                ($this->endVehiclePause)($vehicle, $data['start_date']);
 
                 $updateData['vehicle_id'] = $vehicle->id;
                 $updateData['vehicle_contract_id'] = $vehicleContract->id;
