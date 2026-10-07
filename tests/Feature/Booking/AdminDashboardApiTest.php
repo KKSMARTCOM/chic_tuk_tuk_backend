@@ -89,7 +89,7 @@ class AdminDashboardApiTest extends TestCase
     public function test_les_compteurs_generaux_comptent_ce_que_le_blade_comptait(): void
     {
         Booking::factory()->count(3)->create(['status' => 'pending']);
-        Booking::factory()->count(2)->create(['status' => 'completed', 'total_price' => 1500]);
+        Booking::factory()->count(2)->create(['status' => 'completed', 'base_price' => 1500, 'total_price' => 1500]);
         Driver::factory()->count(2)->create(['is_available' => true]);
         Driver::factory()->create(['is_available' => false]);
 
@@ -102,6 +102,33 @@ class AdminDashboardApiTest extends TestCase
             ->assertJsonPath('total_drivers', 3)
             ->assertJsonPath('active_drivers', 2)
             ->assertJsonPath('total_revenue', 3000);
+    }
+
+    /**
+     * Le chiffre d'affaires additionne le prix de CHAQUE course faite (`base_price`), jamais
+     * `total_price` : celui-ci est le prix de toute la commande, recopié sur chacune de ses
+     * courses — l'aller et le retour d'un aller-retour, chaque jour d'un abonnement. Le
+     * sommer comptait la même commande autant de fois qu'elle avait de courses faites
+     * (2026-10-07).
+     */
+    public function test_le_chiffre_d_affaires_compte_chaque_course_faite_une_seule_fois(): void
+    {
+        // Aller-retour simple : aller 1 000, retour 1 200, commande à 2 200.
+        $go = Booking::factory()->create(['status' => 'completed', 'trip_type' => 'go', 'round_trip' => true, 'base_price' => 1000, 'total_price' => 2200]);
+        Booking::factory()->create(['status' => 'completed', 'trip_type' => 'return', 'parent_booking_id' => $go->id, 'base_price' => 1200, 'total_price' => 2200]);
+
+        // Abonnement de 3 jours à 1 300 par course : la mère et deux jours générés faits,
+        // le dernier non traité.
+        $parent = Booking::factory()->create(['status' => 'completed', 'is_recurring' => true, 'days' => 3, 'base_price' => 1300, 'total_price' => 3900]);
+        foreach (['completed', 'completed', 'missed'] as $status) {
+            Booking::factory()->create(['status' => $status, 'parent_booking_id' => $parent->id, 'base_price' => 1300, 'total_price' => 3900]);
+        }
+
+        [, $token] = $this->connecter(Profil::Admin);
+
+        $this->entete($token)->getJson('/api/v1/admin/dashboard')
+            ->assertOk()
+            ->assertJsonPath('total_revenue', 1000 + 1200 + 3 * 1300);
     }
 
     public function test_chaque_compteur_du_jour_porte_sur_sa_propre_date(): void

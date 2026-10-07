@@ -23,7 +23,10 @@ final class BuildAdminDashboard
             'pending_bookings' => Booking::where('status', 'pending')->count(),
             'total_drivers' => Driver::count(),
             'active_drivers' => Driver::where('is_available', true)->count(),
-            'total_revenue' => Booking::where('status', 'completed')->sum('total_price'),
+            // ⚠️ `base_price`, le prix de la course, et non `total_price`, celui de toute la
+            // commande, recopié sur chacune de ses courses : un aller-retour comptait deux
+            // fois, un abonnement autant de fois que de jours faits (2026-10-07).
+            'total_revenue' => Booking::where('status', 'completed')->sum('base_price'),
 
             // ⚠️ Chaque compteur du jour porte sur SA propre colonne d'horodatage : une
             // course terminée aujourd'hui a pu être démarrée hier, et la compter sur

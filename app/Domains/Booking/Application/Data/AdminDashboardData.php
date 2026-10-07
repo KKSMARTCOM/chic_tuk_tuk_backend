@@ -28,7 +28,7 @@ final class AdminDashboardData extends BaseData
         public int $totalDrivers,
         /** Agents marqués disponibles — `drivers.is_available`. */
         public int $activeDrivers,
-        /** Chiffre d'affaires : somme des `total_price` des courses terminées. */
+        /** Chiffre d'affaires : somme des `base_price` des courses terminées — les courses seules, aucun paiement. */
         public float $totalRevenue,
         public int $completedToday,
         public int $inProgressToday,
