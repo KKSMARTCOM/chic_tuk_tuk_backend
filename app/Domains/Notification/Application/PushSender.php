@@ -6,6 +6,7 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Exception\Messaging\NotFound;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
 
@@ -120,11 +121,35 @@ class PushSender
                         ->withData(array_map(fn ($v) => is_scalar($v) ? (string) $v : json_encode($v), $data))
                 );
             } catch (\Throwable $e) {
-                // Jeton invalide ou expiré — l'appareil a été réinitialisé, ou
-                // l'application désinstallée. On le retire plutôt que de réessayer
-                // indéfiniment à chaque envoi.
-                $fcmToken->delete();
+                if (self::tokenIsDead($e)) {
+                    // L'appareil a été réinitialisé, ou l'application désinstallée : on
+                    // le retire plutôt que de réessayer indéfiniment à chaque envoi.
+                    $fcmToken->delete();
+
+                    continue;
+                }
+
+                // ⚠️ Tout AUTRE refus garde le jeton (2026-10-07). La clé du compte de
+                // service refusée par Google (`invalid_grant`) faisait échouer chaque
+                // envoi, et le jeton était supprimé à chaque échec, sans trace : tout
+                // appareil disparaissait à sa première notification.
+                Log::warning('Push refusé par Firebase', [
+                    'user_id' => $user->id,
+                    'erreur' => $e->getMessage(),
+                    'type' => $e::class,
+                ]);
             }
         }
+    }
+
+    /**
+     * Le jeton est-il MORT — inconnu de Firebase, ou invalide ? La règle de la bibliothèque
+     * elle-même (`SendReport::messageWasSentToUnknownToken()` et
+     * `messageTargetWasInvalid()`), pour un envoi unique.
+     */
+    private static function tokenIsDead(\Throwable $e): bool
+    {
+        return $e instanceof NotFound
+            || preg_match('/((not.+valid)|invalid).+token/i', $e->getMessage()) === 1;
     }
 }

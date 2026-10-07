@@ -1061,6 +1061,13 @@ est déployée : elle doit être compatible avec l'image précédente (rollback)
 - Jetons FCM enregistrés par l'API (`RegisterDevice`, table `fcm_tokens`), envoi par
   `PushSender` (kreait/laravel-firebase). La PWA et son service worker vivent dans le
   front `client` ; le backend n'en sert plus aucun.
+- ⚠️ **Seul un jeton MORT se supprime** (2026-10-07) : inconnu de Firebase (`NotFound`) ou
+  invalide — la règle de `SendReport` de la bibliothèque. Tout autre refus garde le jeton et
+  se journalise (« Push refusé par Firebase »). Avant, chaque échec supprimait le jeton sans
+  trace : quand Google a refusé la clé du compte de service (`invalid_grant`), tout appareil
+  disparaissait à sa première notification, et les push ne partaient plus pour personne.
+  Diagnostic en prod : `docs/runbooks/scripts-2026-10/check-push.php` (dépôt de docs),
+  lecture seule, valide les jetons sans rien envoyer.
 
 ## Points d'attention
 

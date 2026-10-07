@@ -8,6 +8,7 @@ use App\Models\FcmToken;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Kreait\Firebase\Contract\Messaging;
 use Mockery;
@@ -146,6 +147,65 @@ class PushSendingTest extends TestCase
         app(PushSender::class)->sendToDrivers('Titre', 'Corps');
 
         $this->assertDatabaseHas('notifications', ['user_id' => $user->id, 'title' => 'Titre']);
+    }
+
+    // ----- Quand Firebase refuse (2026-10-07) ---------------------------------------------
+    //
+    // Défaut trouvé en production : la clé du compte de service était refusée par Google
+    // (`invalid_grant`), CHAQUE envoi échouait, et l'API supprimait le jeton de l'appareil à
+    // chaque échec, sans rien journaliser. Tout appareil abonné disparaissait à sa première
+    // notification, et rien ne disait pourquoi.
+
+    /** Fait échouer chaque envoi avec cette erreur. */
+    private function firebaseRefuse(\Throwable $error): void
+    {
+        $messaging = Mockery::mock(Messaging::class);
+        $messaging->shouldReceive('send')->andThrow($error);
+        $this->app->instance(Messaging::class, $messaging);
+    }
+
+    public function test_un_refus_d_authentification_garde_le_jeton_et_se_journalise(): void
+    {
+        $this->firebaseRefuse(new \Kreait\Firebase\Exception\Messaging\InvalidMessage('invalid_grant'));
+        Log::spy();
+        $user = $this->agent([]);
+
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
+
+        // Un refus de Firebase ne supprime pas un appareil valide.
+        $this->assertDatabaseHas('fcm_tokens', ['user_id' => $user->id]);
+        Log::shouldHaveReceived('warning')->withArgs(fn ($message, $context) => str_contains($message, 'Push refusé')
+            && ($context['erreur'] ?? null) === 'invalid_grant' && ($context['user_id'] ?? null) === $user->id);
+    }
+
+    public function test_firebase_injoignable_garde_le_jeton(): void
+    {
+        $this->firebaseRefuse(new \Kreait\Firebase\Exception\Messaging\ServerUnavailable('Service Unavailable'));
+        $user = $this->agent([]);
+
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
+
+        $this->assertDatabaseHas('fcm_tokens', ['user_id' => $user->id]);
+    }
+
+    public function test_un_jeton_inconnu_de_firebase_est_retire(): void
+    {
+        $this->firebaseRefuse(\Kreait\Firebase\Exception\Messaging\NotFound::becauseTokenNotFound('jeton'));
+        $user = $this->agent([]);
+
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
+
+        $this->assertDatabaseMissing('fcm_tokens', ['user_id' => $user->id]);
+    }
+
+    public function test_un_jeton_invalide_est_retire(): void
+    {
+        $this->firebaseRefuse(new \Kreait\Firebase\Exception\Messaging\InvalidMessage('The registration token is not a valid FCM registration token'));
+        $user = $this->agent([]);
+
+        app(PushSender::class)->sendToDrivers('Titre', 'Corps');
+
+        $this->assertDatabaseMissing('fcm_tokens', ['user_id' => $user->id]);
     }
 
     protected function tearDown(): void
