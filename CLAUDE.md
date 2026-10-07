@@ -401,7 +401,7 @@ Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
 `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`, `POST /api/v1/auth/password`,
 `POST /api/v1/auth/password/forgot`, `POST /api/v1/auth/password/reset`.
 
-**Espace propriétaire** (`routes/api/v1/owner.php`) : quatre lectures sous
+**Espace propriétaire** (`routes/api/v1/owner.php`) : des lectures seulement, sous
 `['token.fresh', 'auth:sanctum', 'abilities:owner']` + `permission:view-own-*`.
 
 **Espace administration** (`routes/api/v1/admin.php`), sous
@@ -845,6 +845,15 @@ mois, avec un `status` :
 Le report automatique du déficit (2026-09-29) a disparu — le compte de charges des fiches le
 remplace (`ChargeLedger`).
 
+**Les paiements un par un** (2026-10-07) : `GET /owner/vehicles/{id}/payment-list`
+(`view-own-payments`, `ListOwnerVehiclePayments`), à côté du récapitulatif. Les paiements de
+CONTRAT des contrats de CE propriétaire sur ce véhicule — un véhicule qui a changé de mains
+ne montre pas l'historique de l'ancien —, payés et en attente seulement. ⚠️ Une ligne ne
+porte que la date, le NET et le statut (`OwnerPaymentListItemData`) : ni brut, ni taxe, ni
+agent, décidé avec l'utilisateur. Filtres `month` (`Y-m`), `status`, `from`, `to` (bornes
+incluses ; une valeur mal formée est ignorée) ; `totals` (payé, en attente) porte sur tout
+le filtre. Ne dépend pas de l'interrupteur des fiches.
+
 Les fiches, côté propriétaire (`StatementController`, Finance/Owner, sous
 `view-own-payments`) : `GET /owner/vehicles/{id}/statements` (les validées) et
 `GET /owner/statements/{id}/pdf`. ⚠️ La portée passe par le VÉHICULE du propriétaire : la
@@ -972,6 +981,9 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
   le 2026-10-02 — et `cancel-remuneration-statements` (annuler), détachée de la validation
   ce jour-là et laissée à l'administrateur seul, comme `purge-remuneration-statements`.
   **Rejouer le seeder après déploiement.**
+- **Le détail porte `siblings`** (2026-10-07) : les fiches du même contrat, par mois, pour
+  passer d'un mois à l'autre sans revenir à la liste. Sans les annulées, sauf la fiche
+  ouverte ; dans un mois, l'annulée précède celle qui la remplace.
 - Le document s'appelle « Fiche de rémunération », jamais « facture ».
 
 ## La reconstitution des fiches (2026-10-01)

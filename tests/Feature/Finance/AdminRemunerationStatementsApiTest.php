@@ -126,6 +126,32 @@ class AdminRemunerationStatementsApiTest extends TestCase
             ->assertJsonPath('blocking.0', 'La fiche du mois précédent doit être validée d\'abord.');
     }
 
+    /**
+     * Les fiches voisines du même contrat, pour passer d'un mois à l'autre sans revenir à la
+     * liste (2026-10-07) : par mois, sans les annulées, sans les autres contrats — sauf la
+     * fiche ouverte elle-même, annulée ou non.
+     */
+    public function test_the_detail_lists_the_other_statements_of_the_same_contract(): void
+    {
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-09-01']);
+        $november = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-11-01']);
+        $september = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-09-01']);
+        $cancelled = RemunerationStatement::factory()->for($contract, 'contract')
+            ->create(['month' => '2026-10-01', 'status' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => 'Erreur']);
+        $october = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-10-01', 'replaces_id' => $cancelled->id]);
+        RemunerationStatement::factory()->create(['month' => '2026-10-01']);
+        $token = $this->login(['view-remuneration-statements']);
+
+        $siblings = $this->asBearer($token)->getJson("/api/v1/admin/remuneration-statements/{$november->id}")
+            ->assertOk()->json('siblings');
+        $this->assertSame([$september->id, $october->id, $november->id], array_column($siblings, 'id'));
+        $this->assertSame(['2026-09', '2026-10', '2026-11'], array_column($siblings, 'month'));
+        $this->assertSame(['id', 'month', 'number', 'status', 'status_label'], array_keys($siblings[0]));
+
+        $this->assertSame([$september->id, $cancelled->id, $october->id, $november->id], array_column(
+            $this->asBearer($token)->getJson("/api/v1/admin/remuneration-statements/{$cancelled->id}")->json('siblings'), 'id'));
+    }
+
     public function test_generate_then_cancel(): void
     {
         VehicleContract::factory()->create(['start_date' => '2026-10-01']);

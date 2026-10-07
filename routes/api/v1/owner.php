@@ -47,6 +47,11 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:owner'])
             ->middleware('permission:view-own-payments')
             ->name('vehicles.payments');
 
+        // Les paiements un par un, à côté du récapitulatif (2026-10-07).
+        Route::get('/vehicles/{id}/payment-list', [VehicleController::class, 'paymentList'])
+            ->middleware('permission:view-own-payments')
+            ->name('vehicles.payment-list');
+
         // Les fiches de rémunération validées (2026-09-30).
         Route::get('/vehicles/{id}/statements', [StatementController::class, 'index'])
             ->middleware('permission:view-own-payments')

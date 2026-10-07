@@ -585,6 +585,21 @@ pdf_state: 'ready' | 'preparing' | 'expired' | null;
 downloads_left: number | null;
 sent_by_email: boolean | null;
 };
+export type OwnerPaymentListItemData = {
+id: string;
+payment_date: string;
+net_amount: number;
+status: 'completed' | 'pending';
+};
+export type OwnerPaymentListPageData = {
+payments: Array<App.Domains.Finance.Application.Data.OwnerPaymentListItemData>;
+totals: App.Domains.Finance.Application.Data.OwnerPaymentTotalsData;
+pagination: App.Shared.Data.PaginationData;
+};
+export type OwnerPaymentTotalsData = {
+paid: number;
+pending: number;
+};
 export type OwnerStatementData = {
 id: string;
 number: string;
@@ -625,11 +640,19 @@ delivery: 'email' | 'none';
 pdf_state: 'ready' | 'preparing' | 'expired';
 owner_download_count: number;
 owner_email: string | null;
+siblings: Array<App.Domains.Finance.Application.Data.RemunerationStatementSiblingData>;
 };
 export type RemunerationStatementOpeningData = {
 internet: number;
 spotify: number;
 manager: number;
+};
+export type RemunerationStatementSiblingData = {
+id: string;
+month: string;
+number: string | null;
+status: App.Domains.Finance.Domain.Enums.RemunerationStatementStatus;
+status_label: string;
 };
 export type StatementFiguresData = {
 month: string;

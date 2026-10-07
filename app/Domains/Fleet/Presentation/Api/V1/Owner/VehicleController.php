@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Presentation\Api\V1\Owner;
 
 use App\Domains\Finance\Application\Actions\BuildMonthlyPayoutRecap;
+use App\Domains\Finance\Application\Actions\ListOwnerVehiclePayments;
 use App\Domains\Fleet\Application\Actions\ListOwnerVehicles;
 use App\Domains\Fleet\Application\Data\OwnerVehicleDetailData;
 use App\Domains\Fleet\Application\Data\OwnerVehiclePausesData;
@@ -114,6 +115,29 @@ final class VehicleController
             return response()->json([
                 'message' => 'Le récapitulatif de ce véhicule n\'a pas pu être chargé. Réessayez.',
                 'code' => 'OWNER_PAYMENTS_READ_FAILED',
+            ], 500);
+        }
+    }
+
+    /** Les paiements du véhicule un par un, filtrés et paginés (2026-10-07). */
+    public function paymentList(Request $request, string $id, ListOwnerVehiclePayments $list): JsonResponse
+    {
+        try {
+            $vehicle = $this->owned($request, $id);
+
+            return response()->json($list($vehicle, $request->user()->id, $request->query()));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Erreur lors de la lecture des paiements d\'un véhicule : '.$e->getMessage(), [
+                'exception' => $e,
+                'user_id' => $request->user()?->id,
+                'vehicle_id' => $id,
+            ]);
+
+            return response()->json([
+                'message' => 'Les paiements de ce véhicule n\'ont pas pu être chargés. Réessayez.',
+                'code' => 'OWNER_PAYMENT_LIST_READ_FAILED',
             ], 500);
         }
     }

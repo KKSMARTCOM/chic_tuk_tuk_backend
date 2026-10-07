@@ -49,6 +49,14 @@ final class RemunerationStatementDetailData extends BaseData
         public int $ownerDownloadCount = 0,
         /** L'adresse ACTUELLE du propriétaire, celle où partirait un envoi (2026-10-02). */
         public ?string $ownerEmail = null,
+        /**
+         * Les fiches du même contrat, par mois, la fiche ouverte comprise (2026-10-07). Les
+         * annulées n'y sont pas — une fiche de remplacement les suit —, sauf la fiche
+         * ouverte elle-même.
+         *
+         * @var array<int, RemunerationStatementSiblingData>
+         */
+        public array $siblings = [],
     ) {}
 
     /** @param  list<string>  $blocking */
@@ -85,6 +93,14 @@ final class RemunerationStatementDetailData extends BaseData
             pdfState: $statement->pdfState(),
             ownerDownloadCount: (int) $statement->owner_download_count,
             ownerEmail: $statement->contract?->vehicle?->owner?->email,
+            siblings: RemunerationStatement::query()
+                ->where('vehicle_contract_id', $statement->vehicle_contract_id)
+                ->where(fn ($q) => $q->where('status', '!=', RemunerationStatementStatus::Cancelled->value)->orWhere('id', $statement->id))
+                // Dans un mois, l'annulée avant celle qui la remplace.
+                ->orderBy('month')->orderByRaw("status <> 'cancelled'")->orderBy('created_at')->orderBy('id')
+                ->get()
+                ->map(fn (RemunerationStatement $s) => RemunerationStatementSiblingData::fromStatement($s))
+                ->all(),
         );
     }
 }
