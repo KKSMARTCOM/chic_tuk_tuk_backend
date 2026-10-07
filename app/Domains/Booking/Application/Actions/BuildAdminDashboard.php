@@ -68,8 +68,11 @@ final class BuildAdminDashboard
                 ['bookings' => fn ($q) => $q->where('status', 'completed')->where('driver_earning', '>', 0)],
                 'driver_earning'
             )
-            ->withSum('commissions', 'amount')
-            ->withSum(['payments' => fn ($q) => $q->where('payment_type', 'commission')], 'amount')
+            // Commissions ACTIVES moins paiements de commission VALIDÉS, la règle de la fiche
+            // agent (`BuildDriverSituation`) : les annulés et les attentes ne comptaient
+            // pas là, et comptaient ici (2026-10-07).
+            ->withSum(['commissions' => fn ($q) => $q->where('status', 'active')], 'amount')
+            ->withSum(['payments' => fn ($q) => $q->where('payment_type', 'commission')->where('status', 'completed')], 'amount')
             ->orderByDesc('bookings_sum_driver_earning')
             ->limit(5)
             ->get();

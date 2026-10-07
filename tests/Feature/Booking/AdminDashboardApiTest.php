@@ -4,7 +4,9 @@ namespace Tests\Feature\Booking;
 
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Booking;
+use App\Models\Commission;
 use App\Models\Driver;
+use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -202,6 +204,32 @@ class AdminDashboardApiTest extends TestCase
         $this->entete($token)->getJson('/api/v1/admin/dashboard')
             ->assertOk()
             ->assertJsonPath('recent_pending.0.pickup_at', '2026-10-05T08:00:00');
+    }
+
+    /**
+     * La commission due des meilleurs agents suit la règle de la fiche agent
+     * (`BuildDriverSituation`) : commissions ACTIVES moins paiements de commission VALIDÉS.
+     * Le tableau de bord comptait les commissions annulées et déduisait les paiements en
+     * attente ou annulés (2026-10-07).
+     */
+    public function test_la_commission_due_des_meilleurs_agents_ignore_les_annules_et_les_attentes(): void
+    {
+        $driver = Driver::factory()->create();
+        $booking = Booking::factory()->create(['status' => 'completed', 'driver_id' => $driver->id, 'base_price' => 2000, 'driver_earning' => 1700]);
+        foreach ([['active', 300], ['active', 200], ['cancelled', 1000]] as [$status, $amount]) {
+            Commission::create(['driver_id' => $driver->id, 'booking_id' => $booking->id, 'amount' => $amount, 'date' => '2026-10-01', 'status' => $status]);
+        }
+        foreach ([['completed', 100], ['pending', 150], ['cancelled', 250]] as [$status, $amount]) {
+            Payment::factory()->create(['driver_id' => $driver->id, 'payment_type' => 'commission', 'vehicle_contract_id' => null,
+                'driver_contract_id' => null, 'amount' => $amount, 'net_amount' => $amount, 'status' => $status]);
+        }
+
+        [, $token] = $this->connecter(Profil::Admin);
+
+        $this->entete($token)->getJson('/api/v1/admin/dashboard')
+            ->assertOk()
+            ->assertJsonPath('top_drivers.0.id', $driver->id)
+            ->assertJsonPath('top_drivers.0.commission_due', 300 + 200 - 100);
     }
 
     public function test_une_liste_vide_est_un_tableau_vide_et_non_une_erreur(): void
