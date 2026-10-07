@@ -9,13 +9,10 @@ use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Spatie\Permission\Models\Role;
 
 /**
  * Modifier un agent — ex-Admin\DriverController::update().
@@ -145,52 +142,11 @@ final class UpdateDriver
                         'contract_months' => $data['existing_contract_months'],
                         'status' => 'active',
                     ]);
-                } else {
-                    // ── mode 'new' : code existant inchangé ──
-                    $ownerRole = Role::firstOrCreate(
-                        ['name' => 'proprietaire', 'guard_name' => 'web'],
-                        ['label' => 'Propriétaire']
-                    );
-
-                    $owner = User::create([
-                        'name' => $data['new_owner_name'],
-                        'phone' => $data['new_owner_phone'],
-                        'email' => $data['new_owner_email'] ?? null,
-                        'password' => Hash::make($data['new_owner_password']),
-                        'profil' => 'client',
-                        'is_active' => true,
-                    ]);
-                    $owner->assignRole($ownerRole);
-
-                    $vehicle = Vehicle::create([
-                        'owner_id' => $owner->id,
-                        'vehicle_number' => $data['new_vehicle_number'],
-                        'vehicle_type' => $data['new_vehicle_type'] ?? 'tricycle',
-                        'color' => $data['new_vehicle_color'] ?? null,
-                        'is_active' => true,
-                    ]);
-
-                    if (! empty($data['contract_total_amount'])) {
-                        VehicleContract::create([
-                            'vehicle_id' => $vehicle->id,
-                            'owner_id' => $owner->id,
-                            'total_amount' => $data['contract_total_amount'],
-                            'monthly_payment' => $data['contract_monthly_payment'] ?? 0,
-                            'start_date' => $data['contract_start_date'] ?? now(),
-                            'end_date' => $data['contract_end_date'] ?? null,
-                            'status' => 'active',
-                        ]);
-                    }
-
-                    DriverContract::create([
-                        'driver_id' => $user->driver->id,
-                        'vehicle_id' => $vehicle->id,
-                        'vehicle_contract_id' => $vehicle->activeVehicleContract?->id,
-                        'start_date' => $data['new_start_date'],
-                        'contract_months' => $data['new_contract_months'],
-                        'status' => 'active',
-                    ]);
                 }
+                // Le mode « new » du Blade (propriétaire et véhicule créés à la volée) a été
+                // retiré le 2026-10-07 : l'API ne l'accepte pas (`in:existing,renewal`), et il
+                // créait un propriétaire au profil `client` et un contrat sans durée, sans
+                // montant journalier ni charges.
             }
 
             return $user->load('driver');

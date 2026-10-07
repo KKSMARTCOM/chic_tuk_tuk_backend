@@ -17,7 +17,8 @@ use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
  *
  * ⚠️ Le mode `_owner_mode=new` du Blade (créer un propriétaire ET un véhicule à la
  * volée) est DU CODE MORT : aucun bouton de `edit.blade.php` ne l'atteint — seuls
- * `existing` et `renewal` existent dans l'interface. Non transposé.
+ * `existing` et `renewal` existent dans l'interface. Non transposé, et retiré
+ * d'`UpdateDriver` le 2026-10-07.
  */
 final class UpdateDriverData extends BaseData
 {
