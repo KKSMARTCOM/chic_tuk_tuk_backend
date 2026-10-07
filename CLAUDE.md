@@ -878,10 +878,15 @@ Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `boots
 | -------------------------------- | ----------------------------- |
 | `app:expire-bookings`            | tous les jours à 01:00        |
 | `app:process-recurring-bookings` | tous les jours à 01:00        |
-| `app:generate-daily`             | lun-ven à 23:30 (`weekdays()`) |
+| `app:generate-daily`             | lun-ven à 23:30 **heure du Bénin** (`weekdays()`, `timezone('Africa/Porto-Novo')`) |
 | `app:activate-leave-pauses`      | toutes les 2 heures           |
 | `app:generate-remuneration-statements` | le 1er du mois à 02:00 |
 | `app:purge-remuneration-pdfs`   | tous les jours à 03:00        |
+
+⚠️ **L'application tourne en UTC, le Bénin est à UTC+1.** Seul `app:generate-daily` suit le
+fuseau du Bénin (2026-10-07) : à 23:30 UTC, il partait à 00:30 le lendemain au Bénin. Ne pas
+y passer les tâches de 01:00 : `next_recurring_date` est enregistrée à 01:00 UTC, et
+`app:process-recurring-bookings` lancée à 00:00 UTC ne générerait plus rien.
 
 Sortie ajoutée à `storage/logs/commands.log`. En conteneur, `schedule:run` est lancé chaque
 minute par une boucle supervisord (`docker/supervisord.conf`), pas par un cron système.

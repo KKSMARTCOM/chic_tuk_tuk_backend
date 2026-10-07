@@ -65,7 +65,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function ($schedule) {
         $schedule->command('app:expire-bookings')->dailyAt('01:00')->appendOutputTo(storage_path('logs/commands.log'));
         $schedule->command('app:process-recurring-bookings')->dailyAt('01:00')->appendOutputTo(storage_path('logs/commands.log'));
-        $schedule->command('app:generate-daily')->weekdays()->dailyAt('23:30')->appendOutputTo(storage_path('logs/commands.log'));
+        // 23:30 heure du Bénin, le jour même : l'application tourne en UTC. Les tâches de
+        // 01:00 restent en UTC — `next_recurring_date` est enregistrée à 01:00 UTC.
+        $schedule->command('app:generate-daily')->weekdays()->dailyAt('23:30')->timezone('Africa/Porto-Novo')->appendOutputTo(storage_path('logs/commands.log'));
         $schedule->command('app:activate-leave-pauses')->everyTwoHours()->appendOutputTo(storage_path('logs/commands.log'));
         // Les brouillons des fiches de rémunération du mois écoulé (spec 2026-09-30).
         $schedule->command('app:generate-remuneration-statements')->monthlyOn(1, '02:00')->appendOutputTo(storage_path('logs/commands.log'));
