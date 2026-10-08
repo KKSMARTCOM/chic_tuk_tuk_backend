@@ -9,6 +9,7 @@ use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
@@ -284,8 +285,10 @@ final class Notifier
         $this->vers(
             $paiement->driver?->user,
             'Paiement validé',
+            // Le BRUT : l'agent ne connaît que ce montant ; le net est l'affaire du
+            // propriétaire et des administrateurs (2026-10-08).
             'Votre paiement du '.$this->jour($paiement->payment_date).' a été validé — '
-                .$this->montant($paiement->net_amount ?? $paiement->amount)
+                .$this->montant($paiement->amount)
                 .' ('.$this->libellePaiement($paiement->payment_type).').',
             'success',
             // Pas de destination : l'espace agent n'a pas encore d'écran de paiements.
@@ -306,7 +309,7 @@ final class Notifier
             $paiement->driver?->user,
             'Paiement annulé',
             'Votre paiement du '.$this->jour($paiement->payment_date).' a été annulé — '
-                .$this->montant($paiement->net_amount ?? $paiement->amount)
+                .$this->montant($paiement->amount)
                 .'. Contactez un administrateur si cela vous semble erroné.',
             'warning',
             null,
@@ -347,7 +350,7 @@ final class Notifier
     }
 
     /** « d'octobre 2026 », « d'août 2026 », mais « de juillet 2026 ». */
-    private function monthWithArticle(\Carbon\CarbonInterface $month): string
+    private function monthWithArticle(CarbonInterface $month): string
     {
         $label = $month->locale('fr')->translatedFormat('F Y');
 

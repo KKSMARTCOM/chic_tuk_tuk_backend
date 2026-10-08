@@ -267,6 +267,22 @@ class NotificationRoutingTest extends TestCase
         $this->assertStringContainsString('12/09/2026', Notification::first()->message);
     }
 
+    public function test_l_agent_voit_le_montant_brut_jamais_le_net(): void
+    {
+        // Seuls les administrateurs savent qu'il existe un brut et un net ; l'agent verse
+        // le brut, le propriétaire reçoit le net.
+        $paiement = $this->paiementDe($this->agent);
+        $paiement->update(['payment_type' => 'contract', 'amount' => 6_000, 'net_amount' => 5_871]);
+
+        $this->notifier()->paymentValidated($paiement);
+        $this->notifier()->paymentCancelled($paiement);
+
+        foreach (Notification::pluck('message') as $message) {
+            $this->assertStringContainsString('6 000', $message);
+            $this->assertStringNotContainsString('5 871', $message);
+        }
+    }
+
     public function test_un_paiement_annule_previent_aussi_l_agent(): void
     {
         // Un agent qui comptait sur cette somme doit l'apprendre autrement qu'en s'en
