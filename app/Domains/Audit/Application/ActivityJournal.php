@@ -21,6 +21,7 @@ use App\Models\VehicleContract;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -586,26 +587,77 @@ final class ActivityJournal
         );
     }
 
-    /** UNE ligne par validation groupée (2026-10-01). */
-    public function paymentsValidatedInBatch(int $count, float $total, string $collectedOn): void
+    /**
+     * UNE ligne pour le lot, qui nomme ses véhicules, puis UNE par paiement, rattachée à lui
+     * et nommant son agent : sans elles, un lot ne se retrouvait ni depuis un paiement, ni
+     * par véhicule ou agent (2026-10-08).
+     *
+     * @param  Collection<int, Payment>  $payments  chargés avec `driver.user` et `vehicleContract.vehicle`
+     */
+    public function paymentsValidatedInBatch(Collection $payments, string $collectedOn): void
     {
+        $date = Carbon::parse($collectedOn)->format('d/m/Y');
+        $total = (float) $payments->sum('net_amount');
+
         $this->record(
             ActivityEvent::PaymentsBatchValidated,
             null,
-            "a validé {$count} paiement(s) ({$this->money($total)}) encaissés le ".Carbon::parse($collectedOn)->format('d/m/Y'),
-            ['count' => $count, 'total' => $total, 'collected_on' => $collectedOn],
+            "a validé {$payments->count()} paiement(s) ({$this->money($total)}) encaissés le {$date}{$this->vehicles($payments)}",
+            ['count' => $payments->count(), 'total' => $total, 'collected_on' => $collectedOn, 'payment_ids' => $payments->pluck('id')->all()],
         );
+
+        foreach ($payments as $payment) {
+            $this->record(
+                ActivityEvent::PaymentValidated,
+                $payment,
+                "a validé {$this->batchPaymentLabel($payment)}, encaissé le {$date} (validation groupée)",
+                ['collected_on' => $collectedOn],
+            );
+        }
     }
 
-    /** UNE ligne par annulation groupée, avec son motif (2026-10-01). */
-    public function paymentsCancelledInBatch(int $count, float $total, string $reason): void
+    /**
+     * Comme la validation groupée : une ligne pour le lot, avec son motif, puis une par
+     * paiement (2026-10-08).
+     *
+     * @param  Collection<int, Payment>  $payments  chargés avec `driver.user` et `vehicleContract.vehicle`
+     */
+    public function paymentsCancelledInBatch(Collection $payments, string $reason): void
     {
+        $total = (float) $payments->sum('net_amount');
+
         $this->record(
             ActivityEvent::PaymentsBatchCancelled,
             null,
-            "a annulé {$count} paiement(s) ({$this->money($total)}) : {$reason}",
-            ['count' => $count, 'total' => $total, 'reason' => $reason],
+            "a annulé {$payments->count()} paiement(s) ({$this->money($total)}){$this->vehicles($payments)} : {$reason}",
+            ['count' => $payments->count(), 'total' => $total, 'reason' => $reason, 'payment_ids' => $payments->pluck('id')->all()],
         );
+
+        foreach ($payments as $payment) {
+            $this->record(
+                ActivityEvent::PaymentCancelled,
+                $payment,
+                "a annulé {$this->batchPaymentLabel($payment)} (annulation groupée) : {$reason}",
+                ['reason' => $reason],
+            );
+        }
+    }
+
+    /** « — 2FX1662RB, 2GC4662RB » : les véhicules d'un lot, pour la recherche du journal. */
+    private function vehicles(Collection $payments): string
+    {
+        $numbers = $payments->map(fn (Payment $p) => $p->vehicleContract?->vehicle?->vehicle_number)->filter()->unique()->sort()->values();
+
+        return $numbers->isEmpty() ? '' : ' — '.$numbers->implode(', ');
+    }
+
+    /** Le libellé d'un paiement, avec son jour et son véhicule : un lot en compte souvent vingt. */
+    private function batchPaymentLabel(Payment $payment): string
+    {
+        $vehicle = $payment->vehicleContract?->vehicle?->vehicle_number;
+
+        return "le paiement du {$payment->payment_date?->format('d/m/Y')} de {$this->money($payment->amount)} de {$this->driverName($payment->driver)}"
+            .($vehicle ? " ({$vehicle})" : '');
     }
 
     public function cancelledPaymentsPurged(int $count, float $total): void

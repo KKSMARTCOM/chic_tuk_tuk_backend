@@ -78,6 +78,11 @@ class PaymentCleanupTest extends TestCase
         $this->assertStringContainsString('Annulé : Montant global remplacé par des paiements journaliers', $b->notes);
         $this->assertDatabaseMissing('notifications', ['user_id' => $this->agent->driver->user_id]);
         $this->assertSame(1, Activity::where('event', 'payment.batch_cancelled')->count());
+        // Et une ligne par paiement, rattachée à lui, avec le motif (2026-10-08).
+        $this->assertStringContainsString(
+            'Montant global remplacé par des paiements journaliers',
+            Activity::where('event', 'payment.cancelled')->where('subject_id', $b->id)->sole()->description,
+        );
     }
 
     public function test_batch_cancellation_is_all_or_nothing(): void

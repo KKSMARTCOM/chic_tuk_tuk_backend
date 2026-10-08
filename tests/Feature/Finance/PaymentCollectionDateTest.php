@@ -11,7 +11,9 @@ use App\Models\VehicleContract;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -151,7 +153,28 @@ class PaymentCollectionDateTest extends TestCase
 
         $this->api()->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id, $b->id], 'collected_on' => '2026-03-31'])->assertOk();
 
-        $this->assertEquals(11742, \Spatie\Activitylog\Models\Activity::where('event', 'payment.batch_validated')->sole()->properties['total']);
+        $this->assertEquals(11742, Activity::where('event', 'payment.batch_validated')->sole()->properties['total']);
+    }
+
+    public function test_the_batch_journal_names_each_payment_and_its_vehicle(): void
+    {
+        // Sans une ligne par paiement, un lot ne se retrouvait ni depuis un paiement, ni par
+        // véhicule ou agent (2026-10-08).
+        $a = $this->pending('2026-03-02');
+        $b = $this->pending('2026-03-03');
+        $vehicle = $this->contract->vehicle->vehicle_number;
+
+        $this->api()->postJson('/api/v1/admin/payments/validate-batch', ['payment_ids' => [$a->id, $b->id], 'collected_on' => '2026-03-31'])->assertOk();
+
+        $batch = Activity::where('event', 'payment.batch_validated')->sole();
+        $this->assertStringContainsString($vehicle, $batch->description);
+        $this->assertEqualsCanonicalizing([$a->id, $b->id], $batch->properties['payment_ids']);
+
+        $line = Activity::where('event', 'payment.validated')->where('subject_id', $a->id)->sole();
+        $this->assertStringContainsString('02/03/2026', $line->description);
+        $this->assertStringContainsString($vehicle, $line->description);
+        $this->assertStringContainsString('encaissé le 31/03/2026', $line->description);
+        $this->assertSame(2, Activity::where('event', 'payment.validated')->count());
     }
 
     public function test_a_payment_before_the_first_month_is_never_blocked_by_a_statement(): void
@@ -169,7 +192,7 @@ class PaymentCollectionDateTest extends TestCase
     private function lockOrder(callable $action): array
     {
         $order = [];
-        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$order) {
+        DB::listen(function ($query) use (&$order) {
             if (! str_contains(strtolower($query->sql), 'for update')) {
                 return;
             }

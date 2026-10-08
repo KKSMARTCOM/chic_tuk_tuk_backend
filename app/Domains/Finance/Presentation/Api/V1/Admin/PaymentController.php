@@ -21,7 +21,6 @@ use App\Domains\Finance\Application\Data\CreatePaymentData;
 use App\Domains\Finance\Application\Data\UpdatePaymentData;
 use App\Domains\Finance\Application\Data\ValidatePaymentData;
 use App\Domains\Finance\Application\Data\ValidatePaymentsBatchData;
-use App\Models\Driver;
 use App\Models\Payment;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
@@ -29,6 +28,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -101,9 +101,7 @@ final class PaymentController
         return $this->guard($request, 'la validation groupée des paiements', 'Les paiements n\'ont pas pu être validés.', 'PAYMENTS_BATCH_VALIDATE_FAILED',
             function () use ($data, $validate) {
                 $count = $validate($data->paymentIds, Carbon::parse($data->collectedOn), $data->notifyDrivers);
-                // En net, comme la génération : le journal parle le langage des fiches.
-                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('net_amount');
-                $this->journal->paymentsValidatedInBatch($count, $total, $data->collectedOn);
+                $this->journal->paymentsValidatedInBatch($this->forJournal($data->paymentIds), $data->collectedOn);
 
                 return response()->json(['validated' => $count]);
             });
@@ -115,8 +113,7 @@ final class PaymentController
         return $this->guard($request, 'l\'annulation groupée des paiements', 'Les paiements n\'ont pas pu être annulés.', 'PAYMENTS_BATCH_CANCEL_FAILED',
             function () use ($data, $cancel) {
                 $count = $cancel($data->paymentIds, $data->reason, $data->notifyDrivers);
-                $total = (float) Payment::whereIn('id', $data->paymentIds)->sum('net_amount');
-                $this->journal->paymentsCancelledInBatch($count, $total, $data->reason);
+                $this->journal->paymentsCancelledInBatch($this->forJournal($data->paymentIds), $data->reason);
 
                 return response()->json(['cancelled' => $count]);
             });
@@ -176,6 +173,20 @@ final class PaymentController
      * métier et de validation intactes, attraper `\Throwable`, et ne mettre le message
      * d'origine qu'au journal.
      */
+    /**
+     * Les paiements d'un lot, dans l'ordre des jours, de quoi les nommer au journal.
+     *
+     * @param  list<string>  $paymentIds
+     * @return Collection<int, Payment>
+     */
+    private function forJournal(array $paymentIds): Collection
+    {
+        return Payment::with('driver.user', 'vehicleContract.vehicle')
+            ->whereIn('id', $paymentIds)
+            ->orderBy('payment_date')
+            ->get();
+    }
+
     private function guard(Request $request, string $what, string $message, string $code, \Closure $action): Response|JsonResponse
     {
         try {
