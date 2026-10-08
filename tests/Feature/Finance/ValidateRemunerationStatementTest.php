@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Finance;
 
+use App\Domains\Finance\Application\Actions\BuildStatementFigures;
 use App\Domains\Finance\Application\Actions\CancelPayment;
 use App\Domains\Finance\Application\Actions\UpdateRemunerationStatement;
 use App\Domains\Finance\Application\Actions\ValidateRemunerationStatement;
@@ -14,6 +15,7 @@ use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -111,15 +113,24 @@ class ValidateRemunerationStatementTest extends TestCase
         $this->assertSame('STATEMENT_NOT_DRAFT', $this->refusalCode(fn () => $this->update($statement, ['note' => 'x'])));
     }
 
-    public function test_deducting_beyond_what_is_outstanding_is_a_field_error(): void
+    public function test_lines_may_be_split_freely_within_the_total_outstanding(): void
+    {
+        Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 100_000]);
+
+        $statement = $this->update($this->draft(), ['deducted_internet' => 15_000, 'deducted_spotify' => 2_500, 'deducted_manager' => 10_000]);
+
+        $this->assertEquals(15_000, $statement->fresh()->deducted_internet);
+    }
+
+    public function test_deducting_beyond_the_total_outstanding_is_a_field_error(): void
     {
         Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 100_000]);
 
         try {
-            $this->update($this->draft(), ['deducted_internet' => 9_000]);
+            $this->update($this->draft(), ['deducted_internet' => 15_000, 'deducted_spotify' => 2_500, 'deducted_manager' => 20_000]);
             $this->fail('Le prélèvement excessif devait être refusé.');
         } catch (ValidationException $e) {
-            $this->assertArrayHasKey('deducted_internet', $e->errors());
+            $this->assertArrayHasKey('deducted', $e->errors());
         }
     }
 
@@ -147,7 +158,7 @@ class ValidateRemunerationStatementTest extends TestCase
         $this->assertSame('STATEMENT_MONTH_NOT_OVER', $this->refusalCode(fn () => $this->validate($november)));
         $this->assertContains(
             'Le mois n\'est pas terminé : ses chiffres ne sont que partiels.',
-            app(ValidateRemunerationStatement::class)->blockers($november, app(\App\Domains\Finance\Application\Actions\BuildStatementFigures::class)($this->contract, '2026-11', $november)),
+            app(ValidateRemunerationStatement::class)->blockers($november, app(BuildStatementFigures::class)($this->contract, '2026-11', $november)),
         );
     }
 
@@ -221,7 +232,7 @@ class ValidateRemunerationStatementTest extends TestCase
     public function test_validating_a_statement_locks_its_vehicle_contract(): void
     {
         $locked = false;
-        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$locked) {
+        DB::listen(function ($query) use (&$locked) {
             if (str_contains($query->sql, '"vehicle_contracts"') && str_contains(strtolower($query->sql), 'for update')) {
                 $locked = true;
             }
@@ -253,7 +264,7 @@ class ValidateRemunerationStatementTest extends TestCase
         RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2026-08-01', 'issued_on' => '2026-10-20']);
 
         $validate = app(ValidateRemunerationStatement::class);
-        $figures = app(\App\Domains\Finance\Application\Actions\BuildStatementFigures::class)($contract, '2026-09', $september);
+        $figures = app(BuildStatementFigures::class)($contract, '2026-09', $september);
 
         $this->assertContains('La date d\'établissement ne peut pas précéder celle de la fiche du mois précédent (20/10/2026).', $validate->blockers($september, $figures));
     }

@@ -28,12 +28,27 @@ class ChargeLedgerTest extends TestCase
         $this->assertSame(['internet' => 0.0, 'spotify' => 0.0, 'manager' => 0.0], ChargeLedger::propose(self::DUE, 0));
     }
 
-    public function test_deducting_more_than_outstanding_is_refused_line_by_line(): void
+    public function test_lines_may_be_split_freely_within_the_total_outstanding(): void
     {
-        $violations = ChargeLedger::violations(['internet' => 6_000, 'spotify' => 2_500, 'manager' => 0], self::DUE, 100_000);
+        // 15 000 de connexion pour 5 000 au contrat : le total, 27 500, n'est pas dépassé.
+        $this->assertSame([], ChargeLedger::violations(['internet' => 15_000, 'spotify' => 2_500, 'manager' => 10_000], self::DUE, 100_000));
+    }
 
-        $this->assertArrayHasKey('deducted_internet', $violations);
-        $this->assertArrayNotHasKey('deducted_spotify', $violations);
+    public function test_deducting_more_than_the_total_outstanding_is_refused(): void
+    {
+        $violations = ChargeLedger::violations(['internet' => 15_000, 'spotify' => 2_500, 'manager' => 10_001], self::DUE, 100_000);
+
+        $this->assertArrayHasKey('deducted', $violations);
+        $this->assertStringContainsString('27 500', $violations['deducted']);
+    }
+
+    public function test_a_negative_outstanding_proposes_nothing_and_lowers_the_total(): void
+    {
+        // Un mois a prélevé 10 000 de connexion de trop : il reste 12 500 au total.
+        $this->assertSame(
+            ['internet' => 0.0, 'spotify' => 2_500.0, 'manager' => 10_000.0],
+            ChargeLedger::propose(['internet' => -10_000.0] + self::DUE, 100_000),
+        );
     }
 
     public function test_a_negative_balance_is_refused(): void
