@@ -800,6 +800,7 @@ contract: App.Domains.Fleet.Application.Data.AdminOwnerVehicleContractData | nul
 };
 export type AdminVehicleActiveContractData = {
 id: string;
+status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
 total_amount: number;
 monthly_payment: number;
 total_paid: number;
@@ -903,6 +904,7 @@ driver_history: Array<App.Domains.Fleet.Application.Data.AdminVehicleDriverContr
 owner: App.Domains.Fleet.Application.Data.AdminVehicleOwnerData | null;
 current_driver: App.Domains.Fleet.Application.Data.AdminVehicleCurrentDriverData | null;
 pauses: Array<App.Domains.Fleet.Application.Data.VehiclePauseData>;
+current_internal_assignment: App.Domains.Fleet.Application.Data.AdminInternalAssignmentData | null;
 };
 export type AdminVehicleDriverContractData = {
 id: string;

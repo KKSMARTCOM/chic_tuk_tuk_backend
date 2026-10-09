@@ -28,6 +28,8 @@ final class AdminVehicleDetailData extends BaseData
         public ?AdminVehicleCurrentDriverData $currentDriver,
         /** @var array<int, VehiclePauseData> */
         public array $pauses,
+        /** L'agent interne en cours, sans paiement (2026-10-09). */
+        public ?AdminInternalAssignmentData $currentInternalAssignment,
     ) {}
 
     public static function fromModel(Vehicle $vehicle): self
@@ -39,11 +41,12 @@ final class AdminVehicleDetailData extends BaseData
             notes: $vehicle->notes,
             isActive: (bool) $vehicle->is_active,
             activePause: $vehicle->activePause ? VehiclePauseData::fromModel($vehicle->activePause) : null,
-            contract: $vehicle->activeVehicleContract
-                ? AdminVehicleActiveContractData::fromModel($vehicle->activeVehicleContract)
+            // Le contrat vivant : actif, ou en attente de son premier agent (2026-10-09).
+            contract: $vehicle->liveVehicleContract
+                ? AdminVehicleActiveContractData::fromModel($vehicle->liveVehicleContract)
                 : null,
             pastContracts: $vehicle->vehicleContracts
-                ->where('status', '!=', 'active')
+                ->whereNotIn('status', ['active', 'pending'])
                 ->sortByDesc('start_date')
                 ->map(fn (VehicleContract $c) => AdminVehiclePastContractData::fromModel($c))
                 ->values()
@@ -58,6 +61,9 @@ final class AdminVehicleDetailData extends BaseData
                 ? AdminVehicleCurrentDriverData::fromContract($vehicle->activeDriverContract)
                 : null,
             pauses: VehiclePauseData::historyOf($vehicle),
+            currentInternalAssignment: ($internal = $vehicle->liveVehicleContract?->activeInternalAssignment)
+                ? AdminInternalAssignmentData::fromModel($internal)
+                : null,
         );
     }
 }

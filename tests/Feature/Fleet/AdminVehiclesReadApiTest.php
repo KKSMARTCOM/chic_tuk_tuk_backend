@@ -239,4 +239,23 @@ class AdminVehiclesReadApiTest extends TestCase
             ->getJson('/api/v1/admin/vehicles/00000000-0000-0000-0000-000000000000')
             ->assertNotFound();
     }
+
+    public function test_a_pending_vehicle_shows_its_pending_contract_and_its_internal_driver(): void
+    {
+        // Relecture du 2026-10-09 : le contrat en attente passait pour un contrat passé.
+        $token = $this->login(['view-vehicles']);
+        $vehicle = Vehicle::factory()->create(['owner_id' => $this->owner()->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['status' => 'pending', 'start_date' => null]);
+        $assignment = \App\Models\InternalAssignment::factory()->for($contract, 'vehicleContract')->create(['start_date' => '2026-10-05']);
+
+        $this->asBearer($token)->getJson("/api/v1/admin/vehicles/{$vehicle->id}")
+            ->assertOk()
+            ->assertJsonPath('contract.id', $contract->id)
+            ->assertJsonPath('contract.status', 'pending')
+            ->assertJsonPath('past_contracts', [])
+            ->assertJsonPath('current_internal_assignment.driver_id', $assignment->driver_id);
+
+        $this->asBearer($token)->getJson('/api/v1/admin/vehicles')
+            ->assertOk()->assertJsonPath('stats.without_contract', 0);
+    }
 }

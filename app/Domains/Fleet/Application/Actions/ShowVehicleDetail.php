@@ -13,7 +13,9 @@ final class ShowVehicleDetail
         $vehicle = Vehicle::query()
             ->with([
                 'owner',
-                'activeVehicleContract.payments',
+                'liveVehicleContract.payments',
+                'liveVehicleContract.activeInternalAssignment.driver.user',
+                'liveVehicleContract.activeInternalAssignment.vehicleContract.vehicle',
                 'vehicleContracts',
                 'activeDriverContract.driver.user',
                 'driverContracts.driver.user',
