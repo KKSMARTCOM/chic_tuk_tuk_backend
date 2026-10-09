@@ -732,6 +732,16 @@ vehicle_type: 'moto' | 'tricycle' | 'car';
 owner_id: string | null;
 owner_name: string | null;
 };
+export type AdminInternalAssignmentData = {
+id: string;
+driver_id: string;
+driver_name: string | null;
+vehicle_number: string | null;
+start_date: string;
+end_date: string | null;
+notes: string | null;
+ended_reason: "manual" | "driver_contract" | null;
+};
 export type AdminOwnerDetailData = {
 id: string;
 name: string;
@@ -809,6 +819,8 @@ driver_contracts: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractD
 pauses: Array<App.Domains.Fleet.Application.Data.VehiclePauseData>;
 current_driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
 current_driver_since: string | null;
+current_internal_assignment: App.Domains.Fleet.Application.Data.AdminInternalAssignmentData | null;
+internal_assignments: Array<App.Domains.Fleet.Application.Data.AdminInternalAssignmentData>;
 };
 export type AdminVehicleContractDriverData = {
 id: string;
@@ -953,6 +965,11 @@ active: number;
 paused: number;
 without_contract: number;
 };
+export type AssignInternalDriverData = {
+driver_id: string;
+start_date: string;
+notes: string | null;
+};
 export type ContractDurationData = {
 months: number;
 total_amount: number;
@@ -983,6 +1000,9 @@ start_date: string;
 end_date: string | null;
 reason_type: App.Domains.Fleet.Domain.Enums.VehiclePauseReason;
 reason_notes: string | null;
+};
+export type EndInternalAssignmentData = {
+end_date: string;
 };
 export type EndVehiclePauseData = {
 end_date: string;
@@ -1390,6 +1410,7 @@ subscription_revenue: App.Domains.Workforce.Application.Data.AdminDriverSubscrip
 active_contract: App.Domains.Workforce.Application.Data.AdminDriverActiveContractData | null;
 recent_bookings: Array<App.Domains.Workforce.Application.Data.AdminDriverRecentBookingData>;
 situation: App.Domains.Finance.Application.Data.AdminDriverSituationData;
+internal_assignment: App.Domains.Fleet.Application.Data.AdminInternalAssignmentData | null;
 };
 export type AdminDriverLeaveDetailData = {
 id: string;

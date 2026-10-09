@@ -6,6 +6,7 @@ use App\Domains\Finance\Application\Actions\BuildDriverSituation;
 use App\Domains\Finance\Application\Actions\ComputeDriverSubscriptionRevenue;
 use App\Domains\Finance\Application\Data\AdminDriverSituationData;
 use App\Domains\Finance\Application\Actions\SummarizeDriverCommissions;
+use App\Domains\Fleet\Application\Data\AdminInternalAssignmentData;
 use App\Domains\Workforce\Application\Actions\ComputeDriverBookingStats;
 use App\Models\Driver;
 use App\Shared\Data\BaseData;
@@ -42,6 +43,8 @@ final class AdminDriverDetailData extends BaseData
         public array $recentBookings,
         /** Commissions, paiements de contrat, abonnements (2026-10-02), comme sur la fiche d'un paiement. */
         public AdminDriverSituationData $situation,
+        /** Son affectation interne en cours, sans paiement (2026-10-09). */
+        public ?AdminInternalAssignmentData $internalAssignment,
     ) {}
 
     public static function fromModel(
@@ -54,6 +57,7 @@ final class AdminDriverDetailData extends BaseData
         $user = $driver->user;
         $activeContract = $driver->activeDriverContract?->load(['vehicle.owner', 'vehicleContract']);
         $vehicle = $activeContract?->vehicle;
+        $internal = $driver->activeInternalAssignment?->load(['driver.user', 'vehicleContract.vehicle']);
 
         $bookingStats = $computeBookingStats($driver->id);
         $commissionStats = $summarizeCommissions($driver->id);
@@ -87,6 +91,7 @@ final class AdminDriverDetailData extends BaseData
                 : null,
             recentBookings: $recentBookings->map(fn ($b) => AdminDriverRecentBookingData::fromModel($b))->all(),
             situation: $buildSituation($driver->id),
+            internalAssignment: $internal ? AdminInternalAssignmentData::fromModel($internal) : null,
         );
     }
 }

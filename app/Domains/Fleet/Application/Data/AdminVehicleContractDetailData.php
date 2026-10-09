@@ -23,5 +23,9 @@ final class AdminVehicleContractDetailData extends BaseData
         public array $pauses,
         public ?AdminVehicleContractPartyData $currentDriver,
         public ?string $currentDriverSince,
+        /** L'agent interne en cours, s'il y en a un (2026-10-09). */
+        public ?AdminInternalAssignmentData $currentInternalAssignment,
+        /** @var array<int, AdminInternalAssignmentData> les affectations terminées, de la plus récente à la plus ancienne */
+        public array $internalAssignments,
     ) {}
 }

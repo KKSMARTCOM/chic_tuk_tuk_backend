@@ -10,6 +10,7 @@ use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\RemunerationStatementController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
+use App\Domains\Fleet\Presentation\Api\V1\Admin\InternalAssignmentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractSettingsController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\RoleController;
@@ -192,6 +193,14 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::put('/vehicle-contracts/{contract}', [VehicleContractController::class, 'update'])
             ->middleware('permission:edit-contracts')->name('vehicle-contracts.update');
+
+        // Les affectations internes (2026-10-09) : un agent sur un véhicule, sans paiement.
+        Route::middleware('permission:edit-contracts')->group(function () {
+            Route::post('/vehicle-contracts/{contract}/internal-assignments', [InternalAssignmentController::class, 'store'])
+                ->name('vehicle-contracts.internal-assignments.store');
+            Route::post('/internal-assignments/{assignment}/end', [InternalAssignmentController::class, 'end'])
+                ->name('internal-assignments.end');
+        });
 
         Route::delete('/vehicle-contracts/{contract}', [VehicleContractController::class, 'destroy'])
             ->middleware('permission:delete-contracts')->name('vehicle-contracts.destroy');

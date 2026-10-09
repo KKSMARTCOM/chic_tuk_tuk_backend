@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Application\Actions;
 
+use App\Domains\Fleet\Application\Data\AdminInternalAssignmentData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractDetailData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractDriverData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractListItemData;
@@ -9,6 +10,7 @@ use App\Domains\Fleet\Application\Data\AdminVehicleContractMonthData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractPartyData;
 use App\Domains\Fleet\Application\Data\VehiclePauseData;
 use App\Models\DriverContract;
+use App\Models\InternalAssignment;
 
 /**
  * La fiche d'un contrat propriétaire-véhicule — ex-Admin\VehicleContractController::show().
@@ -26,6 +28,7 @@ final class ShowVehicleContractDetail
             ->with([
                 'driverContracts' => fn ($query) => $query->withCount('payments')->with(['driver.user', 'leaveRequests'])->orderByDesc('start_date'),
                 'pauses',
+                'internalAssignments' => fn ($query) => $query->with(['driver.user', 'vehicleContract.vehicle']),
             ])
             ->findOrFail($contractId);
 
@@ -57,6 +60,14 @@ final class ShowVehicleContractDetail
                 ? AdminVehicleContractPartyData::fromUser($activeDriverContract->driver_id, $activeDriverUser)
                 : null,
             currentDriverSince: $activeDriverContract?->start_date?->toDateString(),
+            currentInternalAssignment: ($current = $contract->internalAssignments->firstWhere('end_date', null))
+                ? AdminInternalAssignmentData::fromModel($current)
+                : null,
+            internalAssignments: $contract->internalAssignments
+                ->filter(fn (InternalAssignment $assignment) => $assignment->end_date !== null)
+                ->map(fn (InternalAssignment $assignment) => AdminInternalAssignmentData::fromModel($assignment))
+                ->values()
+                ->all(),
         );
     }
 }
