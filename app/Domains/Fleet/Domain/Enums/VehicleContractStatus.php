@@ -6,12 +6,13 @@ use App\Shared\Enums\HasOptions;
 
 /**
  * Statut d'un contrat propriétaire — colonne `vehicle_contracts.status`
- * (chaîne libre en base, valeurs imposées par la validation : active/completed/cancelled).
+ * (chaîne libre en base, valeurs imposées par la validation : pending/active/completed/cancelled).
  */
 enum VehicleContractStatus: string
 {
     use HasOptions;
 
+    case Pending   = 'pending';
     case Active    = 'active';
     case Completed = 'completed';
     case Cancelled = 'cancelled';
@@ -20,6 +21,7 @@ enum VehicleContractStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::Pending   => 'En attente',
             self::Active    => 'Actif',
             self::Completed => 'Soldé',
             self::Cancelled => 'Annulé',

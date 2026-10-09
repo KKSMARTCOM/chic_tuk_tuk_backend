@@ -35,6 +35,12 @@ class Vehicle extends Model
         return $this->hasOne(VehicleContract::class)->where('status', 'active');
     }
 
+    /** Le contrat vivant : actif, ou en attente de son premier agent (2026-10-09). */
+    public function liveVehicleContract()
+    {
+        return $this->hasOne(VehicleContract::class)->whereIn('status', ['active', 'pending']);
+    }
+
     public function driverContracts()
     {
         return $this->hasMany(DriverContract::class);

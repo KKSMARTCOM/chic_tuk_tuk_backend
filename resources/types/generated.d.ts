@@ -1140,7 +1140,7 @@ days_count: number | null;
 };
 }
 declare namespace App.Domains.Fleet.Domain.Enums {
-export type VehicleContractStatus = 'active' | 'completed' | 'cancelled';
+export type VehicleContractStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 export type VehiclePauseReason = 'agent_leave' | 'agent_change' | 'technical' | 'accident' | 'legal' | 'other';
 }
 declare namespace App.Domains.Identity.Application.Data {

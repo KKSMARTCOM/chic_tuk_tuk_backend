@@ -305,6 +305,16 @@ class Driver extends Model
         return $this->hasMany(DriverContract::class);
     }
 
+    public function internalAssignments()
+    {
+        return $this->hasMany(InternalAssignment::class)->orderByDesc('start_date');
+    }
+
+    public function activeInternalAssignment()
+    {
+        return $this->hasOne(InternalAssignment::class)->whereNull('end_date');
+    }
+
     public function activeDriverContract()
     {
         return $this->hasOne(DriverContract::class)->where('status', 'active');

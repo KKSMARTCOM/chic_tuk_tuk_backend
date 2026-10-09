@@ -57,6 +57,16 @@ class VehicleContract extends Model
         return $this->hasMany(DriverContract::class);
     }
 
+    public function internalAssignments()
+    {
+        return $this->hasMany(InternalAssignment::class)->orderByDesc('start_date');
+    }
+
+    public function activeInternalAssignment()
+    {
+        return $this->hasOne(InternalAssignment::class)->whereNull('end_date');
+    }
+
     public function payments()
     {
         return $this->hasMany(Payment::class);
