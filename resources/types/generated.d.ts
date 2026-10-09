@@ -1057,7 +1057,7 @@ export type OwnerVehicleDetailData = {
 id: string;
 vehicle_number: string;
 vehicle_type: string | null;
-state: "active" | "paused" | "immobilized";
+state: "active" | "paused" | "immobilized" | "pending";
 active_pause: App.Domains.Fleet.Application.Data.ActivePauseData | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractDetailData | null;
 };
@@ -1076,7 +1076,7 @@ export type OwnerVehicleSummaryData = {
 id: string;
 vehicle_number: string;
 vehicle_type: string | null;
-state: "active" | "paused" | "immobilized";
+state: "active" | "paused" | "immobilized" | "pending";
 pause_reason_label: string | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractSummaryData | null;
 };

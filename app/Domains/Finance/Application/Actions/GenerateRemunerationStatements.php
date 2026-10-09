@@ -32,6 +32,8 @@ final class GenerateRemunerationStatements
             ->whereDate('start_date', '<=', $end)
             ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $start))
             ->where('status', '!=', 'cancelled')
+            // Un contrat en attente n'a pas commencé : pas de fiche (2026-10-09).
+            ->where('status', '!=', 'pending')
             ->whereDoesntHave('remunerationStatements', fn ($q) => $q->whereDate('month', $start)->where('status', '!=', 'cancelled'))
             ->get()
             ->each(fn (VehicleContract $contract) => RemunerationStatement::create([

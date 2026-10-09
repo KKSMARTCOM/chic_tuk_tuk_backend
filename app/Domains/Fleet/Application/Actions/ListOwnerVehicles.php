@@ -20,7 +20,7 @@ final class ListOwnerVehicles
     {
         return Vehicle::query()
             ->where('owner_id', $ownerId)
-            ->with(['activeVehicleContract', 'activePause'])
+            ->with(['activeVehicleContract', 'liveVehicleContract', 'activePause'])
             ->latest()
             ->get()
             ->map(fn (Vehicle $vehicle) => OwnerVehicleSummaryData::fromModel($vehicle));

@@ -49,7 +49,7 @@ final class VehicleController
     {
         try {
             $vehicle = $this->owned($request, $id);
-            $vehicle->load(['activeVehicleContract', 'activePause']);
+            $vehicle->load(['activeVehicleContract', 'liveVehicleContract', 'activePause']);
 
             return response()->json(OwnerVehicleDetailData::fromModel($vehicle));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

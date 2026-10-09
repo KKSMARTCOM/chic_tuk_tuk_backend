@@ -13,13 +13,13 @@ final class OwnerVehicleDetailData extends BaseData
         public string $id,
         public string $vehicleNumber,
         public ?string $vehicleType,
-        #[LiteralTypeScriptType('"active" | "paused" | "immobilized"')]
+        #[LiteralTypeScriptType('"active" | "paused" | "immobilized" | "pending"')]
         public string $state,
         public ?ActivePauseData $activePause,
         public ?OwnerContractDetailData $contract,
     ) {}
 
-    /** Attend un véhicule ayant chargé `activeVehicleContract` et `activePause`. */
+    /** Attend un véhicule ayant chargé `activeVehicleContract`, `liveVehicleContract` et `activePause`. */
     public static function fromModel(Vehicle $vehicle): self
     {
         $pause = $vehicle->activePause;
@@ -29,7 +29,10 @@ final class OwnerVehicleDetailData extends BaseData
             id: $vehicle->id,
             vehicleNumber: $vehicle->vehicle_number,
             vehicleType: $vehicle->vehicle_type,
-            state: VehicleOwnerState::of($pause),
+            // En attente de son premier agent : ni chiffres ni pause à montrer (2026-10-09).
+            state: $vehicle->liveVehicleContract?->status === 'pending'
+                ? 'pending'
+                : VehicleOwnerState::of($pause),
             activePause: $pause ? ActivePauseData::fromModel($pause) : null,
             contract: $contract ? OwnerContractDetailData::fromModel($contract) : null,
         );
