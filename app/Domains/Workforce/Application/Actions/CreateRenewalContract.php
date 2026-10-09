@@ -29,10 +29,12 @@ final class CreateRenewalContract
             throw new \Exception('Ce véhicule n\'appartient pas au propriétaire sélectionné.');
         }
 
-        $vehicleContract = $vehicle->liveVehicleContract;
+        // Un renouvellement suppose un contrat qui a déjà roulé : jamais un contrat en
+        // attente (spec 2026-10-09, §5.3).
+        $vehicleContract = $vehicle->activeVehicleContract;
 
         if (! $vehicleContract) {
-            throw new \Exception('Le véhicule sélectionné n\'a pas de contrat propriétaire actif ou en attente.');
+            throw new \Exception('Le véhicule sélectionné n\'a pas de contrat actif.');
         }
 
         // Calculer les mois déjà utilisés sur ce contrat proprio-véhicule

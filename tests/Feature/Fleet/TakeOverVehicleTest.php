@@ -97,6 +97,20 @@ class TakeOverVehicleTest extends TestCase
         $this->assertSame('active', $to->fresh()->status);
     }
 
+    public function test_a_renewal_ignores_a_pending_contract(): void
+    {
+        // Spec §5.3 : le renouvellement ignore un contrat en attente (relecture du 2026-10-09).
+        $contract = VehicleContract::factory()->create(['status' => 'pending', 'start_date' => null]);
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('pas de contrat actif');
+
+        app(\App\Domains\Workforce\Application\Actions\CreateRenewalContract::class)(Driver::factory()->create(), [
+            'renewal_vehicle_id' => $contract->vehicle_id, 'renewal_owner_id' => $contract->vehicle->owner_id,
+            'renewal_contract_months' => 24, 'renewal_start_date' => '2026-10-12',
+        ]);
+    }
+
     public function test_creating_an_agent_through_the_api_takes_over_a_pending_vehicle(): void
     {
         [, $token] = $this->connecter(Profil::Admin, ['create-drivers']);
