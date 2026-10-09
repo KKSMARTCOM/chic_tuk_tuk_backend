@@ -77,6 +77,26 @@ class TakeOverVehicleTest extends TestCase
         $this->assertSame('pending', $contract->fresh()->status);
     }
 
+    public function test_moving_a_driver_contract_takes_over_the_arrival_vehicle(): void
+    {
+        // Relecture du 2026-10-09 : le déplacement laissait l'affectation interne ouverte.
+        $from = VehicleContract::factory()->create(['start_date' => '2026-09-01']);
+        $contract = \App\Models\DriverContract::factory()->create([
+            'vehicle_contract_id' => $from->id, 'vehicle_id' => $from->vehicle_id, 'status' => 'active', 'start_date' => '2026-10-01',
+        ]);
+        $to = VehicleContract::factory()->create(['status' => 'pending', 'start_date' => null]);
+        $assignment = InternalAssignment::factory()->for($to, 'vehicleContract')->create(['start_date' => '2026-09-20']);
+
+        app(\App\Domains\Workforce\Application\Actions\UpdateDriverContract::class)(
+            $contract,
+            \App\Domains\Workforce\Application\Data\UpdateDriverContractData::from(['start_date' => '2026-10-12', 'contract_months' => 24, 'vehicle_id' => $to->vehicle_id]),
+        );
+
+        $this->assertSame($to->id, $contract->fresh()->vehicle_contract_id);
+        $this->assertSame('2026-10-11', $assignment->fresh()->end_date->toDateString());
+        $this->assertSame('active', $to->fresh()->status);
+    }
+
     public function test_creating_an_agent_through_the_api_takes_over_a_pending_vehicle(): void
     {
         [, $token] = $this->connecter(Profil::Admin, ['create-drivers']);
