@@ -3,6 +3,7 @@
 namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Fleet\Application\Actions\EndVehiclePauseBeforeAgentStart;
+use App\Domains\Fleet\Application\Actions\TakeOverVehicle;
 use App\Domains\Workforce\Application\Data\CreateDriverData;
 use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
@@ -19,6 +20,7 @@ final class CreateDriver
     public function __construct(
         private readonly CreateRenewalContract $createRenewalContract,
         private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause,
+        private readonly TakeOverVehicle $takeOver,
     ) {}
 
     public function __invoke(CreateDriverData $data): User
@@ -85,10 +87,10 @@ final class CreateDriver
             throw new \Exception('Ce véhicule n\'appartient pas au propriétaire sélectionné.');
         }
 
-        $vehicleContract = $vehicle->activeVehicleContract;
+        $vehicleContract = $vehicle->liveVehicleContract;
 
         if (! $vehicleContract) {
-            throw new \Exception('Le véhicule sélectionné n\'a pas de contrat actif.');
+            throw new \Exception('Le véhicule sélectionné n\'a pas de contrat propriétaire actif ou en attente.');
         }
 
         // Validation règles métier (1 véhicule = 1 agent)
@@ -96,6 +98,14 @@ final class CreateDriver
 
         // Clôturer la pause active du véhicule si existante, la veille de l'arrivée
         ($this->endVehiclePause)($vehicle, $data['start_date'] ?? now()->toDateString());
+
+        $elsewhere = $driver->activeInternalAssignment;
+        if ($elsewhere && $elsewhere->vehicle_contract_id !== $vehicleContract->id) {
+            throw new \Exception('Cet agent est affecté en interne à un autre véhicule : terminez d\'abord cette affectation.');
+        }
+
+        // L'affectation interne se termine la veille, un contrat en attente commence (2026-10-09).
+        ($this->takeOver)($vehicleContract, $data['start_date'] ?? now()->toDateString(), $driver);
 
         DriverContract::create([
             'driver_id' => $driver->id,

@@ -3,6 +3,7 @@
 namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Fleet\Application\Actions\EndVehiclePauseBeforeAgentStart;
+use App\Domains\Fleet\Application\Actions\TakeOverVehicle;
 use App\Domains\Workforce\Application\Data\UpdateDriverData;
 use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
@@ -30,6 +31,7 @@ final class UpdateDriver
     public function __construct(
         private readonly CreateRenewalContract $createRenewalContract,
         private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause,
+        private readonly TakeOverVehicle $takeOver,
     ) {}
 
     public function __invoke(Driver $driver, UpdateDriverData $data): User
@@ -130,14 +132,27 @@ final class UpdateDriver
 
                     VehicleAssignmentRules::assertAssignable($vehicle);
 
+                    $vehicleContract = $vehicle->liveVehicleContract;
+                    if (! $vehicleContract) {
+                        throw new \Exception('Le véhicule sélectionné n\'a pas de contrat propriétaire actif ou en attente.');
+                    }
+
                     // La pause du véhicule se ferme la veille de l'arrivée : oubliée ici
                     // jusqu'au 2026-10-06, elle restait ouverte et immobilisait l'agent.
                     ($this->endVehiclePause)($vehicle, $data['existing_start_date']);
 
+                    $elsewhere = $user->driver->activeInternalAssignment;
+                    if ($elsewhere && $elsewhere->vehicle_contract_id !== $vehicleContract->id) {
+                        throw new \Exception('Cet agent est affecté en interne à un autre véhicule : terminez d\'abord cette affectation.');
+                    }
+
+                    // L'affectation interne se termine la veille, un contrat en attente commence (2026-10-09).
+                    ($this->takeOver)($vehicleContract, $data['existing_start_date'], $user->driver);
+
                     DriverContract::create([
                         'driver_id' => $user->driver->id,
                         'vehicle_id' => $vehicle->id,
-                        'vehicle_contract_id' => $vehicle->activeVehicleContract?->id,
+                        'vehicle_contract_id' => $vehicleContract->id,
                         'start_date' => $data['existing_start_date'],
                         'contract_months' => $data['existing_contract_months'],
                         'status' => 'active',
