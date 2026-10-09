@@ -32,7 +32,8 @@ final class ClaimVehicleForOwner
             return;
         }
 
-        $runningContract = $vehicle->activeVehicleContract;
+        // Un contrat en attente lie aussi le véhicule à son propriétaire (2026-10-09).
+        $runningContract = $vehicle->liveVehicleContract;
         if ($runningContract !== null) {
             throw new ApiException(
                 409,

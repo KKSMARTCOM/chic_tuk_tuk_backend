@@ -313,6 +313,45 @@ class AdminOwnerUpdateApiTest extends TestCase
         $this->assertSame($owner->id, $vehicle->fresh()->activeVehicleContract->owner_id);
     }
 
+    public function test_a_pending_vehicle_never_gets_a_second_live_contract(): void
+    {
+        // Relecture du 2026-10-09 : le formulaire voyait le véhicule en attente « sans contrat ».
+        $token = $this->login(['edit-owners']);
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->create(['vehicle_id' => $vehicle->id, 'owner_id' => $owner->id, 'status' => 'pending', 'start_date' => null]);
+
+        $this->update($token, $owner, $this->identity($owner, [
+            'vehicles' => [[
+                'id' => $vehicle->id,
+                'vehicle_number' => $vehicle->vehicle_number,
+                'vehicle_type' => 'tricycle',
+                'notes' => null,
+                'contract' => $this->contract(),
+            ]],
+        ]))->assertStatus(409)->assertJsonPath('code', 'VEHICLE_HAS_ACTIVE_CONTRACT');
+
+        $this->assertSame(1, VehicleContract::where('vehicle_id', $vehicle->id)->count());
+    }
+
+    public function test_a_pending_vehicle_is_neither_offered_nor_transferred(): void
+    {
+        $token = $this->login(['edit-owners']);
+        $owner = $this->owner();
+        $previous = $this->owner(['name' => 'Koffi Ancien']);
+        $vehicle = Vehicle::factory()->create(['owner_id' => $previous->id]);
+        VehicleContract::factory()->create(['vehicle_id' => $vehicle->id, 'owner_id' => $previous->id, 'status' => 'pending', 'start_date' => null]);
+
+        $this->assertNotContains($vehicle->id, collect(app(\App\Domains\Fleet\Application\Actions\ListAvailableVehicles::class)())->pluck('id')->all());
+
+        $this->update($token, $owner, $this->identity($owner, [
+            'add_vehicle' => ['mode' => 'existing', 'vehicle_id' => $vehicle->id, 'contract' => $this->contract()],
+            'confirm_transfer' => true,
+        ]))->assertStatus(409)->assertJsonPath('code', 'VEHICLE_UNDER_CONTRACT');
+
+        $this->assertSame($previous->id, $vehicle->fresh()->owner_id);
+    }
+
     public function test_an_account_that_is_not_an_owner_cannot_be_edited_here(): void
     {
         $token = $this->login(['edit-owners']);

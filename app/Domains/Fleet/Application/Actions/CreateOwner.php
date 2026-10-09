@@ -4,6 +4,7 @@ namespace App\Domains\Fleet\Application\Actions;
 
 use App\Domains\Fleet\Application\Data\CreateOwnerData;
 use App\Domains\Fleet\Domain\ContractTerms;
+use App\Domains\Fleet\Domain\VehicleContractRules;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -70,6 +71,7 @@ final class CreateOwner
             // valeurs par défaut partout ailleurs.
             if ($vehicle && ! empty($data['contract_total_amount'])) {
                 $months = (int) ($data['contract_months'] ?? 24);
+                VehicleContractRules::assertCanCarryAnActiveContract($vehicle);
                 ($this->checkTotal)($months, $data['contract_total_amount']);
 
                 VehicleContract::create([

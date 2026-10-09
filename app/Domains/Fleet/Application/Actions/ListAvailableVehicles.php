@@ -26,7 +26,8 @@ final class ListAvailableVehicles
         return Vehicle::query()
             ->with('owner')
             ->where('is_active', true)
-            ->whereDoesntHave('activeVehicleContract')
+            // Ni actif, ni en attente : libre (2026-10-09).
+            ->whereDoesntHave('liveVehicleContract')
             ->when($excludedOwnerId, fn ($query) => $query->where(
                 fn ($q) => $q->whereNull('owner_id')->orWhere('owner_id', '!=', $excludedOwnerId)
             ))

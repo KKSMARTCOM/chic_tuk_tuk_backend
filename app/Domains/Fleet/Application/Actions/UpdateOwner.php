@@ -4,6 +4,7 @@ namespace App\Domains\Fleet\Application\Actions;
 
 use App\Domains\Fleet\Application\Data\UpdateOwnerData;
 use App\Domains\Fleet\Domain\ContractTerms;
+use App\Domains\Fleet\Domain\VehicleContractRules;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -147,7 +148,9 @@ final class UpdateOwner
 
             $activeContract->update($contractData);
         } elseif (! $activeContract) {
-            // Aucun contrat actif → création
+            // Aucun contrat actif → création, sauf s'il en attend un (2026-10-09) : jamais
+            // deux contrats vivants sur un véhicule.
+            VehicleContractRules::assertCanCarryAnActiveContract($vehicle);
             ($this->checkTotal)($months, $data['contract_total_amount']);
             VehicleContract::create(array_merge($contractData, ContractTerms::dailyAmountsFor($months), [
                 'vehicle_id' => $vehicle->id,

@@ -41,7 +41,8 @@ final class ListVehicleContracts
                 ->with('owner')
                 ->where('is_active', true)
                 ->whereNotNull('owner_id')
-                ->whereDoesntHave('activeVehicleContract')
+                // Ni actif, ni en attente : libre (2026-10-09).
+            ->whereDoesntHave('liveVehicleContract')
                 ->orderBy('vehicle_number')
                 ->get()
                 ->map(fn (Vehicle $vehicle) => AdminAvailableVehicleData::fromModel($vehicle))
