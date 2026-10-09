@@ -6,6 +6,7 @@ use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\AssignInternalDriver;
 use App\Domains\Fleet\Application\Actions\EndInternalAssignment;
 use App\Domains\Fleet\Application\Actions\ShowVehicleContractDetail;
+use App\Domains\Fleet\Application\Data\AssignableDriverData;
 use App\Domains\Fleet\Application\Data\AssignInternalDriverData;
 use App\Domains\Fleet\Application\Data\EndInternalAssignmentData;
 use App\Models\Driver;
@@ -41,6 +42,22 @@ final class InternalAssignmentController
 
             return response()->json($show($assignment->vehicle_contract_id));
         });
+    }
+
+    /** Les agents libres : actifs, sans contrat agent ni affectation interne en cours. */
+    public function availableDrivers(Request $request): JsonResponse
+    {
+        return $this->guard($request, fn () => response()->json(
+            Driver::query()
+                ->with('user')
+                ->whereHas('user', fn ($q) => $q->where('is_active', true))
+                ->whereDoesntHave('driverContracts', fn ($q) => $q->where('status', 'active'))
+                ->whereDoesntHave('internalAssignments', fn ($q) => $q->whereNull('end_date'))
+                ->get()
+                ->sortBy(fn (Driver $driver) => mb_strtolower((string) $driver->user?->name))
+                ->map(fn (Driver $driver) => new AssignableDriverData($driver->id, $driver->user?->name, $driver->user?->phone))
+                ->values()
+        ));
     }
 
     private function guard(Request $request, \Closure $action): JsonResponse

@@ -198,6 +198,8 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::middleware('permission:edit-contracts')->group(function () {
             Route::post('/vehicle-contracts/{contract}/internal-assignments', [InternalAssignmentController::class, 'store'])
                 ->name('vehicle-contracts.internal-assignments.store');
+            Route::get('/internal-assignments/available-drivers', [InternalAssignmentController::class, 'availableDrivers'])
+                ->name('internal-assignments.available-drivers');
             Route::post('/internal-assignments/{assignment}/end', [InternalAssignmentController::class, 'end'])
                 ->name('internal-assignments.end');
         });

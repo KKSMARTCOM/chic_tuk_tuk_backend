@@ -970,6 +970,11 @@ driver_id: string;
 start_date: string;
 notes: string | null;
 };
+export type AssignableDriverData = {
+id: string;
+name: string | null;
+phone: string | null;
+};
 export type ContractDurationData = {
 months: number;
 total_amount: number;

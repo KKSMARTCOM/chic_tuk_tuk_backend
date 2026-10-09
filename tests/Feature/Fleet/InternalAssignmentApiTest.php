@@ -105,4 +105,23 @@ class InternalAssignmentApiTest extends TestCase
         $this->assertSame(1, Activity::where('event', 'vehicle.internal_assignment_created')->where('subject_id', $contract->id)->count());
         $this->assertSame(1, Activity::where('event', 'vehicle.internal_assignment_ended')->where('subject_id', $contract->id)->count());
     }
+
+    public function test_only_free_active_drivers_can_be_assigned(): void
+    {
+        $free = Driver::factory()->create();
+        $underContract = Driver::factory()->create();
+        \App\Models\DriverContract::factory()->create(['driver_id' => $underContract->id, 'status' => 'active']);
+        $internal = InternalAssignment::factory()->create()->driver;
+        $inactive = Driver::factory()->create();
+        $inactive->user->update(['is_active' => false]);
+
+        $ids = collect($this->asBearer($this->login(['edit-contracts']))
+            ->getJson('/api/v1/admin/internal-assignments/available-drivers')
+            ->assertOk()->json())->pluck('id');
+
+        $this->assertTrue($ids->contains($free->id));
+        $this->assertFalse($ids->contains($underContract->id));
+        $this->assertFalse($ids->contains($internal->id));
+        $this->assertFalse($ids->contains($inactive->id));
+    }
 }
