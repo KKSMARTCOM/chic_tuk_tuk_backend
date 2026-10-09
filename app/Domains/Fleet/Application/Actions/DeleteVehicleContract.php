@@ -42,13 +42,15 @@ final class DeleteVehicleContract
 
         $hasHistory = $contract->driverContracts()->exists()
             || $contract->payments()->exists()
-            || $contract->pauses()->exists();
+            || $contract->pauses()->exists()
+            // Les affectations internes sont un historique aussi (2026-10-09).
+            || $contract->internalAssignments()->exists();
 
         if ($hasHistory) {
             throw new ApiException(
                 409,
                 'VEHICLE_CONTRACT_NOT_DELETABLE',
-                'Impossible de supprimer ce contrat : il a des agents, des paiements ou des pauses véhicule, en cours ou terminés.'
+                'Impossible de supprimer ce contrat : il a des agents, internes ou sous contrat, des paiements ou des pauses véhicule, en cours ou terminés.'
             );
         }
 

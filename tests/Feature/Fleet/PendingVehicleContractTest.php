@@ -112,4 +112,26 @@ class PendingVehicleContractTest extends TestCase
         $this->asBearer($this->login(['view-contracts']))->getJson("/api/v1/admin/vehicle-contracts/{$contract->id}")
             ->assertOk()->assertJsonPath('contract.is_deletable', false);
     }
+
+    public function test_deleting_a_contract_with_internal_assignments_is_refused(): void
+    {
+        // Relecture du 2026-10-09 : seul le drapeau était corrigé, pas la suppression.
+        $contract = VehicleContract::factory()->create(['status' => 'pending', 'start_date' => null]);
+        InternalAssignment::factory()->for($contract, 'vehicleContract')->create();
+
+        $this->asBearer($this->login(['delete-contracts']))->deleteJson("/api/v1/admin/vehicle-contracts/{$contract->id}")
+            ->assertStatus(409)->assertJsonPath('code', 'VEHICLE_CONTRACT_NOT_DELETABLE');
+
+        $this->assertDatabaseCount('internal_assignments', 1);
+    }
+
+    public function test_a_pending_contract_without_history_can_be_deleted(): void
+    {
+        $contract = VehicleContract::factory()->create(['status' => 'pending', 'start_date' => null]);
+
+        $this->asBearer($this->login(['delete-contracts']))->deleteJson("/api/v1/admin/vehicle-contracts/{$contract->id}")
+            ->assertSuccessful();
+
+        $this->assertDatabaseMissing('vehicle_contracts', ['id' => $contract->id]);
+    }
 }
