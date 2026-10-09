@@ -11,6 +11,7 @@ use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\Driver;
 use App\Models\DriverContract;
+use App\Models\InternalAssignment;
 use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
@@ -508,6 +509,46 @@ final class ActivityJournal
             $contract->vehicle,
             "a créé le contrat de {$contract->contract_months} mois du véhicule {$contract->vehicle?->vehicle_number}",
             ['contract_id' => $contract->id],
+        );
+    }
+
+    public function internalAssignmentCreated(InternalAssignment $assignment): void
+    {
+        $assignment->loadMissing('driver.user', 'vehicleContract.vehicle');
+        $this->record(
+            ActivityEvent::InternalAssignmentCreated,
+            $assignment->vehicleContract,
+            "a affecté {$this->driverName($assignment->driver)} en interne sur {$assignment->vehicleContract?->vehicle?->vehicle_number}",
+            ['internal_assignment_id' => $assignment->id, 'start_date' => $assignment->start_date->toDateString()],
+        );
+    }
+
+    /** `$successor` : l'agent dont le contrat a terminé l'affectation, s'il y en a un. */
+    public function internalAssignmentEnded(InternalAssignment $assignment, ?Driver $successor = null): void
+    {
+        $assignment->loadMissing('driver.user', 'vehicleContract.vehicle');
+        $vehicle = $assignment->vehicleContract?->vehicle?->vehicle_number;
+        $description = $successor
+            ? "l'affectation interne de {$this->driverName($assignment->driver)} sur {$vehicle} a été terminée par le contrat de {$this->driverName($successor)}"
+            : "a terminé l'affectation interne de {$this->driverName($assignment->driver)} sur {$vehicle}";
+
+        $this->record(
+            ActivityEvent::InternalAssignmentEnded,
+            $assignment->vehicleContract,
+            $description,
+            ['internal_assignment_id' => $assignment->id, 'end_date' => $assignment->end_date?->toDateString()],
+        );
+    }
+
+    public function vehicleContractActivated(VehicleContract $contract, Driver $driver): void
+    {
+        $contract->loadMissing('vehicle');
+        $driver->loadMissing('user');
+        $this->record(
+            ActivityEvent::VehicleContractActivated,
+            $contract,
+            "le contrat de {$contract->vehicle?->vehicle_number} a commencé le {$contract->start_date->format('d/m/Y')} avec {$this->driverName($driver)}",
+            ['start_date' => $contract->start_date->toDateString()],
         );
     }
 

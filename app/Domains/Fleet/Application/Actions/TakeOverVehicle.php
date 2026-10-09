@@ -2,9 +2,12 @@
 
 namespace App\Domains\Fleet\Application\Actions;
 
+use App\Domains\Audit\Application\ActivityJournal;
+use App\Domains\Notification\Application\Notifier;
 use App\Models\Driver;
 use App\Models\VehicleContract;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -16,7 +19,11 @@ use Illuminate\Validation\ValidationException;
  */
 final class TakeOverVehicle
 {
-    public function __construct(private readonly EndInternalAssignment $endAssignment) {}
+    public function __construct(
+        private readonly EndInternalAssignment $endAssignment,
+        private readonly ActivityJournal $journal,
+        private readonly Notifier $notifier,
+    ) {}
 
     public function __invoke(VehicleContract $contract, string $driverStartDate, Driver $driver): TakeOverResult
     {
@@ -36,6 +43,16 @@ final class TakeOverVehicle
         if ($contract->status === 'pending') {
             $contract->update(['status' => 'active', 'start_date' => $start->toDateString()]);
             $activated = true;
+        }
+
+        if ($ended) {
+            $this->journal->internalAssignmentEnded($ended, $driver);
+        }
+        if ($activated) {
+            $activatedContract = $contract->fresh('vehicle.owner');
+            $this->journal->vehicleContractActivated($activatedContract, $driver);
+            // Après la transaction : une notification ne fait jamais échouer l'arrivée d'un agent.
+            DB::afterCommit(fn () => $this->notifier->vehicleInService($activatedContract));
         }
 
         return new TakeOverResult($ended, $activated);

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Presentation\Api\V1\Admin;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\AssignInternalDriver;
 use App\Domains\Fleet\Application\Actions\EndInternalAssignment;
 use App\Domains\Fleet\Application\Actions\ShowVehicleContractDetail;
@@ -20,10 +21,13 @@ use Illuminate\Validation\ValidationException;
 /** Les affectations internes (spec 2026-10-09, §5.1). */
 final class InternalAssignmentController
 {
+    public function __construct(private readonly ActivityJournal $journal) {}
+
     public function store(Request $request, string $contractId, AssignInternalDriverData $data, AssignInternalDriver $assign, ShowVehicleContractDetail $show): JsonResponse
     {
         return $this->guard($request, function () use ($request, $contractId, $data, $assign, $show) {
-            $assign(VehicleContract::findOrFail($contractId), Driver::findOrFail($data->driverId), $data->startDate, $data->notes, $request->user());
+            $assignment = $assign(VehicleContract::findOrFail($contractId), Driver::findOrFail($data->driverId), $data->startDate, $data->notes, $request->user());
+            $this->journal->internalAssignmentCreated($assignment);
 
             return response()->json($show($contractId), 201);
         });
@@ -33,7 +37,7 @@ final class InternalAssignmentController
     {
         return $this->guard($request, function () use ($request, $assignmentId, $data, $end, $show) {
             $assignment = InternalAssignment::findOrFail($assignmentId);
-            $end($assignment, $data->endDate, 'manual', $request->user());
+            $this->journal->internalAssignmentEnded($end($assignment, $data->endDate, 'manual', $request->user()));
 
             return response()->json($show($assignment->vehicle_contract_id));
         });

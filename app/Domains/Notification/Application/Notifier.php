@@ -7,6 +7,7 @@ use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\User;
+use App\Models\VehicleContract;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -313,6 +314,20 @@ final class Notifier
                 .'. Contactez un administrateur si cela vous semble erroné.',
             'warning',
             null,
+        );
+    }
+
+    /** Le contrat en attente a commencé : le véhicule roule pour son propriétaire (2026-10-09). */
+    public function vehicleInService(VehicleContract $contract): void
+    {
+        $vehicle = $contract->vehicle;
+
+        $this->vers(
+            $vehicle?->owner,
+            'Véhicule en service',
+            'Votre véhicule '.($vehicle?->vehicle_number ?? '').' est en service depuis le '.$contract->start_date->format('d/m/Y').'.',
+            'success',
+            $vehicle ? "/owner/vehicles/{$vehicle->id}" : null,
         );
     }
 

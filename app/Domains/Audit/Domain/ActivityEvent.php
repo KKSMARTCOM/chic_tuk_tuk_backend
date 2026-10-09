@@ -74,6 +74,9 @@ enum ActivityEvent: string
     case VehicleContractCreated = 'vehicle.contract_created';
     case VehicleContractUpdated = 'vehicle.contract_updated';
     case VehicleContractDeleted = 'vehicle.contract_deleted';
+    case VehicleContractActivated = 'vehicle.contract_activated';
+    case InternalAssignmentCreated = 'vehicle.internal_assignment_created';
+    case InternalAssignmentEnded = 'vehicle.internal_assignment_ended';
 
     // Paiements et commissions
     case PaymentCreated = 'payment.created';
@@ -155,6 +158,9 @@ enum ActivityEvent: string
             self::VehicleContractCreated => 'Contrat propriétaire créé',
             self::VehicleContractUpdated => 'Contrat propriétaire modifié',
             self::VehicleContractDeleted => 'Contrat propriétaire supprimé',
+            self::VehicleContractActivated => 'Contrat propriétaire commencé',
+            self::InternalAssignmentCreated => 'Agent interne affecté',
+            self::InternalAssignmentEnded => 'Affectation interne terminée',
             self::PaymentCreated => 'Paiement enregistré',
             self::PaymentUpdated => 'Paiement modifié',
             self::PaymentValidated => 'Paiement validé',

@@ -10,6 +10,7 @@ use App\Models\VehicleContract;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -89,5 +90,19 @@ class InternalAssignmentApiTest extends TestCase
             ->getJson("/api/v1/admin/drivers/{$assignment->driver_id}")
             ->assertOk()
             ->assertJsonPath('internal_assignment.vehicle_number', $assignment->vehicleContract->vehicle->vehicle_number);
+    }
+
+    public function test_assigning_and_ending_are_logged(): void
+    {
+        $contract = VehicleContract::factory()->create();
+        $driver = Driver::factory()->create();
+        $token = $this->login(['edit-contracts']);
+
+        $this->asBearer($token)->postJson("/api/v1/admin/vehicle-contracts/{$contract->id}/internal-assignments", ['driver_id' => $driver->id, 'start_date' => '2026-10-05'])->assertCreated();
+        $assignment = InternalAssignment::sole();
+        $this->asBearer($token)->postJson("/api/v1/admin/internal-assignments/{$assignment->id}/end", ['end_date' => '2026-10-08'])->assertOk();
+
+        $this->assertSame(1, Activity::where('event', 'vehicle.internal_assignment_created')->where('subject_id', $contract->id)->count());
+        $this->assertSame(1, Activity::where('event', 'vehicle.internal_assignment_ended')->where('subject_id', $contract->id)->count());
     }
 }
