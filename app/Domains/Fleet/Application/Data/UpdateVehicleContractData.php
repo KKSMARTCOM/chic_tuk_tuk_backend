@@ -18,9 +18,10 @@ final class UpdateVehicleContractData extends BaseData
     public function __construct(
         public int $contractMonths,
         public float $totalAmount,
-        public string $startDate,
         #[TypeScriptType(VehicleContractStatus::class)]
         public string $status,
+        /** Vide pour un contrat en attente (2026-10-09). */
+        public ?string $startDate = null,
         public ?string $vehicleId = null,
         public ?float $unlimitedInternet = null,
         public ?float $spotifyPremium = null,
@@ -35,6 +36,8 @@ final class UpdateVehicleContractData extends BaseData
             'vehicle_id' => ['nullable', 'uuid', 'exists:vehicles,id'],
             'status' => ['required', Rule::in(VehicleContractStatus::values())],
             ...VehicleContractInputData::rules(),
+            // En attente : pas de date de début, elle viendra du premier agent (2026-10-09).
+            'start_date' => ['exclude_if:status,pending', 'required', 'date'],
         ];
     }
 
@@ -44,7 +47,7 @@ final class UpdateVehicleContractData extends BaseData
         return [
             'vehicle_id.exists' => 'Le véhicule sélectionné est invalide.',
             'status.required' => 'Le statut du contrat est obligatoire.',
-            'status.in' => 'Le statut du contrat doit être actif, soldé ou annulé.',
+            'status.in' => 'Le statut du contrat doit être en attente, actif, soldé ou annulé.',
             ...VehicleContractInputData::messages(),
         ];
     }
@@ -56,7 +59,7 @@ final class UpdateVehicleContractData extends BaseData
             'vehicle_id' => $this->vehicleId,
             'contract_months' => $this->contractMonths,
             'total_amount' => $this->totalAmount,
-            'start_date' => $this->startDate,
+            'start_date' => $this->status === 'pending' ? null : $this->startDate,
             'status' => $this->status,
             'unlimited_internet' => $this->unlimitedInternet,
             'spotify_premium' => $this->spotifyPremium,

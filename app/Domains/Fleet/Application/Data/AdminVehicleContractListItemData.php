@@ -51,7 +51,8 @@ final class AdminVehicleContractListItemData extends BaseData
 
         $hasHistory = $contract->driver_contracts_count > 0
             || $contract->payments_count > 0
-            || $contract->pauses_count > 0;
+            || $contract->pauses_count > 0
+            || $contract->internal_assignments_count > 0;
 
         return new self(
             id: $contract->id,

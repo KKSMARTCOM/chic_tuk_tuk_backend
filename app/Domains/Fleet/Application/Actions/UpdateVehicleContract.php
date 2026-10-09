@@ -50,6 +50,17 @@ final class UpdateVehicleContract
                 'manager_remuneration' => $data['manager_remuneration'] ?? $contract->manager_remuneration,
             ];
 
+            // Repasser en attente : seulement un contrat qui n'a jamais roulé (2026-10-09).
+            if ($updateData['status'] === 'pending') {
+                $started = $contract->driverContracts()->exists()
+                    || $contract->payments()->exists()
+                    || $contract->remunerationStatements()->exists();
+                if ($started) {
+                    throw new ApiException(409, 'VEHICLE_CONTRACT_ALREADY_STARTED', 'Ce contrat a déjà eu un agent, un paiement ou une fiche : il ne repasse pas en attente.');
+                }
+                $updateData['start_date'] = null;
+            }
+
             ($this->checkTotal)((int) $updateData['contract_months'], $updateData['total_amount'], $contract);
 
             // Les montants journaliers restent ceux du contrat, sauf changement de durée :
@@ -76,7 +87,7 @@ final class UpdateVehicleContract
                 $updateData['owner_id'] = $vehicle->owner_id;
             }
 
-            if ($updateData['status'] === 'active' && $vehicle) {
+            if (in_array($updateData['status'], ['active', 'pending'], true) && $vehicle) {
                 VehicleContractRules::assertCanCarryAnActiveContract($vehicle, except: $contract);
             }
 

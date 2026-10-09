@@ -55,6 +55,6 @@ final class ListVehicleContracts
         return VehicleContract::query()
             ->with(['owner', 'vehicle.activeDriverContract'])
             ->withSum(['payments as completed_paid' => fn ($query) => $query->where('status', 'completed')], 'net_amount')
-            ->withCount(['driverContracts', 'payments', 'pauses']);
+            ->withCount(['driverContracts', 'payments', 'pauses', 'internalAssignments']);
     }
 }

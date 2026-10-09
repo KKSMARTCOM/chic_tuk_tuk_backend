@@ -971,11 +971,12 @@ export type CreateVehicleContractData = {
 vehicle_id: string;
 contract_months: number;
 total_amount: number;
-start_date: string;
+start_date: string | null;
 unlimited_internet: number | null;
 spotify_premium: number | null;
 manager_remuneration: number | null;
 notes: string | null;
+pending: boolean;
 };
 export type CreateVehiclePauseData = {
 start_date: string;
@@ -1086,8 +1087,8 @@ password: string;
 export type UpdateVehicleContractData = {
 contract_months: number;
 total_amount: number;
-start_date: string;
 status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
+start_date: string | null;
 vehicle_id: string | null;
 unlimited_internet: number | null;
 spotify_premium: number | null;

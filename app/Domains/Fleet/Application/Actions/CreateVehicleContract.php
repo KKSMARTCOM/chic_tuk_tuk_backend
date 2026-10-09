@@ -41,9 +41,10 @@ final class CreateVehicleContract
                 'owner_id' => $vehicle->owner_id,
                 'total_amount' => $data['total_amount'],
                 'monthly_payment' => $data['monthly_payment'] ?? 0,
-                'start_date' => $data['start_date'],
+                'start_date' => ($data['pending'] ?? false) ? null : $data['start_date'],
                 'end_date' => $data['end_date'] ?? null,
-                'status' => 'active',
+                // En attente de son premier agent : il commencera avec lui (2026-10-09).
+                'status' => ($data['pending'] ?? false) ? 'pending' : 'active',
                 'notes' => $data['notes'] ?? null,
                 'contract_months' => $data['contract_months'],
                 ...ContractTerms::dailyAmountsFor((int) $data['contract_months']),

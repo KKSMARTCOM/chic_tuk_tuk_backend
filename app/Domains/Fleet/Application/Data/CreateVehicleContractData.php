@@ -17,11 +17,14 @@ final class CreateVehicleContractData extends BaseData
         public string $vehicleId,
         public int $contractMonths,
         public float $totalAmount,
-        public string $startDate,
+        /** Vide pour un contrat en attente (2026-10-09). */
+        public ?string $startDate = null,
         public ?float $unlimitedInternet = null,
         public ?float $spotifyPremium = null,
         public ?float $managerRemuneration = null,
         public ?string $notes = null,
+        /** En attente de son premier agent : il commencera avec lui (2026-10-09). */
+        public bool $pending = false,
     ) {}
 
     /** @return array<string, mixed> */
@@ -30,6 +33,9 @@ final class CreateVehicleContractData extends BaseData
         return [
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,id'],
             ...VehicleContractInputData::rules(),
+            'pending' => ['sometimes', 'boolean'],
+            // En attente : pas de date de début, elle viendra du premier agent (2026-10-09).
+            'start_date' => ['exclude_if:pending,true', 'required', 'date'],
         ];
     }
 
@@ -50,7 +56,8 @@ final class CreateVehicleContractData extends BaseData
             'vehicle_id' => $this->vehicleId,
             'contract_months' => $this->contractMonths,
             'total_amount' => $this->totalAmount,
-            'start_date' => $this->startDate,
+            'start_date' => $this->pending ? null : $this->startDate,
+            'pending' => $this->pending,
             'unlimited_internet' => $this->unlimitedInternet,
             'spotify_premium' => $this->spotifyPremium,
             'manager_remuneration' => $this->managerRemuneration,
