@@ -3,6 +3,7 @@
 namespace App\Domains\Finance\Application\Actions;
 
 use App\Domains\Finance\Domain\ChargeLedger;
+use App\Domains\Finance\Domain\ContractTargets;
 use App\Domains\Finance\Domain\ContractMonthCalculator;
 use App\Domains\Finance\Domain\ContractMonthFigures;
 use App\Domains\Finance\Domain\StatementFigures;
@@ -25,6 +26,9 @@ use Carbon\Carbon;
  * - cumuls : l'historique d'avant la mise en service, puis les fiches validées, puis celle-ci.
  *   Avant la mise en service, les charges des mois travaillés sont réputées prélevées,
  *   moins le reste d'ouverture saisi sur la première fiche.
+ * - revenu total et charges (spec 2026-10-12) : les charges dues sont plafonnées au total de
+ *   chaque ligne ; les recettes sont coupées au revenu total, et la part au-delà règle les
+ *   charges restantes puis revient à l'agence.
  */
 final class BuildStatementFigures
 {
@@ -75,16 +79,49 @@ final class BuildStatementFigures
             'spotify' => (float) ($contract->spotify_premium ?? 0),
             'manager' => (float) ($contract->manager_remuneration ?? 0),
         ];
+        $lineTargets = ContractTargets::chargeLines($contract);
+
+        $historyRevenue = (float) Payment::query()
+            ->where('vehicle_contract_id', $contract->id)->where('status', 'completed')
+            ->where('payment_month', '<', $firstMonth.'-01')->sum('net_amount');
+        $historyMonths = collect($calculator->monthKeys())
+            ->filter(fn ($key) => $key < $firstMonth && $calculator->month($key)->isWorked)->count();
+
+        // Les recettes du mois coupées au revenu total (spec 2026-10-12, §3.2).
+        $monthRevenue = $revenue + $recovered;
+        $priorRevenue = $historyRevenue + $prior->sum(fn ($s) => (float) ($s->figures['revenue'] ?? 0) + (float) ($s->figures['recovered'] ?? 0));
+        $within = round(min($monthRevenue, max(0.0, ContractTargets::revenue($contract) - $priorRevenue)), 2);
+        $beyond = round($monthRevenue - $within, 2);
 
         $due = [];
         $outstanding = [];
+        $ceiling = [];
         foreach (array_keys(ChargeLedger::LINES) as $line) {
-            $due[$line] = $month->isWorked ? $lineAmounts[$line] : 0.0;
+            $opening = (float) ($first?->{"opening_{$line}"} ?? 0);
+            // Plafonné au total de la ligne : au-delà de la durée, plus rien n'est dû (§3.1).
+            $alreadyDue = $historyMonths * $lineAmounts[$line] + $prior->sum(fn ($s) => $this->line($s, $line, 'due'));
+            $due[$line] = $month->isWorked ? round(max(0.0, min($lineAmounts[$line], $lineTargets[$line] - $alreadyDue)), 2) : 0.0;
             $carried = $prior->sum(fn ($s) => $this->line($s, $line, 'due') - $this->line($s, $line, 'deducted'));
-            $outstanding[$line] = round((float) ($first?->{"opening_{$line}"} ?? 0) + $carried + $due[$line], 2);
+            $outstanding[$line] = round($opening + $carried + $due[$line], 2);
+            // Revenu total atteint : les recettes au-delà règlent tout ce qui reste jusqu'au
+            // total de la ligne, même pas encore dû (§3.3).
+            $alreadyDeducted = $historyMonths * $lineAmounts[$line] - $opening + $prior->sum(fn ($s) => $this->line($s, $line, 'deducted'));
+            $ceiling[$line] = $beyond > 0
+                ? round(max($outstanding[$line], $lineTargets[$line] - $alreadyDeducted), 2)
+                : $outstanding[$line];
         }
 
-        $proposed = ChargeLedger::propose($outstanding, $revenue + $recovered);
+        // D'abord les restes à recouvrer sur la part sous le revenu total, puis le reste
+        // jusqu'au plafond sur la part au-delà, dans l'ordre des lignes.
+        $proposed = ChargeLedger::propose($outstanding, $within);
+        if ($beyond > 0) {
+            $more = ChargeLedger::propose(
+                collect($ceiling)->map(fn ($c, $line) => max(0.0, $c - $proposed[$line]))->all(),
+                $beyond,
+            );
+            $proposed = collect($proposed)->map(fn ($p, $line) => round($p + $more[$line], 2))->all();
+        }
+
         $charges = [];
         foreach (ChargeLedger::LINES as $line => $label) {
             $saved = $statement?->{"deducted_{$line}"};
@@ -93,22 +130,22 @@ final class BuildStatementFigures
                 'label' => $label,
                 'due' => $due[$line],
                 'outstanding' => $outstanding[$line],
+                'ceiling' => $ceiling[$line],
                 'proposed' => $proposed[$line],
                 'deducted' => $saved !== null ? (float) $saved : $proposed[$line],
             ];
         }
         $deductedTotal = (float) collect($charges)->sum('deducted');
 
-        $historyRevenue = (float) Payment::query()
-            ->where('vehicle_contract_id', $contract->id)->where('status', 'completed')
-            ->where('payment_month', '<', $firstMonth.'-01')->sum('net_amount');
-        $historyMonths = collect($calculator->monthKeys())
-            ->filter(fn ($key) => $key < $firstMonth && $calculator->month($key)->isWorked)->count();
+        // Les charges se prennent d'abord sur la part sous le revenu total, dans la limite des
+        // restes à recouvrer ; le reste vient de la part au-delà (§3.4).
+        $fromWithin = min($deductedTotal, $within, max(0.0, array_sum($outstanding)));
+        $balanceDue = round($within - $fromWithin, 2);
+        $agencyShare = round($beyond - ($deductedTotal - $fromWithin), 2);
+
         $opening = $first ? (float) $first->opening_internet + (float) $first->opening_spotify + (float) $first->opening_manager : 0.0;
 
-        $cumulativeRevenue = $historyRevenue
-            + $prior->sum(fn ($s) => (float) ($s->figures['revenue'] ?? 0) + (float) ($s->figures['recovered'] ?? 0))
-            + $revenue + $recovered;
+        $cumulativeRevenue = $priorRevenue + $monthRevenue;
         $cumulativeCharges = ($historyMonths * $contract->total_charges - $opening)
             + $prior->sum(fn ($s) => (float) ($s->figures['deducted_total'] ?? 0))
             + $deductedTotal;
@@ -130,7 +167,10 @@ final class BuildStatementFigures
             pendingAmount: $month->pendingAmount + (float) $late->sum('net_amount'),
             charges: $charges,
             deductedTotal: $deductedTotal,
-            balanceDue: round($revenue + $recovered - $deductedTotal, 2),
+            balanceDue: $balanceDue,
+            revenueWithinTarget: $within,
+            revenueBeyondTarget: $beyond,
+            agencyShare: $agencyShare,
             cumulativeRevenue: $cumulativeRevenue,
             cumulativeCharges: $cumulativeCharges,
             cumulativeNet: $cumulativeRevenue - $cumulativeCharges,
@@ -138,7 +178,7 @@ final class BuildStatementFigures
             pauseDaysTaken: $calculator->pauseDaysTakenUntil($monthKey),
             pauseAllowance: 2 * (int) $contract->contract_months,
             isFirstStatement: $statement !== null && $first !== null && $first->is($statement),
-            anomalies: $this->anomalies($month, $cumulativeRevenue, (float) $contract->total_amount),
+            anomalies: $this->anomalies($month),
             revenuePaymentIds: $revenuePayments->pluck('id')->values()->all(),
             recoveredPaymentIds: $recoveredPayments->pluck('id')->values()->all(),
         );
@@ -168,7 +208,7 @@ final class BuildStatementFigures
     }
 
     /** @return list<string> */
-    private function anomalies(ContractMonthFigures $month, float $cumulativeRevenue, float $target): array
+    private function anomalies(ContractMonthFigures $month): array
     {
         $anomalies = [];
 
@@ -180,9 +220,6 @@ final class BuildStatementFigures
         }
         if ($month->countedDaysWithoutPayment > 0) {
             $anomalies[] = "{$month->countedDaysWithoutPayment} jour(s) comptabilisé(s) sans paiement.";
-        }
-        if ($target > 0 && $cumulativeRevenue > $target) {
-            $anomalies[] = 'Le cumul des recettes dépasse le revenu cible du contrat.';
         }
 
         return $anomalies;

@@ -176,10 +176,6 @@ final class ValidateRemunerationStatement
     /** @return array<string, string> */
     private function violations(StatementFigures $figures): array
     {
-        return ChargeLedger::violations(
-            collect($figures->charges)->pluck('deducted', 'key')->all(),
-            collect($figures->charges)->pluck('outstanding', 'key')->all(),
-            $figures->revenue + $figures->recovered,
-        );
+        return ChargeLedger::violationsFor($figures);
     }
 }

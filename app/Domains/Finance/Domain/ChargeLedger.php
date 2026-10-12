@@ -71,6 +71,30 @@ final class ChargeLedger
         return $violations;
     }
 
+    /**
+     * Les garde-fous d'une fiche (spec 2026-10-12, §3.3) : le plafond de chaque ligne
+     * (`ceiling`), ce que le mois rapporte, et la part de l'agence jamais négative — au-delà
+     * des restes à recouvrer, un prélèvement ne se prend que sur les recettes au-delà du
+     * revenu total.
+     *
+     * @return array<string, string>
+     */
+    public static function violationsFor(StatementFigures $figures): array
+    {
+        $charges = collect($figures->charges);
+        $violations = self::violations(
+            $charges->pluck('deducted', 'key')->all(),
+            $charges->mapWithKeys(fn ($c) => [$c['key'] => $c['ceiling'] ?? $c['outstanding']])->all(),
+            $figures->revenue + $figures->recovered,
+        );
+
+        if ($violations === [] && $figures->agencyShare < -0.005) {
+            $violations['deducted'] = 'Au-delà des charges à recouvrer, un prélèvement ne se prend que sur les recettes au-delà du revenu total.';
+        }
+
+        return $violations;
+    }
+
     /** @param  array<string, float|int>  $amounts */
     private static function total(array $amounts): float
     {

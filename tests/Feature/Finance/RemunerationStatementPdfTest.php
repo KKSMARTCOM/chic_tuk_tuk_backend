@@ -87,4 +87,21 @@ class RemunerationStatementPdfTest extends TestCase
 
         $this->assertSame(2, substr_count($html, 'class="watermark'));
     }
+
+    public function test_the_agency_share_line_appears_when_there_is_one(): void
+    {
+        $figures = StatementFigures::fromArray(['agency_share' => 140_000] + $this->figures()->toArray());
+
+        $html = app(RemunerationStatementPdf::class)->html($figures, 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
+
+        $this->assertStringContainsString("Au-delà du revenu total du contrat (revient à l'agence)", $html);
+        $this->assertStringContainsString('(140 000)', $html);
+    }
+
+    public function test_no_agency_share_line_without_one(): void
+    {
+        $html = app(RemunerationStatementPdf::class)->html($this->figures(), 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
+
+        $this->assertStringNotContainsString('Au-delà du revenu total', $html);
+    }
 }

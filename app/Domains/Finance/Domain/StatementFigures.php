@@ -28,10 +28,15 @@ final class StatementFigures
         public readonly float $recovered,
         public readonly int $pendingCount,
         public readonly float $pendingAmount,
-        /** @var list<array{key: string, label: string, due: float, outstanding: float, proposed: float, deducted: float}> */
+        /** @var list<array{key: string, label: string, due: float, outstanding: float, ceiling: float, proposed: float, deducted: float}> `ceiling` : le plus que la ligne peut prélever ce mois-ci */
         public readonly array $charges,
         public readonly float $deductedTotal,
         public readonly float $balanceDue,
+        /** Les recettes du mois sous le revenu total, puis au-delà (spec 2026-10-12, §3.2). */
+        public readonly float $revenueWithinTarget,
+        public readonly float $revenueBeyondTarget,
+        /** Ce qui revient à l'agence ; zéro pour une fiche validée avant le 2026-10-12. */
+        public readonly float $agencyShare,
         public readonly float $cumulativeRevenue,
         public readonly float $cumulativeCharges,
         public readonly float $cumulativeNet,

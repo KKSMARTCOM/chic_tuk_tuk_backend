@@ -62,6 +62,9 @@
     @foreach ($f->charges as $charge)
       <tr><td>{{ $charge['label'] }}</td><td>{{ $charge['deducted'] > 0 ? '('.$fcfa($charge['deducted']).')' : '-' }}</td></tr>
     @endforeach
+    @if ($f->agencyShare > 0)
+      <tr><td>Au-delà du revenu total du contrat (revient à l'agence)</td><td>({{ $fcfa($f->agencyShare) }})</td></tr>
+    @endif
     <tr class="strong"><td>Solde dû (en F CFA)</td><td>{{ $fcfa($f->balanceDue) }}</td></tr>
   </table>
 
