@@ -22,14 +22,20 @@ final class OwnerVehiclePausesData extends BaseData
         public array $items,
     ) {}
 
-    /** Attend un véhicule ayant chargé `pauses`, `driverContracts.leaveRequests` et `activeVehicleContract`. */
+    /** Attend un véhicule ayant chargé `pauses`, `driverContracts.leaveRequests`, `activeVehicleContract`, `liveVehicleContract` et `settledVehicleContract`. */
     public static function fromModel(Vehicle $vehicle): self
     {
         $contract = $vehicle->activeVehicleContract;
+        $end = $vehicle->liveVehicleContract === null ? $vehicle->settledVehicleContract?->end_date : null;
+        $items = VehiclePauseData::historyOf($vehicle);
+        if ($end !== null) {
+            // Après la fin du contrat : les pauses de l'agent qui continue ne le regardent pas (2026-10-12).
+            $items = array_values(array_filter($items, fn (VehiclePauseData $p) => $p->startDate <= $end->toDateString()));
+        }
 
         return new self(
             summary: $contract ? OwnerContractPauseSummaryData::fromContract($contract, ContractMonthCalculator::for($contract)) : null,
-            items: VehiclePauseData::historyOf($vehicle),
+            items: $items,
         );
     }
 }

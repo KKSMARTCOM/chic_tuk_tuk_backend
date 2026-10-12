@@ -1027,7 +1027,6 @@ remaining_amount: number;
 daily_net_amount: number;
 progress_percentage: number;
 months_elapsed: number;
-months_remaining: number;
 total_charges: number;
 unlimited_internet: number;
 spotify_premium: number;
@@ -1047,7 +1046,6 @@ pause_overrun: number;
 export type OwnerContractSummaryData = {
 contract_months: number;
 months_elapsed: number;
-months_remaining: number;
 progress_percentage: number;
 remaining_amount: number;
 paid_amount: number;
@@ -1068,7 +1066,7 @@ export type OwnerVehicleDetailData = {
 id: string;
 vehicle_number: string;
 vehicle_type: string | null;
-state: "active" | "paused" | "immobilized" | "pending";
+state: "active" | "paused" | "immobilized" | "pending" | "completed";
 active_pause: App.Domains.Fleet.Application.Data.ActivePauseData | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractDetailData | null;
 };
@@ -1087,7 +1085,7 @@ export type OwnerVehicleSummaryData = {
 id: string;
 vehicle_number: string;
 vehicle_type: string | null;
-state: "active" | "paused" | "immobilized" | "pending";
+state: "active" | "paused" | "immobilized" | "pending" | "completed";
 pause_reason_label: string | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractSummaryData | null;
 };

@@ -13,28 +13,34 @@ final class OwnerVehicleSummaryData extends BaseData
         public string $id,
         public string $vehicleNumber,
         public ?string $vehicleType,
-        /** Actif, En pause, Immobilisé — en attente d'un nouvel agent (spec §6.1) —, ou En attente de mise en service (2026-10-09). */
-        #[LiteralTypeScriptType('"active" | "paused" | "immobilized" | "pending"')]
+        /** Actif, En pause, Immobilisé — en attente d'un nouvel agent (spec §6.1) —, En attente de mise en service (2026-10-09), ou Soldé (2026-10-12). */
+        #[LiteralTypeScriptType('"active" | "paused" | "immobilized" | "pending" | "completed"')]
         public string $state,
         /** Le motif de la pause en cours, affiché à côté de l'état. */
         public ?string $pauseReasonLabel,
         public ?OwnerContractSummaryData $contract,
     ) {}
 
-    /** Attend un véhicule ayant chargé `activeVehicleContract`, `liveVehicleContract` et `activePause`. */
+    /** Attend un véhicule ayant chargé `activeVehicleContract`, `liveVehicleContract`, `settledVehicleContract` et `activePause`. */
     public static function fromModel(Vehicle $vehicle): self
     {
-        $contract = $vehicle->activeVehicleContract;
+        $settled = $vehicle->liveVehicleContract === null ? $vehicle->settledVehicleContract : null;
+        $contract = $vehicle->activeVehicleContract ?? $settled;
+        // Soldé : l'agent qui continue roule pour l'agence, ses pauses ne sont pas celles du
+        // propriétaire (spec 2026-10-12, §7.2).
+        $pause = $settled ? null : $vehicle->activePause;
 
         return new self(
             id: $vehicle->id,
             vehicleNumber: $vehicle->vehicle_number,
             vehicleType: $vehicle->vehicle_type,
             // En attente de son premier agent : ni chiffres ni pause à montrer (2026-10-09).
-            state: $vehicle->liveVehicleContract?->status === 'pending'
-                ? 'pending'
-                : VehicleOwnerState::of($vehicle->activePause),
-            pauseReasonLabel: $vehicle->activePause?->reason_label,
+            state: match (true) {
+                $settled !== null => 'completed',
+                $vehicle->liveVehicleContract?->status === 'pending' => 'pending',
+                default => VehicleOwnerState::of($pause),
+            },
+            pauseReasonLabel: $pause?->reason_label,
             // Le véhicule peut n'avoir aucun contrat actif : c'est un cas réel, que le
             // Blade traite déjà par « Aucun contrat actif pour ce véhicule ».
             contract: $contract ? OwnerContractSummaryData::fromModel($contract) : null,

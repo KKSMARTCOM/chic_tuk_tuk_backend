@@ -48,7 +48,8 @@ final class ListOwnerVehiclePayments
 
     private function query(Vehicle $vehicle, string $ownerId, array $params): QueryBuilder
     {
-        $base = Payment::query()
+        // Jusqu'à la date de fin du contrat : au-delà, les versements reviennent à l'agence.
+        $base = Payment::query()->forOwner()
             ->where('payment_type', 'contract')
             ->whereIn('status', ['completed', 'pending'])
             ->whereHas('vehicleContract', fn (Builder $q) => $q->where('vehicle_id', $vehicle->id)->where('owner_id', $ownerId));

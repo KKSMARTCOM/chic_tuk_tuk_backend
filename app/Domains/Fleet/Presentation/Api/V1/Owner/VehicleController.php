@@ -49,7 +49,7 @@ final class VehicleController
     {
         try {
             $vehicle = $this->owned($request, $id);
-            $vehicle->load(['activeVehicleContract', 'liveVehicleContract', 'activePause']);
+            $vehicle->load(['activeVehicleContract', 'liveVehicleContract', 'settledVehicleContract', 'activePause']);
 
             return response()->json(OwnerVehicleDetailData::fromModel($vehicle));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -75,7 +75,7 @@ final class VehicleController
     {
         try {
             $vehicle = $this->owned($request, $id);
-            $vehicle->load(['pauses', 'driverContracts.leaveRequests', 'activeVehicleContract']);
+            $vehicle->load(['pauses', 'driverContracts.leaveRequests', 'activeVehicleContract', 'liveVehicleContract', 'settledVehicleContract']);
 
             return response()->json(OwnerVehiclePausesData::fromModel($vehicle));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

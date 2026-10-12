@@ -32,7 +32,6 @@ final class OwnerContractDetailData extends BaseData
         public float $dailyNetAmount,
         public int $progressPercentage,
         public int $monthsElapsed,
-        public int $monthsRemaining,
         public float $totalCharges,
         public float $unlimitedInternet,
         public float $spotifyPremium,
@@ -70,7 +69,6 @@ final class OwnerContractDetailData extends BaseData
             dailyNetAmount: $contract->daily_net_amount,
             progressPercentage: $contract->progress_percentage,
             monthsElapsed: $worked,
-            monthsRemaining: max(0, $months - $worked),
             totalCharges: $contract->total_charges,
             // `?? 0` : les colonnes ont un défaut à 0 en base, mais les contrats créés
             // avant la migration du 5 août portent des nulls.

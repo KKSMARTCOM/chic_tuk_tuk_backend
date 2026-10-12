@@ -89,7 +89,7 @@ class OwnerVehicleShowTest extends TestCase
             ->assertJsonStructure(['contract' => [
                 'start_date', 'total_days', 'invested_amount',
                 'total_amount', 'total_paid', 'remaining_amount', 'daily_net_amount',
-                'progress_percentage', 'months_elapsed', 'months_remaining',
+                'progress_percentage', 'months_elapsed',
                 'pauses' => ['pause_allowance', 'pause_days_taken', 'pause_days_available', 'pause_days_remaining', 'pause_overrun'],
             ]]);
     }
@@ -116,7 +116,7 @@ class OwnerVehicleShowTest extends TestCase
             ->assertJsonMissingPath('contract.planned_end_date')
             ->assertJsonMissingPath('contract.extended_end_date')
             ->assertJsonPath('contract.months_elapsed', 2)
-            ->assertJsonPath('contract.months_remaining', 22)
+            ->assertJsonMissingPath('contract.months_remaining')
             ->assertJsonPath('contract.total_days', 528)
             ->assertJsonPath('contract.invested_amount', 1_799_500)
             ->assertJsonPath('contract.pauses.pause_allowance', 48)

@@ -85,14 +85,28 @@ class OwnerVehiclesIndexTest extends TestCase
     {
         [$owner, $token] = $this->login(Profil::Owner, ['view-own-vehicles']);
 
-        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        VehicleContract::factory()->forVehicle($vehicle)->completed()->create();
+        Vehicle::factory()->create(['owner_id' => $owner->id]);
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/owner/vehicles')
             ->assertOk()
             ->assertJsonPath('0.contract', null)
             ->assertJsonPath('0.state', 'active');
+    }
+
+    public function test_un_contrat_solde_s_affiche_solde(): void
+    {
+        // Spec 2026-10-12, §7.2 : le véhicule affiche « Soldé », avec les chiffres de son contrat.
+        [$owner, $token] = $this->login(Profil::Owner, ['view-own-vehicles']);
+
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->forVehicle($vehicle)->completed()->create(['end_date' => '2026-08-31']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/owner/vehicles')
+            ->assertOk()
+            ->assertJsonPath('0.state', 'completed')
+            ->assertJsonPath('0.contract.contract_months', 24);
     }
 
     public function test_expose_l_avancement_du_contrat_actif(): void
@@ -108,7 +122,7 @@ class OwnerVehiclesIndexTest extends TestCase
             ->assertJsonPath('0.contract.contract_months', 24)
             ->assertJsonStructure([
                 ['id', 'vehicle_number', 'vehicle_type', 'state', 'pause_reason_label', 'contract' => [
-                    'contract_months', 'months_elapsed', 'months_remaining',
+                    'contract_months', 'months_elapsed',
                     'progress_percentage', 'remaining_amount',
                 ]],
             ]);

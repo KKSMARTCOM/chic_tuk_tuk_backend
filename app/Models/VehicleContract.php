@@ -90,7 +90,8 @@ class VehicleContract extends Model
     // Montant total déjà payé
     public function getTotalPaidAttribute(): float
     {
-        return (float) $this->payments()->where('status', 'completed')->sum('net_amount');
+        // Jusqu'à la date de fin : au-delà, les versements reviennent à l'agence (2026-10-12).
+        return (float) $this->payments()->forOwner()->where('status', 'completed')->sum('net_amount');
     }
 
     // Montant restant à payer

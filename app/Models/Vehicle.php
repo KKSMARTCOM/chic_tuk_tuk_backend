@@ -41,6 +41,13 @@ class Vehicle extends Model
         return $this->hasOne(VehicleContract::class)->whereIn('status', ['active', 'pending']);
     }
 
+    /** Le dernier contrat soldé : le véhicule de son propriétaire une fois le contrat fini (2026-10-12). */
+    public function settledVehicleContract()
+    {
+        // ⚠️ Pas `latestOfMany()` : il départage par `MAX(id)`, que PostgreSQL refuse sur un UUID.
+        return $this->hasOne(VehicleContract::class)->where('status', 'completed')->orderByDesc('end_date');
+    }
+
     public function driverContracts()
     {
         return $this->hasMany(DriverContract::class);

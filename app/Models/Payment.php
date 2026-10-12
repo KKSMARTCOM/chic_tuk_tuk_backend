@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -43,6 +44,14 @@ class Payment extends Model
     public function vehicleContract()
     {
         return $this->belongsTo(VehicleContract::class);
+    }
+
+    /** Ce que le propriétaire voit : jusqu'à la date de fin de son contrat (spec 2026-10-12, §5). */
+    public function scopeForOwner(Builder $query): Builder
+    {
+        return $query->whereHas('vehicleContract', fn (Builder $contract) => $contract->where(fn (Builder $q) => $q
+            ->whereNull('vehicle_contracts.end_date')
+            ->orWhereColumn('vehicle_contracts.end_date', '>=', 'payments.payment_date')));
     }
 
     public function driverContract()
