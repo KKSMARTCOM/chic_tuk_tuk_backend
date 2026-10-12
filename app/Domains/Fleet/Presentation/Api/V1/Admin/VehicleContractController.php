@@ -6,6 +6,7 @@ use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\CreateVehicleContract;
 use App\Domains\Fleet\Application\Actions\DeleteVehicleContract;
 use App\Domains\Fleet\Application\Actions\ListVehicleContracts;
+use App\Domains\Fleet\Application\Actions\SettleVehicleContract;
 use App\Domains\Fleet\Application\Actions\ShowVehicleContractDefaults;
 use App\Domains\Fleet\Application\Actions\ShowVehicleContractDetail;
 use App\Domains\Fleet\Application\Actions\UpdateVehicleContract;
@@ -91,6 +92,21 @@ final class VehicleContractController
         } catch (\Throwable $e) {
             return $this->failure($e, $request, 'la modification du contrat propriétaire',
                 'Ce contrat n\'a pas pu être modifié.', 'VEHICLE_CONTRACT_UPDATE_FAILED');
+        }
+    }
+
+    /** Solder le contrat aux deux cumuls atteints (spec 2026-10-12, §4.2). */
+    public function settle(Request $request, string $contractId, SettleVehicleContract $settle, ShowVehicleContractDetail $show): JsonResponse
+    {
+        try {
+            $settle(VehicleContract::findOrFail($contractId));
+
+            return response()->json($show($contractId));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'le solde du contrat propriétaire',
+                'Ce contrat n\'a pas pu être soldé.', 'VEHICLE_CONTRACT_SETTLE_FAILED');
         }
     }
 

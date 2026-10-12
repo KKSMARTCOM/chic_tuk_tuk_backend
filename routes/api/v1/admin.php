@@ -202,6 +202,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
                 ->name('internal-assignments.available-drivers');
             Route::post('/internal-assignments/{assignment}/end', [InternalAssignmentController::class, 'end'])
                 ->name('internal-assignments.end');
+            // Solder aux deux cumuls atteints (2026-10-12).
+            Route::post('/vehicle-contracts/{contract}/settle', [VehicleContractController::class, 'settle'])
+                ->name('vehicle-contracts.settle');
         });
 
         Route::delete('/vehicle-contracts/{contract}', [VehicleContractController::class, 'destroy'])

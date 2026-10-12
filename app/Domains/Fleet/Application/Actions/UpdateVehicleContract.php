@@ -9,6 +9,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /** Modifier un contrat véhicule — ex-Admin\VehicleContractController::update(). */
 final class UpdateVehicleContract
@@ -17,6 +18,11 @@ final class UpdateVehicleContract
 
     public function __invoke(VehicleContract $contract, UpdateVehicleContractData $data): VehicleContract
     {
+        // « Soldé » ne s'obtient que par l'action dédiée, aux cumuls atteints (spec 2026-10-12, §4.3).
+        if ($data->status === 'completed' && $contract->status !== 'completed') {
+            throw ValidationException::withMessages(['status' => 'Un contrat se solde par « Solder le contrat », une fois ses deux cumuls atteints.']);
+        }
+
         return $this->updateContract($contract, $data->toServicePayload());
     }
 

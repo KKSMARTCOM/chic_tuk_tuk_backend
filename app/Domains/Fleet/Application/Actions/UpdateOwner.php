@@ -124,7 +124,6 @@ final class UpdateOwner
             'total_amount' => $data['contract_total_amount'],
             'monthly_payment' => $data['contract_monthly_payment'] ?? 0,
             'start_date' => $data['contract_start_date'] ?? now()->toDateString(),
-            'end_date' => $data['contract_end_date'] ?? null,
             ...ContractTerms::chargesFrom($data),
         ];
 

@@ -42,7 +42,6 @@ final class CreateVehicleContract
                 'total_amount' => $data['total_amount'],
                 'monthly_payment' => $data['monthly_payment'] ?? 0,
                 'start_date' => ($data['pending'] ?? false) ? null : $data['start_date'],
-                'end_date' => $data['end_date'] ?? null,
                 // En attente de son premier agent : il commencera avec lui (2026-10-09).
                 'status' => ($data['pending'] ?? false) ? 'pending' : 'active',
                 'notes' => $data['notes'] ?? null,
