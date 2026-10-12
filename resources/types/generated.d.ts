@@ -442,6 +442,7 @@ payment_type: App.Domains.Finance.Domain.Enums.PaymentType;
 payment_method: 'cash' | 'bank_transfer' | 'check' | 'mobile_money' | 'other';
 status: App.Domains.Finance.Domain.Enums.PaymentStatus;
 payment_date: string | null;
+is_agency: boolean;
 reference_number: string | null;
 notes: string | null;
 contract_months: number | null;

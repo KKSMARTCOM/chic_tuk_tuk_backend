@@ -34,6 +34,8 @@ final class AdminPaymentData extends BaseData
         #[TypeScriptType(PaymentStatus::class)]
         public string $status,
         public ?string $paymentDate,
+        /** Après la fin du contrat propriétaire : revient à l'agence (spec 2026-10-12, §5). */
+        public bool $isAgency,
         public ?string $referenceNumber,
         public ?string $notes,
         public ?int $contractMonths,
@@ -67,6 +69,9 @@ final class AdminPaymentData extends BaseData
             paymentMethod: $payment->payment_method,
             status: $payment->status,
             paymentDate: $payment->payment_date?->toDateString(),
+            isAgency: $payment->vehicleContract?->end_date !== null
+                && $payment->payment_date !== null
+                && $payment->payment_date->gt($payment->vehicleContract->end_date),
             referenceNumber: $payment->reference_number,
             notes: $payment->notes,
             contractMonths: $payment->vehicleContract?->contract_months,

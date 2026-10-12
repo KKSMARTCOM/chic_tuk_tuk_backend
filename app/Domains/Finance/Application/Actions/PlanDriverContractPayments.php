@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
  *
  * ⚠️ Le contrat véhicule est celui DU CONTRAT AGENT, jamais le contrat actif du véhicule :
  * c'est ce qui rattache les jours d'un agent parti au contrat sur lequel il les a faits.
- * La période est ramenée aux dates des deux contrats.
+ * La période est ramenée au début du contrat véhicule et aux dates du contrat agent.
  */
 final class PlanDriverContractPayments
 {
@@ -29,10 +29,9 @@ final class PlanDriverContractPayments
         }
 
         $start = $contract->start_date->gt($vehicleContract->start_date) ? $contract->start_date : $vehicleContract->start_date;
+        // Seul le contrat de l'agent borne ses paiements : la fin du contrat propriétaire
+        // ne les arrête plus (spec 2026-10-12, §5).
         $end = $contract->end_date;
-        if ($vehicleContract->end_date !== null && ($end === null || $vehicleContract->end_date->lt($end))) {
-            $end = $vehicleContract->end_date;
-        }
 
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();

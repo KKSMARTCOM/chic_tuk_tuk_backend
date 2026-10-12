@@ -37,7 +37,9 @@ final class GenerateDailyContractPayments
         $contracts = DriverContract::with(['driver', 'vehicleContract'])
             ->where(fn ($query) => $query->where('status', 'active')
                 ->orWhere(fn ($ended) => $ended->where('status', 'ended')->whereDate('end_date', '>=', $today)))
-            ->whereHas('vehicleContract', fn ($q) => $q->where('status', 'active'))
+            // Un contrat soldé continue : l'agent va au bout du sien, au profit de l'agence
+            // (spec 2026-10-12, §5). En attente et annulé restent exclus.
+            ->whereHas('vehicleContract', fn ($q) => $q->whereIn('status', ['active', 'completed']))
             ->get();
 
         foreach ($contracts as $contract) {

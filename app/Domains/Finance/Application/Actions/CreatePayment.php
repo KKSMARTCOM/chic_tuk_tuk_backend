@@ -50,16 +50,16 @@ final class CreatePayment
 
         ($this->checkPaymentData)($data);
 
-        // La date doit tomber dans le CONTRAT VÉHICULE, qui porte les fiches — pas dans le
-        // contrat de l'agent : un agent parti règle souvent son arriéré après son départ,
-        // pendant que le contrat véhicule continue (2026-10-01).
+        // La date doit suivre le début du CONTRAT VÉHICULE, qui porte les fiches — pas celui de
+        // l'agent : un agent parti règle souvent son arriéré après son départ (2026-10-01).
+        // Après la fin du contrat véhicule, le paiement revient à l'agence et n'entre dans
+        // aucune fiche (spec 2026-10-12, §5).
         if ($isContract && ! empty($data['vehicle_contract_id'])) {
             $vehicleContract = VehicleContract::findOrFail($data['vehicle_contract_id']);
             $date = Carbon::parse($data['payment_date'])->startOfDay();
-            if ($date->lt($vehicleContract->start_date) || ($vehicleContract->end_date !== null && $date->gt($vehicleContract->end_date))) {
-                $end = $vehicleContract->end_date?->format('d/m/Y');
-                throw ValidationException::withMessages(['payment_date' => 'La date est hors du contrat propriétaire (du '
-                    .$vehicleContract->start_date->format('d/m/Y').($end ? " au {$end}" : ', en cours').') : aucune fiche ne compterait ce paiement.']);
+            if ($vehicleContract->start_date === null || $date->lt($vehicleContract->start_date)) {
+                throw ValidationException::withMessages(['payment_date' => 'La date précède le début du contrat propriétaire'
+                    .($vehicleContract->start_date ? ' ('.$vehicleContract->start_date->format('d/m/Y').')' : '').'.']);
             }
         }
 

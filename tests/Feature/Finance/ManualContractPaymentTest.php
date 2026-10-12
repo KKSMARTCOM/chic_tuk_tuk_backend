@@ -118,16 +118,18 @@ class ManualContractPaymentTest extends TestCase
             ->assertCreated();
     }
 
-    public function test_a_date_outside_the_vehicle_contract_is_refused(): void
+    public function test_a_date_before_the_vehicle_contract_is_refused_after_its_end_goes_to_the_agency(): void
     {
         $vehicleContract = VehicleContract::factory()->create(['start_date' => '2026-03-01', 'end_date' => '2026-06-30', 'status' => 'completed']);
-        $ended = DriverContract::factory()->forVehicleContract($vehicleContract)->create(['start_date' => '2026-03-02', 'end_date' => '2026-06-30', 'status' => 'ended']);
+        $ended = DriverContract::factory()->forVehicleContract($vehicleContract)->create(['start_date' => '2026-03-02', 'end_date' => '2026-07-31', 'status' => 'ended']);
 
-        $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-07-10']))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['payment_date' => 'La date est hors du contrat propriétaire (du 01/03/2026 au 30/06/2026) : aucune fiche ne compterait ce paiement.']);
         $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-02-27']))
-            ->assertStatus(422)->assertJsonValidationErrors('payment_date');
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['payment_date' => 'La date précède le début du contrat propriétaire (01/03/2026).']);
         $this->assertSame(0, Payment::count());
+
+        // Après la fin du contrat propriétaire : accepté, il revient à l'agence (spec 2026-10-12, §5).
+        $this->api()->postJson('/api/v1/admin/payments', $this->body($ended->driver, ['driver_contract_id' => $ended->id, 'payment_date' => '2026-07-10']))
+            ->assertCreated();
     }
 }
