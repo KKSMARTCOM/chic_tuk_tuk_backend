@@ -33,6 +33,12 @@ final class ContractTargets
         ];
     }
 
+    /** La durée restante proposée au renouvellement : la durée moins les mois TRAVAILLÉS (spec 2026-10-12, §6). */
+    public static function remainingMonths(VehicleContract $contract): int
+    {
+        return max(0, (int) $contract->contract_months - ContractMonthCalculator::for($contract)->workedMonths());
+    }
+
     public static function isReached(float $cumulative, float $target): bool
     {
         return $cumulative >= $target - 0.005;

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Data;
 
+use App\Domains\Finance\Domain\ContractTargets;
 use App\Models\User;
 use App\Shared\Data\BaseData;
 
@@ -37,15 +38,11 @@ final class AdminOwnerRenewalOptionData extends BaseData
                         return null;
                     }
 
-                    // Mois déjà utilisés = somme des contrats agents TERMINÉS sur ce véhicule.
-                    $monthsUsed = $v->driverContracts
-                        ->where('status', 'ended')
-                        ->sum(fn ($contract) => ($contract->end_date->year * 12 + $contract->end_date->month)
-                            - ($contract->start_date->year * 12 + $contract->start_date->month)
-                            + 1);
-
+                    // Les mois TRAVAILLÉS du contrat propriétaire (2026-10-12), et non plus les
+                    // mois calendaires des agents terminés : une immobilisation ne consomme rien.
                     $totalMonths = $vehicleContract->contract_months;
-                    $remainingMonths = max(0, $totalMonths - $monthsUsed);
+                    $remainingMonths = ContractTargets::remainingMonths($vehicleContract);
+                    $monthsUsed = $totalMonths - $remainingMonths;
 
                     // Date de début suggérée = lendemain de la fin du DERNIER contrat agent.
                     $lastDriverContract = $v->driverContracts->first();

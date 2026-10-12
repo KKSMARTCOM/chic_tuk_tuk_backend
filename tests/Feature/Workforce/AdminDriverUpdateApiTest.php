@@ -192,7 +192,11 @@ class AdminDriverUpdateApiTest extends TestCase
         $driver = Driver::factory()->create();
         $owner = $this->owner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id, 'vehicle_number' => 'T-RECOND2']);
-        $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create(['contract_months' => 24]);
+        $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create([
+            'contract_months' => 24,
+            // Commencé avec l'agent qui en est parti : 11 mois travaillés, 13 restants (2026-10-12).
+            'start_date' => now()->subMonths(10)->startOfMonth(),
+        ]);
         DriverContract::factory()->forVehicleContract($vehicleContract)->create([
             'status' => 'ended',
             'start_date' => now()->subMonths(10)->startOfMonth(),

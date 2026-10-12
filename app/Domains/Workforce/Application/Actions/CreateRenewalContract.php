@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Domains\Finance\Domain\ContractTargets;
 use App\Domains\Fleet\Application\Actions\EndVehiclePauseBeforeAgentStart;
 use App\Domains\Fleet\Application\Actions\TakeOverVehicle;
 use App\Domains\Workforce\Domain\VehicleAssignmentRules;
@@ -37,32 +38,17 @@ final class CreateRenewalContract
             throw new \Exception('Le véhicule sélectionné n\'a pas de contrat actif.');
         }
 
-        // Calculer les mois déjà utilisés sur ce contrat proprio-véhicule
-        $monthsUsed = DriverContract::where('vehicle_id', $vehicle->id)
-            ->where('status', 'ended')
-            ->get(['start_date', 'end_date'])
-            ->sum(function ($contract) {
-                return ($contract->end_date->year * 12 + $contract->end_date->month)
-                    - ($contract->start_date->year * 12 + $contract->start_date->month)
-                    + 1;
-            });
+        // Les mois TRAVAILLÉS du contrat propriétaire (2026-10-12) : une immobilisation ne
+        // raccourcit plus le contrat de l'agent suivant. Durée restante nulle sur un contrat
+        // actif : le véhicule roule jusqu'aux cumuls, d'au moins 1 mois.
+        $remainingMonths = ContractTargets::remainingMonths($vehicleContract);
+        $minimum = max(1, $remainingMonths);
 
-        $remainingMonths = max(0, $vehicleContract->contract_months - $monthsUsed);
-
-        if ($remainingMonths <= 0) {
-            throw new \Exception('Ce contrat propriétaire ne dispose plus de temps restant pour une reconduction.');
-        }
-
-        // La durée demandée ne peut pas être inférieure à 1 mois et ne peut pas dépasser le temps restant sur le contrat
         $requestedMonths = (int) $data['renewal_contract_months'];
-        if ($requestedMonths < 1) {
-            throw new \Exception("La durée demandée ({$requestedMonths} mois) est inférieure à 1 mois.");
-        }
-
-        if ($requestedMonths < $remainingMonths) {
-            throw new \Exception(
-                "La durée demandée ({$requestedMonths} mois) est inférieure au temps restant ({$remainingMonths} mois) sur ce contrat."
-            );
+        if ($requestedMonths < $minimum) {
+            throw new \Exception($remainingMonths > 0
+                ? "La durée demandée ({$requestedMonths} mois) est inférieure au temps restant ({$remainingMonths} mois) sur ce contrat."
+                : "La durée demandée ({$requestedMonths} mois) est inférieure à 1 mois.");
         }
 
         // Validation règles métier (1 véhicule = 1 agent)
