@@ -27,6 +27,9 @@ class VehicleContract extends Model
         // Figés à la création depuis les réglages (2026-09-29), jamais relus ensuite.
         'daily_amount',
         'daily_tax',
+        // Le mois où chaque cumul a été atteint (2026-10-12).
+        'revenue_reached_month',
+        'charges_reached_month',
     ];
 
     protected $casts = [
@@ -40,6 +43,8 @@ class VehicleContract extends Model
         'daily_tax' => 'decimal:2',
         'start_date'      => 'date',
         'end_date'        => 'date',
+        'revenue_reached_month' => 'date',
+        'charges_reached_month' => 'date',
     ];
 
     public function vehicle()
@@ -114,6 +119,14 @@ class VehicleContract extends Model
         return (float) ($this->unlimited_internet ?? 0)
             + (float) ($this->spotify_premium ?? 0)
             + (float) ($this->manager_remuneration ?? 0);
+    }
+
+    /** Les deux cumuls atteints, contrat encore actif : l'admin peut le solder (spec 2026-10-12, §4.1). */
+    public function isReadyToSettle(): bool
+    {
+        return $this->status === 'active'
+            && $this->revenue_reached_month !== null
+            && $this->charges_reached_month !== null;
     }
 
     // ── Mois écoulés / restants sur le contrat véhicule ──
