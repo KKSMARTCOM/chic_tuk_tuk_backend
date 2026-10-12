@@ -14,6 +14,8 @@ final class AdminVehicleContractDetailData extends BaseData
 {
     public function __construct(
         public AdminVehicleContractListItemData $contract,
+        /** Les deux cumuls, à la place d'une date de fin (spec 2026-10-12, §7.1). */
+        public AdminVehicleContractTargetsData $progress,
         public int $paymentsCount,
         /** @var array<int, AdminVehicleContractMonthData> */
         public array $paymentsByMonth,

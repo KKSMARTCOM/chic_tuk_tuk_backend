@@ -7,6 +7,7 @@ use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
 use App\Models\Payment;
+use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -215,5 +216,55 @@ class AdminVehicleContractsReadApiTest extends TestCase
         $this->asBearer($this->login(['view-contracts']))
             ->getJson('/api/v1/admin/vehicle-contracts/'.fake()->uuid())
             ->assertNotFound();
+    }
+
+    public function test_the_detail_shows_the_two_targets_from_the_last_validated_sheet(): void
+    {
+        // Spec 2026-10-12, §7.1 : les cumuls à la place d'une date de fin.
+        $contract = VehicleContract::factory()->create([
+            'total_amount' => 3_600_000, 'contract_months' => 24,
+            'unlimited_internet' => 5_000, 'spotify_premium' => 2_500, 'manager_remuneration' => 20_000,
+            'revenue_reached_month' => '2028-03-01', 'charges_reached_month' => '2028-03-01',
+        ]);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2028-03-01', 'figures' => ['cumulative_revenue' => 3_610_000, 'cumulative_charges' => 660_000, 'worked_months' => 25],
+        ]);
+
+        $response = $this->asBearer($this->login(['view-contracts']))
+            ->getJson("/api/v1/admin/vehicle-contracts/{$contract->id}")
+            ->assertOk()
+            ->assertJsonPath('contract.ready_to_settle', true)
+            ->assertJsonPath('progress.worked_months', 25)
+            ->assertJsonPath('progress.contract_months', 24)
+            ->assertJsonPath('progress.last_statement_month', '2028-03')
+            ->assertJsonPath('progress.revenue_reached_month', '2028-03');
+        $this->assertEquals(3_610_000, $response->json('progress.revenue_cumulative'));
+        $this->assertEquals(3_600_000, $response->json('progress.revenue_target'));
+        $this->assertEquals(660_000, $response->json('progress.charges_cumulative'));
+        $this->assertEquals(660_000, $response->json('progress.charges_target'));
+    }
+
+    public function test_without_a_validated_sheet_the_targets_start_at_zero(): void
+    {
+        $contract = VehicleContract::factory()->create();
+
+        $response = $this->asBearer($this->login(['view-contracts']))
+            ->getJson("/api/v1/admin/vehicle-contracts/{$contract->id}")
+            ->assertOk()
+            ->assertJsonPath('contract.ready_to_settle', false)
+            ->assertJsonPath('progress.last_statement_month', null);
+        $this->assertEquals(0, $response->json('progress.revenue_cumulative'));
+    }
+
+    public function test_the_list_flags_contracts_ready_to_settle(): void
+    {
+        $ready = VehicleContract::factory()->create(['revenue_reached_month' => '2028-03-01', 'charges_reached_month' => '2028-02-01']);
+        VehicleContract::factory()->create(['revenue_reached_month' => '2028-03-01']);
+
+        $rows = collect($this->asBearer($this->login(['view-contracts']))->getJson('/api/v1/admin/vehicle-contracts')->assertOk()->json('contracts'))
+            ->keyBy('id');
+
+        $this->assertTrue($rows[$ready->id]['ready_to_settle']);
+        $this->assertSame(1, $rows->where('ready_to_settle', true)->count());
     }
 }

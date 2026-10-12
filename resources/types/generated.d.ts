@@ -818,6 +818,7 @@ payments_count: number;
 };
 export type AdminVehicleContractDetailData = {
 contract: App.Domains.Fleet.Application.Data.AdminVehicleContractListItemData;
+progress: App.Domains.Fleet.Application.Data.AdminVehicleContractTargetsData;
 payments_count: number;
 payments_by_month: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractMonthData>;
 driver_contracts: Array<App.Domains.Fleet.Application.Data.AdminVehicleContractDriverData>;
@@ -857,6 +858,7 @@ manager_remuneration: number | null;
 notes: string | null;
 is_editable: boolean;
 is_deletable: boolean;
+ready_to_settle: boolean;
 created_at: string;
 };
 export type AdminVehicleContractMonthData = {
@@ -878,6 +880,17 @@ export type AdminVehicleContractProgressData = {
 total_paid: number;
 total_amount: number;
 progress_percentage: number;
+};
+export type AdminVehicleContractTargetsData = {
+revenue_cumulative: number;
+revenue_target: number;
+charges_cumulative: number;
+charges_target: number;
+worked_months: number;
+contract_months: number;
+last_statement_month: string | null;
+revenue_reached_month: string | null;
+charges_reached_month: string | null;
 };
 export type AdminVehicleContractVehicleData = {
 id: string;

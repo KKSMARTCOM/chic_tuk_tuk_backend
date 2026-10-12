@@ -40,6 +40,8 @@ final class AdminVehicleContractListItemData extends BaseData
         public ?string $notes,
         public bool $isEditable,
         public bool $isDeletable,
+        /** Les deux cumuls atteints, contrat actif : « À solder » (spec 2026-10-12, §4.1). */
+        public bool $readyToSettle,
         public string $createdAt,
     ) {}
 
@@ -75,6 +77,7 @@ final class AdminVehicleContractListItemData extends BaseData
             notes: $contract->notes,
             isEditable: $contract->vehicle?->activeDriverContract === null,
             isDeletable: $contract->status !== 'active' && ! $hasHistory,
+            readyToSettle: $contract->isReadyToSettle(),
             createdAt: $contract->created_at->toIso8601String(),
         );
     }

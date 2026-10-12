@@ -6,6 +6,7 @@ use App\Domains\Fleet\Application\Data\AdminInternalAssignmentData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractDetailData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractDriverData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractListItemData;
+use App\Domains\Fleet\Application\Data\AdminVehicleContractTargetsData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractMonthData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractPartyData;
 use App\Domains\Fleet\Application\Data\VehiclePauseData;
@@ -45,6 +46,7 @@ final class ShowVehicleContractDetail
 
         return new AdminVehicleContractDetailData(
             contract: AdminVehicleContractListItemData::fromModel($contract),
+            progress: AdminVehicleContractTargetsData::fromContract($contract),
             paymentsCount: (int) $contract->payments_count,
             paymentsByMonth: $paymentsByMonth
                 ->map(fn ($row) => new AdminVehicleContractMonthData($row->month, (float) $row->total))
