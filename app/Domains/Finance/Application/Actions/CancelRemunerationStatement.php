@@ -41,8 +41,14 @@ final class CancelRemunerationStatement
         if ($laterValidated) {
             throw new ApiException(409, 'STATEMENT_LATER_VALIDATED', 'Une fiche plus récente de ce contrat est validée : annulez-la d\'abord.');
         }
+        // La fin d'un contrat soldé repose sur sa dernière fiche (spec 2026-10-12, §4.3).
+        $contract = $statement->contract;
+        if ($contract->status === 'completed' && $contract->end_date !== null
+            && $statement->month->gte($contract->end_date->copy()->startOfMonth())) {
+            throw new ApiException(409, 'STATEMENT_ENDS_CONTRACT', 'Cette fiche a soldé le contrat : elle ne s\'annule pas.');
+        }
 
-        $replacement = DB::transaction(function () use ($statement, $by, $reason) {
+        $replacement = DB::transaction(function () use ($statement, $contract, $by, $reason) {
             Payment::query()->where('remuneration_statement_id', $statement->id)->update(['remuneration_statement_id' => null]);
 
             $statement->update([
@@ -51,6 +57,15 @@ final class CancelRemunerationStatement
                 'cancelled_at' => now(),
                 'cancel_reason' => $reason,
             ]);
+
+            // Un cumul atteint par cette fiche ne l'est plus : le prochain franchissement
+            // préviendra de nouveau (spec 2026-10-12, §4.1).
+            foreach (['revenue_reached_month', 'charges_reached_month'] as $column) {
+                if ($contract->{$column} !== null && $contract->{$column}->gte($statement->month)) {
+                    $contract->{$column} = null;
+                }
+            }
+            $contract->save();
 
             return RemunerationStatement::create([
                 'vehicle_contract_id' => $statement->vehicle_contract_id,

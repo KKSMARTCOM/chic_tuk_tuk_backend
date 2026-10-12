@@ -2,9 +2,12 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Jobs\IssueRemunerationStatement;
 use App\Domains\Finance\Domain\ChargeLedger;
+use App\Domains\Finance\Domain\ContractTargets;
 use App\Domains\Finance\Domain\StatementFigures;
+use App\Domains\Notification\Application\Notifier;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\User;
@@ -23,7 +26,11 @@ use Illuminate\Validation\ValidationException;
  */
 final class ValidateRemunerationStatement
 {
-    public function __construct(private readonly BuildStatementFigures $figures) {}
+    public function __construct(
+        private readonly BuildStatementFigures $figures,
+        private readonly ActivityJournal $journal,
+        private readonly Notifier $notifier,
+    ) {}
 
     public function __invoke(RemunerationStatement $statement, User $by, ?Carbon $issuedOn = null, bool $send = true): RemunerationStatement
     {
@@ -31,7 +38,8 @@ final class ValidateRemunerationStatement
             throw new ApiException(409, 'STATEMENTS_HIDDEN_FROM_OWNERS', 'Les fiches sont cachées aux propriétaires le temps de la reconstitution : validez sans envoyer.');
         }
 
-        DB::transaction(function () use (&$statement, $by, $issuedOn, $send) {
+        $reached = [];
+        DB::transaction(function () use (&$statement, &$reached, $by, $issuedOn, $send) {
             // ⚠️ Un verrou par mois : deux validations simultanées prendraient sinon le même
             // numéro. Verrou de TRANSACTION, relâché au commit.
             DB::select('SELECT pg_advisory_xact_lock(?)', [crc32('remuneration-'.$statement->monthKey())]);
@@ -94,7 +102,32 @@ final class ValidateRemunerationStatement
                 'issued_on' => $issuedOn->toDateString(),
                 'delivery' => $send ? 'email' : 'none',
             ]);
+
+            // Les cumuls atteints par cette fiche (spec 2026-10-12, §4.1) : posés une fois.
+            $contract = $statement->contract;
+            $targets = [
+                'revenue' => ['revenue_reached_month', $figures->cumulativeRevenue, ContractTargets::revenue($contract)],
+                'charges' => ['charges_reached_month', $figures->cumulativeCharges, ContractTargets::charges($contract)],
+            ];
+            foreach ($targets as $target => [$column, $cumulative, $total]) {
+                if ($contract->{$column} === null && ContractTargets::isReached($cumulative, $total)) {
+                    $contract->{$column} = $statement->month->toDateString();
+                    $reached[] = $target;
+                }
+            }
+            if ($reached !== []) {
+                $contract->save();
+                foreach ($reached as $target) {
+                    $this->journal->vehicleContractTargetReached($contract, $target, $statement->monthKey());
+                }
+            }
         });
+
+        // Après la transaction : une notification ne fait jamais échouer la validation.
+        foreach ($reached as $i => $target) {
+            $contract = $statement->contract->refresh();
+            $this->notifier->contractTargetReached($contract, $target, $statement->month, $i === count($reached) - 1 && $contract->isReadyToSettle());
+        }
 
         IssueRemunerationStatement::dispatch($statement->id);
 

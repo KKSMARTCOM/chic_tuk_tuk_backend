@@ -331,6 +331,39 @@ final class Notifier
         );
     }
 
+    /**
+     * Un cumul du contrat atteint à la validation d'une fiche (spec 2026-10-12, §4.1).
+     * `$both` : la dernière notification d'une validation qui laisse le contrat « À solder ».
+     * On ne relit pas `isReadyToSettle()` : quand les deux cumuls tombent sur la même fiche,
+     * les deux colonnes sont déjà remplies à la première notification.
+     *
+     * @param  'revenue'|'charges'  $target
+     */
+    public function contractTargetReached(VehicleContract $contract, string $target, CarbonInterface $month, bool $both): void
+    {
+        $plate = $contract->vehicle?->vehicle_number ?? '';
+        $what = $target === 'revenue' ? 'le revenu total du contrat est atteint' : 'le total des charges du contrat est atteint';
+        $message = $both
+            ? "{$plate} : les deux cumuls sont atteints : vous pouvez solder le contrat."
+            : "{$plate} : {$what} (fiche de ".$month->translatedFormat('F Y').').';
+
+        $this->versLesAdmins('Cumul du contrat atteint', $message, 'info', "/admin/vehicle-contracts/{$contract->id}");
+    }
+
+    /** Le contrat soldé par l'admin (spec 2026-10-12, §4.2). */
+    public function vehicleContractSettled(VehicleContract $contract): void
+    {
+        $vehicle = $contract->vehicle;
+
+        $this->vers(
+            $vehicle?->owner,
+            'Contrat terminé',
+            'Le contrat de votre véhicule '.($vehicle?->vehicle_number ?? '').' a pris fin le '.$contract->end_date->format('d/m/Y').'.',
+            'success',
+            $vehicle ? "/owner/vehicles/{$vehicle->id}" : null,
+        );
+    }
+
     // ----- Fiches de rémunération -------------------------------------------
 
     public function remunerationStatementIssued(RemunerationStatement $statement): void

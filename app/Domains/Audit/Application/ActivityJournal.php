@@ -552,6 +552,30 @@ final class ActivityJournal
         );
     }
 
+    /** @param  'revenue'|'charges'  $target */
+    public function vehicleContractTargetReached(VehicleContract $contract, string $target, string $monthKey): void
+    {
+        $contract->loadMissing('vehicle');
+        $what = $target === 'revenue' ? 'le revenu total' : 'le total des charges';
+        $this->record(
+            ActivityEvent::VehicleContractTargetReached,
+            $contract,
+            "{$what} de {$contract->vehicle?->vehicle_number} est atteint (fiche de ".Carbon::parse($monthKey.'-01')->translatedFormat('F Y').')',
+            ['target' => $target, 'month' => $monthKey],
+        );
+    }
+
+    public function vehicleContractCompleted(VehicleContract $contract): void
+    {
+        $contract->loadMissing('vehicle');
+        $this->record(
+            ActivityEvent::VehicleContractCompleted,
+            $contract,
+            "a soldé le contrat de {$contract->vehicle?->vehicle_number} au {$contract->end_date->format('d/m/Y')}",
+            ['end_date' => $contract->end_date->toDateString()],
+        );
+    }
+
     public function vehicleContractUpdated(VehicleContract $contract): void
     {
         $this->record(

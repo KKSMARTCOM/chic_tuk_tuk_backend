@@ -75,6 +75,8 @@ enum ActivityEvent: string
     case VehicleContractUpdated = 'vehicle.contract_updated';
     case VehicleContractDeleted = 'vehicle.contract_deleted';
     case VehicleContractActivated = 'vehicle.contract_activated';
+    case VehicleContractTargetReached = 'vehicle.contract_target_reached';
+    case VehicleContractCompleted = 'vehicle.contract_completed';
     case InternalAssignmentCreated = 'vehicle.internal_assignment_created';
     case InternalAssignmentEnded = 'vehicle.internal_assignment_ended';
 
@@ -159,6 +161,8 @@ enum ActivityEvent: string
             self::VehicleContractUpdated => 'Contrat propriétaire modifié',
             self::VehicleContractDeleted => 'Contrat propriétaire supprimé',
             self::VehicleContractActivated => 'Contrat propriétaire commencé',
+            self::VehicleContractTargetReached => 'Cumul du contrat atteint',
+            self::VehicleContractCompleted => 'Contrat propriétaire soldé',
             self::InternalAssignmentCreated => 'Agent interne affecté',
             self::InternalAssignmentEnded => 'Affectation interne terminée',
             self::PaymentCreated => 'Paiement enregistré',
