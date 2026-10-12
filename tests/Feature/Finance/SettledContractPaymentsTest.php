@@ -38,6 +38,7 @@ class SettledContractPaymentsTest extends TestCase
     {
         $contract = VehicleContract::factory()->create([
             'status' => 'completed', 'start_date' => '2026-01-01', 'end_date' => '2026-08-31',
+            'revenue_reached_month' => '2026-08-01', 'charges_reached_month' => '2026-08-01',
         ]);
 
         return DriverContract::factory()->create([
@@ -86,5 +87,20 @@ class SettledContractPaymentsTest extends TestCase
 
         $this->assertTrue($rows['2026-09-14']['is_agency']);
         $this->assertFalse($rows['2026-08-14']['is_agency']);
+    }
+
+    public function test_an_old_hand_settled_contract_does_not_resume_the_evening_generation(): void
+    {
+        // Relecture finale : « Soldé » choisi à la main avant le 2026-10-12, sans cumuls atteints.
+        Carbon::setTestNow('2026-09-14 20:00:00');
+        $contract = VehicleContract::factory()->create(['status' => 'completed', 'start_date' => '2026-01-01', 'end_date' => null]);
+        $agent = DriverContract::factory()->create([
+            'vehicle_contract_id' => $contract->id, 'vehicle_id' => $contract->vehicle_id,
+            'start_date' => '2026-01-01', 'contract_months' => 24, 'status' => 'active',
+        ]);
+
+        app(GenerateDailyContractPayments::class)();
+
+        $this->assertDatabaseMissing('payments', ['driver_contract_id' => $agent->id]);
     }
 }

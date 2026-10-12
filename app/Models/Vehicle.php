@@ -41,6 +41,20 @@ class Vehicle extends Model
         return $this->hasOne(VehicleContract::class)->whereIn('status', ['active', 'pending']);
     }
 
+    /**
+     * Le contrat qui porte les pauses du véhicule : l'actif, ou le contrat soldé sur lequel
+     * l'agent roule encore jusqu'au bout du sien (spec 2026-10-12, §5).
+     */
+    public function pausableVehicleContract(): ?VehicleContract
+    {
+        if ($this->activeVehicleContract) {
+            return $this->activeVehicleContract;
+        }
+        $settled = $this->activeDriverContract?->vehicleContract;
+
+        return $settled?->status === 'completed' ? $settled : null;
+    }
+
     /** Le dernier contrat soldé : le véhicule de son propriétaire une fois le contrat fini (2026-10-12). */
     public function settledVehicleContract()
     {

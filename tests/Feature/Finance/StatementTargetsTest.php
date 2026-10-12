@@ -140,4 +140,18 @@ class StatementTargetsTest extends TestCase
     {
         $this->assertEquals(0, StatementFigures::fromArray(['revenue' => 10])->agencyShare);
     }
+
+    public function test_the_default_proposal_never_exceeds_the_total_ceiling(): void
+    {
+        // Relecture finale : une ligne déjà prélevée au-delà de son total (répartition libre du
+        // 2026-10-08) a un plafond négatif ; la proposition ne doit pas dépasser le plafond total.
+        $contract = $this->contract(4, 1_000_000);
+        $this->validated($contract, '2026-07', 950_000, [5_000, 2_500, 20_000], [25_000, 0, 2_500]);
+        $this->earned($contract, '2026-08-03', 150_000);
+
+        $f = $this->figures($contract, '2026-08');
+
+        $this->assertLessThanOrEqual(collect($f->charges)->sum('ceiling') + 0.005, $f->deductedTotal);
+        $this->assertSame([], ChargeLedger::violationsFor($f));
+    }
 }

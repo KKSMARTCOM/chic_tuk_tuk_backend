@@ -22,8 +22,8 @@ final class PauseVehicle
     private function pauseVehicle(Vehicle $vehicle, array $data): VehiclePause
     {
         $pause = DB::transaction(function () use ($vehicle, $data) {
-            // Vérifier si il y a un contrat actif
-            $activeContract = $vehicle->activeVehicleContract;
+            // Un contrat actif, ou soldé avec un agent qui roule encore (2026-10-12).
+            $activeContract = $vehicle->pausableVehicleContract();
             if (! $activeContract) {
                 throw new ApiException(
                     409,
@@ -40,7 +40,7 @@ final class PauseVehicle
             // Créer une nouvelle pause
             $pause = VehiclePause::create([
                 'vehicle_id' => $vehicle->id,
-                'vehicle_contract_id' => $vehicle->activeVehicleContract?->id,
+                'vehicle_contract_id' => $activeContract->id,
                 'driver_contract_id' => $data['driver_contract_id'] ?? null,
                 'start_date' => $data['start_date'] ?? now()->toDateString(),
                 'end_date' => $data['end_date'] ?? null,

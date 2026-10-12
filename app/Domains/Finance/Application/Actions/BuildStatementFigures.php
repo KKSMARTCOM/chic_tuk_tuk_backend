@@ -115,9 +115,11 @@ final class BuildStatementFigures
         // jusqu'au plafond sur la part au-delà, dans l'ordre des lignes.
         $proposed = ChargeLedger::propose($outstanding, $within);
         if ($beyond > 0) {
+            // Bornée au plafond TOTAL : une ligne déjà prélevée au-delà de son total a un
+            // plafond négatif, que le `max(0, …)` par ligne ne retrancherait plus (relecture finale).
             $more = ChargeLedger::propose(
                 collect($ceiling)->map(fn ($c, $line) => max(0.0, $c - $proposed[$line]))->all(),
-                $beyond,
+                min($beyond, max(0.0, array_sum($ceiling) - array_sum($proposed))),
             );
             $proposed = collect($proposed)->map(fn ($p, $line) => round($p + $more[$line], 2))->all();
         }

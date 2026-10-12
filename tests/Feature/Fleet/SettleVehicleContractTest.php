@@ -5,6 +5,7 @@ namespace Tests\Feature\Fleet;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\DriverContract;
 use App\Models\Notification;
+use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\VehicleContract;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,6 +72,28 @@ class SettleVehicleContractTest extends TestCase
                 'contract_months' => 30, 'total_amount' => 3_604_872, 'start_date' => '2026-10-01', 'status' => 'completed',
             ])
             ->assertStatus(422)->assertJsonValidationErrors('status');
+
+        $this->assertSame('active', $contract->refresh()->status);
+    }
+
+    public function test_settling_removes_the_later_draft_sheets(): void
+    {
+        // Relecture finale : cumuls atteints en mars, solde en mai ; le brouillon d'avril tombe.
+        $contract = VehicleContract::factory()->create(['revenue_reached_month' => '2028-03-01', 'charges_reached_month' => '2028-03-01']);
+        $april = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2028-04-01']);
+
+        $this->asAdmin()->postJson("/api/v1/admin/vehicle-contracts/{$contract->id}/settle")->assertOk();
+
+        $this->assertNull(RemunerationStatement::find($april->id));
+    }
+
+    public function test_settling_is_refused_while_a_later_sheet_is_validated(): void
+    {
+        $contract = VehicleContract::factory()->create(['revenue_reached_month' => '2028-03-01', 'charges_reached_month' => '2028-03-01']);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2028-04-01']);
+
+        $this->asAdmin()->postJson("/api/v1/admin/vehicle-contracts/{$contract->id}/settle")
+            ->assertStatus(409)->assertJsonPath('code', 'VEHICLE_CONTRACT_LATER_STATEMENT');
 
         $this->assertSame('active', $contract->refresh()->status);
     }

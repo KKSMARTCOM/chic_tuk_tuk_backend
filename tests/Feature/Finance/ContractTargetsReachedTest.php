@@ -55,7 +55,7 @@ class ContractTargetsReachedTest extends TestCase
     /** @return list<string> les messages « cumul atteint » reçus par l'admin */
     private function targetMessages(): array
     {
-        return Notification::where('user_id', $this->admin->id)->where('title', 'Cumul du contrat atteint')
+        return Notification::where('user_id', $this->admin->id)->whereIn('title', ['Cumul du contrat atteint', 'Contrat à solder'])
             ->orderBy('created_at')->orderBy('id')->pluck('message')->all();
     }
 
@@ -78,10 +78,12 @@ class ContractTargetsReachedTest extends TestCase
         $this->assertSame('2026-08-01', $contract->revenue_reached_month->toDateString());
         $this->assertSame('2026-08-01', $contract->charges_reached_month->toDateString());
         $this->assertTrue($contract->isReadyToSettle());
+        // Chaque cumul a son message, puis « vous pouvez solder » (relecture finale).
         $messages = $this->targetMessages();
-        $this->assertCount(2, $messages);
-        $this->assertStringContainsString('le revenu total du contrat est atteint', $messages[0]);
-        $this->assertStringContainsString('les deux cumuls sont atteints', $messages[1]);
+        $this->assertCount(3, $messages);
+        $this->assertStringContainsString('le revenu total du contrat est atteint (fiche de août 2026)', $messages[0]);
+        $this->assertStringContainsString('le total des charges du contrat est atteint (fiche de août 2026)', $messages[1]);
+        $this->assertStringContainsString('les deux cumuls sont atteints : vous pouvez solder le contrat', $messages[2]);
         $this->assertDatabaseHas('activity_log', ['event' => 'vehicle.contract_target_reached', 'subject_id' => $contract->id]);
     }
 
@@ -99,7 +101,7 @@ class ContractTargetsReachedTest extends TestCase
         app(ValidateRemunerationStatement::class)($replacement, User::factory()->create(), Carbon::today(), false);
 
         $this->assertNotNull($contract->refresh()->revenue_reached_month);
-        $this->assertCount(4, $this->targetMessages());
+        $this->assertCount(6, $this->targetMessages());
     }
 
     public function test_the_sheet_that_ended_a_settled_contract_cannot_be_cancelled(): void
@@ -113,5 +115,17 @@ class ContractTargetsReachedTest extends TestCase
         $this->expectExceptionMessage('Cette fiche a soldé le contrat');
 
         app(CancelRemunerationStatement::class)($august, User::factory()->create(), 'erreur');
+    }
+
+    public function test_a_sheet_after_the_end_of_a_settled_contract_is_not_validated(): void
+    {
+        $contract = $this->contract();
+        $contract->update(['status' => 'completed', 'end_date' => '2026-07-31']);
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01']);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('après la fin du contrat');
+
+        app(ValidateRemunerationStatement::class)($august, User::factory()->create(), Carbon::today(), false);
     }
 }

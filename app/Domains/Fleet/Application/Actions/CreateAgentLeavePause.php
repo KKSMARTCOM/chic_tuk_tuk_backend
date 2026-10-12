@@ -37,7 +37,8 @@ final class CreateAgentLeavePause
             // ── Créer la pause véhicule ───────────────────────────
             $pause = VehiclePause::create([
                 'vehicle_id' => $vehicle->id,
-                'vehicle_contract_id' => $vehicle->activeVehicleContract?->id,
+                // Actif, ou soldé avec l'agent qui roule encore (2026-10-12).
+                'vehicle_contract_id' => $vehicle->pausableVehicleContract()?->id,
                 'driver_contract_id' => $driverContractId,
                 'start_date' => $start->toDateString(),
                 'end_date' => $end?->toDateString(), // toujours renseigné car on connaît les dates

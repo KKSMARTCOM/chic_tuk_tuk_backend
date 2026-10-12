@@ -98,7 +98,9 @@ final class VehicleController
     {
         try {
             $vehicle = $this->owned($request, $id);
-            $contract = $vehicle->activeVehicleContract;
+            // Soldé : le récapitulatif s'arrête à la date de fin, il ne disparaît pas (2026-10-12).
+            $contract = $vehicle->activeVehicleContract
+                ?? ($vehicle->liveVehicleContract === null ? $vehicle->settledVehicleContract : null);
 
             // Pas de contrat actif : pas de récapitulatif. Un tableau vide, pas un 404 —
             // le véhicule existe, c'est son contrat qui manque.

@@ -31,6 +31,15 @@ final class SettleVehicleContract
             }
 
             $last = $contract->revenue_reached_month->max($contract->charges_reached_month);
+            // Les fiches d'après le mois de fin : un brouillon tombe, une fiche validée doit
+            // d'abord être annulée — elle compte des paiements qui reviennent à l'agence.
+            $later = $contract->remunerationStatements()->where('status', '!=', 'cancelled')
+                ->whereDate('month', '>', $last->toDateString());
+            if ((clone $later)->where('status', 'validated')->exists()) {
+                throw new ApiException(409, 'VEHICLE_CONTRACT_LATER_STATEMENT', 'Une fiche postérieure au mois de fin est validée : annulez-la d\'abord.');
+            }
+            $later->where('status', 'draft')->delete();
+
             $contract->update(['status' => 'completed', 'end_date' => $last->copy()->endOfMonth()->toDateString()]);
             $this->journal->vehicleContractCompleted($contract->load('vehicle'));
 

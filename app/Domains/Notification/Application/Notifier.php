@@ -333,21 +333,23 @@ final class Notifier
 
     /**
      * Un cumul du contrat atteint à la validation d'une fiche (spec 2026-10-12, §4.1).
-     * `$both` : la dernière notification d'une validation qui laisse le contrat « À solder ».
-     * On ne relit pas `isReadyToSettle()` : quand les deux cumuls tombent sur la même fiche,
-     * les deux colonnes sont déjà remplies à la première notification.
      *
      * @param  'revenue'|'charges'  $target
      */
-    public function contractTargetReached(VehicleContract $contract, string $target, CarbonInterface $month, bool $both): void
+    public function contractTargetReached(VehicleContract $contract, string $target, CarbonInterface $month): void
     {
         $plate = $contract->vehicle?->vehicle_number ?? '';
         $what = $target === 'revenue' ? 'le revenu total du contrat est atteint' : 'le total des charges du contrat est atteint';
-        $message = $both
-            ? "{$plate} : les deux cumuls sont atteints : vous pouvez solder le contrat."
-            : "{$plate} : {$what} (fiche de ".$month->translatedFormat('F Y').').';
 
-        $this->versLesAdmins('Cumul du contrat atteint', $message, 'info', "/admin/vehicle-contracts/{$contract->id}");
+        $this->versLesAdmins('Cumul du contrat atteint', "{$plate} : {$what} (fiche de ".$month->translatedFormat('F Y').').', 'info', "/admin/vehicle-contracts/{$contract->id}");
+    }
+
+    /** Les deux cumuls atteints : le contrat peut être soldé (spec 2026-10-12, §4.1). */
+    public function contractReadyToSettle(VehicleContract $contract): void
+    {
+        $plate = $contract->vehicle?->vehicle_number ?? '';
+
+        $this->versLesAdmins('Contrat à solder', "{$plate} : les deux cumuls sont atteints : vous pouvez solder le contrat.", 'warning', "/admin/vehicle-contracts/{$contract->id}");
     }
 
     /** Le contrat soldé par l'admin (spec 2026-10-12, §4.2). */

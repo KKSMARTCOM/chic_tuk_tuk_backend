@@ -69,4 +69,13 @@ class OwnerSettledContractTest extends TestCase
 
         $this->assertSame([], collect($items)->where('start_date', '2026-09-21')->values()->all());
     }
+
+    public function test_the_monthly_recap_stops_at_the_end_without_disappearing(): void
+    {
+        // Relecture finale : le récapitulatif « s'arrête à la date de fin » (spec §5), il ne disparaît pas.
+        $months = collect($this->actingAsOwner()->getJson("/api/v1/owner/vehicles/{$this->vehicle->id}/payments")->assertOk()->json());
+
+        $this->assertNotEmpty($months);
+        $this->assertNotContains('2026-09', $months->pluck('month')->all());
+    }
 }

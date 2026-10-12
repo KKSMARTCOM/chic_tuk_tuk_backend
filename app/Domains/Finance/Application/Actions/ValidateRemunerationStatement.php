@@ -51,6 +51,11 @@ final class ValidateRemunerationStatement
             if ($statement->status !== 'draft') {
                 throw new ApiException(409, 'STATEMENT_NOT_DRAFT', 'Cette fiche n\'est plus un brouillon.');
             }
+            // Après la fin d'un contrat soldé, les recettes reviennent à l'agence (2026-10-12).
+            $end = $statement->contract->end_date;
+            if ($end !== null && $statement->month->gt($end)) {
+                throw new ApiException(409, 'STATEMENT_AFTER_CONTRACT_END', 'Ce mois est après la fin du contrat ('.$end->format('d/m/Y').') : pas de fiche.');
+            }
             if ($this->previousIsPending($statement)) {
                 throw new ApiException(409, 'STATEMENT_PREVIOUS_NOT_VALIDATED', 'La fiche du mois précédent doit être validée d\'abord.');
             }
@@ -124,9 +129,14 @@ final class ValidateRemunerationStatement
         });
 
         // Après la transaction : une notification ne fait jamais échouer la validation.
-        foreach ($reached as $i => $target) {
+        if ($reached !== []) {
             $contract = $statement->contract->refresh();
-            $this->notifier->contractTargetReached($contract, $target, $statement->month, $i === count($reached) - 1 && $contract->isReadyToSettle());
+            foreach ($reached as $target) {
+                $this->notifier->contractTargetReached($contract, $target, $statement->month);
+            }
+            if ($contract->isReadyToSettle()) {
+                $this->notifier->contractReadyToSettle($contract);
+            }
         }
 
         IssueRemunerationStatement::dispatch($statement->id);
