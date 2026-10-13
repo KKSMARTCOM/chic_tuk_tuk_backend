@@ -25,10 +25,10 @@ final class NotificationPreferencesData extends BaseData
         /**
          * Notifications par e-mail.
          *
-         * ⚠️ Aucun envoi d'e-mail de notification n'existe aujourd'hui : la préférence
-         * est stockée et respectée d'avance, mais elle ne gouverne rien encore. Ne pas
-         * la retirer de l'écran pour autant — elle existe dans le Blade, et la faire
-         * disparaître ferait croire à une perte de réglage.
+         * Depuis le 2026-10-13, elle gouverne l'e-mail des COMMUNIQUÉS : un `false` explicite
+         * le supprime (la cloche, la page et le bandeau restent). C'est le seul e-mail de
+         * notification qu'elle gouverne — la fiche de rémunération et la réinitialisation du
+         * mot de passe partent quoi qu'il arrive.
          */
         public bool $emailNotifications,
     ) {}

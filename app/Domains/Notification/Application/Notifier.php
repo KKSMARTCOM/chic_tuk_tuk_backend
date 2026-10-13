@@ -2,6 +2,7 @@
 
 namespace App\Domains\Notification\Application;
 
+use App\Models\Announcement;
 use App\Models\Booking;
 use App\Models\LeaveRequest;
 use App\Models\Payment;
@@ -34,6 +35,7 @@ use Illuminate\Support\Facades\Log;
  * | Pause validée / refusée          | l'agent concerné                   |
  * | Véhicule mis en pause / reprise  | le propriétaire du véhicule        |
  * | Paiement validé / annulé          | l'agent concerné, lui seul         |
+ * | Communiqué envoyé / relancé       | ses destinataires (arrêtés à l'envoi) |
  *
  * ⚠️ « Les administrateurs sont prévenus de toutes les actions agent » ne veut PAS dire
  * qu'ils reçoivent tout : une pause validée ne leur revient pas, puisque c'est l'un
@@ -405,6 +407,35 @@ final class Notifier
         $label = $month->locale('fr')->translatedFormat('F Y');
 
         return (in_array(mb_substr($label, 0, 1), ['a', 'e', 'i', 'o', 'u', 'é'], true) ? 'd\'' : 'de ').$label;
+    }
+
+    // ----- Communiqués -------------------------------------------------------
+
+    /**
+     * Un communiqué arrive chez l'un de ses destinataires (spec 2026-10-13, §5.2).
+     *
+     * ⚠️ Un appel PAR destinataire, depuis le job `DeliverAnnouncement` : la liste a été
+     * arrêtée à l'envoi, et ce n'est pas au Notifier de la recalculer. `announcement_id`
+     * dans la charge permet de marquer la cloche lue quand le communiqué est ouvert.
+     */
+    public function announcementPublished(Announcement $announcement, User $user): void
+    {
+        $this->versCommunique($user, 'Nouveau communiqué', $announcement);
+    }
+
+    /** La relance d'un communiqué non lu — seulement aux non-lus, choisis par le job. */
+    public function announcementReminder(Announcement $announcement, User $user): void
+    {
+        $this->versCommunique($user, 'Rappel : communiqué non lu', $announcement);
+    }
+
+    private function versCommunique(User $user, string $titre, Announcement $announcement): void
+    {
+        $this->sansCasser(fn () => $this->push->sendToUser($user, $titre, $announcement->title, [
+            'type' => 'info',
+            'url' => "/announcements/{$announcement->id}",
+            'announcement_id' => $announcement->id,
+        ]));
     }
 
     // ----- Acheminement ------------------------------------------------------
