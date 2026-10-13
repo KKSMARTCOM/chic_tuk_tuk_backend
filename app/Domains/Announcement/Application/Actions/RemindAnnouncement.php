@@ -32,7 +32,8 @@ final class RemindAnnouncement
                 throw new ApiException(409, 'ANNOUNCEMENT_ALL_READ', 'Tous les destinataires ont déjà lu ce communiqué.');
             }
 
-            $locked->recipients()->whereIn('id', $ids)->increment('reminded_count');
+            // `reminded_count` est compté par le job, à la remise réelle : un destinataire qui
+            // lit entre-temps est sauté, et ne doit pas apparaître relancé.
             $locked->update(['last_reminded_at' => now()]);
 
             return [$locked, $ids];

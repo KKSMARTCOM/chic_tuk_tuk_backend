@@ -54,6 +54,14 @@ RUN { \
     echo "opcache.validate_timestamps=0"; \
 } > /usr/local/etc/php/conf.d/opcache.ini
 
+# Envois de fichiers (2026-10-13) : les pièces jointes des communiqués font 10 Mo au plus.
+# Sans ce réglage, PHP garde ses valeurs par défaut (2 Mo par fichier, 8 Mo par requête) et
+# refuse le fichier AVANT Laravel, qui n'y voit qu'un champ vide. nginx accepte déjà 100 Mo.
+RUN { \
+    echo "upload_max_filesize=12M"; \
+    echo "post_max_size=14M"; \
+} > /usr/local/etc/php/conf.d/uploads.ini
+
 # PHP-FPM : forcer l'écoute sur 127.0.0.1:9000
 # zz-docker.conf écrase www.conf sur l'image alpine officielle
 RUN sed -i 's|^listen = .*|listen = 127.0.0.1:9000|' \

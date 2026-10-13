@@ -43,7 +43,7 @@ name: string | null;
 profil: string;
 read_at: string | null;
 emailed_at: string | null;
-email_skipped: 'no_address' | 'opted_out' | null;
+email_skipped: 'no_address' | 'opted_out' | 'failed' | null;
 reminded_count: number;
 };
 export type AnnouncementRecipientPageData = {

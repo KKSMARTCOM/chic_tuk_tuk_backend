@@ -57,7 +57,7 @@ class DeliverAnnouncementTest extends TestCase
     public function test_a_reminder_skips_those_who_read_it(): void
     {
         Mail::fake();
-        $announcement = Announcement::factory()->sent()->create();
+        $announcement = Announcement::factory()->sent()->create(['last_reminded_at' => now()]);
         $read = AnnouncementRecipient::factory()->for($announcement)->read()->create();
         $unread = AnnouncementRecipient::factory()->for($announcement)->create();
 
@@ -106,5 +106,53 @@ class DeliverAnnouncementTest extends TestCase
         $this->assertFalse($mail->attachesFiles());
         $this->assertSame([], $mail->attachments());
         $mail->assertSeeInHtml('Pièces jointes à consulter sur la plateforme');
+    }
+
+    /**
+     * Relecture finale du 2026-10-13 : un job tué par le délai du worker est rejoué. Le
+     * rejouer ne doit RIEN renvoyer à qui l'a déjà reçu.
+     */
+    public function test_replaying_a_delivery_sends_nothing_twice(): void
+    {
+        Mail::fake();
+        $announcement = Announcement::factory()->sent()->create();
+        $recipient = AnnouncementRecipient::factory()->for($announcement)->create();
+
+        $job = new DeliverAnnouncement($announcement->id, [$recipient->id]);
+        $job->handle(app(Notifier::class));
+        $job->handle(app(Notifier::class));
+
+        $this->assertSame(1, Notification::where('user_id', $recipient->user_id)->count());
+        Mail::assertSent(AnnouncementMail::class, 1);
+    }
+
+    public function test_replaying_a_reminder_sends_it_once_and_counts_it_once(): void
+    {
+        Mail::fake();
+        $announcement = Announcement::factory()->sent()->create(['last_reminded_at' => now()]);
+        $recipient = AnnouncementRecipient::factory()->for($announcement)->create(['emailed_at' => now()->subDay()]);
+
+        $job = new DeliverAnnouncement($announcement->id, [$recipient->id], true);
+        $job->handle(app(Notifier::class));
+        $job->handle(app(Notifier::class));
+
+        $this->assertSame(1, Notification::where('user_id', $recipient->user_id)->count());
+        Mail::assertSent(AnnouncementMail::class, 1);
+        $this->assertSame(1, $recipient->fresh()->reminded_count);
+    }
+
+    public function test_a_failed_email_is_recorded_and_not_retried_blindly(): void
+    {
+        Storage::fake('local');
+        $announcement = Announcement::factory()->sent()->create();
+        // Le fichier n'existe pas sur le disque : la construction de l'e-mail échoue.
+        $announcement->attachments()->create(['original_name' => 'a.pdf', 'mime_type' => 'application/pdf', 'size' => 10, 'path' => 'announcements/x/absent.pdf']);
+        $recipient = AnnouncementRecipient::factory()->for($announcement)->create();
+
+        DeliverAnnouncement::dispatchFor($announcement, [$recipient->id], false);
+
+        $this->assertNull($recipient->fresh()->emailed_at);
+        $this->assertSame('failed', $recipient->fresh()->email_skipped);
+        $this->assertSame(1, Notification::where('user_id', $recipient->user_id)->count(), 'la cloche est partie');
     }
 }

@@ -14,7 +14,7 @@ final class AnnouncementRecipientData extends BaseData
         public string $profil,
         public ?string $readAt,
         public ?string $emailedAt,
-        #[LiteralTypeScriptType("'no_address' | 'opted_out' | null")]
+        #[LiteralTypeScriptType("'no_address' | 'opted_out' | 'failed' | null")]
         public ?string $emailSkipped,
         public int $remindedCount,
     ) {}

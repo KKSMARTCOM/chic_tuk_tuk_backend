@@ -71,7 +71,10 @@ final class AnnouncementController
         $request->validate([
             'file' => ['required', 'file', 'max:'.AddAnnouncementAttachment::MAX_KILOBYTES, 'mimetypes:'.implode(',', AddAnnouncementAttachment::MIME_TYPES)],
         ], [
-            'file.required' => 'Choisissez un fichier.',
+            // Un fichier trop gros pour PHP arrive VIDE : c'est ce message-là qui s'affiche.
+            'file.required' => 'Aucun fichier reçu : choisissez un fichier de 10 Mo au plus.',
+            // Un fichier que PHP n'a pas pu recevoir (trop gros pour le serveur, coupure).
+            'file.uploaded' => 'Le fichier n\'a pas pu être reçu : 10 Mo au plus.',
             'file.max' => 'Un fichier fait 10 Mo au plus.',
             'file.mimetypes' => 'Seuls les PDF et les images JPEG, PNG ou WebP sont acceptés.',
         ]);
