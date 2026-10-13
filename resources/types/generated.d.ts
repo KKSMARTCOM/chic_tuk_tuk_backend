@@ -56,6 +56,24 @@ name: string;
 profil: string;
 has_email: boolean;
 };
+export type MyAnnouncementData = {
+id: string;
+title: string;
+body_html: string;
+sent_at: string;
+read_at: string | null;
+attachments: Array<App.Domains.Announcement.Application.Data.AnnouncementAttachmentData>;
+};
+export type MyAnnouncementListItemData = {
+id: string;
+title: string;
+sent_at: string;
+is_read: boolean;
+};
+export type MyAnnouncementPageData = {
+announcements: Array<App.Domains.Announcement.Application.Data.MyAnnouncementListItemData>;
+pagination: App.Shared.Data.PaginationData;
+};
 export type PreviewRecipientsData = {
 target_profiles: Array<string>;
 target_user_ids: Array<string>;
@@ -69,6 +87,10 @@ title: string;
 body: string | null;
 target_profiles: Array<string>;
 target_user_ids: Array<string>;
+};
+export type UnreadAnnouncementsData = {
+count: number;
+only_id: string | null;
 };
 }
 declare namespace App.Domains.Announcement.Domain {
