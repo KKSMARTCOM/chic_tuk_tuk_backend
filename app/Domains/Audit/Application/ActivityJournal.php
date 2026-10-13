@@ -7,6 +7,7 @@ use App\Domains\Booking\Domain\Enums\BookingStatus;
 use App\Domains\Fleet\Domain\Enums\VehiclePauseReason;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Domains\Workforce\Domain\Enums\DriverContractEndReason;
+use App\Models\Announcement;
 use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\Driver;
@@ -437,6 +438,34 @@ final class ActivityJournal
     public function leaveLabel(LeaveRequest $leave): string
     {
         return "la pause de {$this->driverName($leave->driver)} {$this->leavePeriod($leave)}";
+    }
+
+    // ----- Communiqués -------------------------------------------------------
+
+    public function announcementSent(Announcement $announcement, int $recipients): void
+    {
+        $this->record(ActivityEvent::AnnouncementSent, $announcement,
+            "a envoyé le communiqué « {$announcement->title} » à {$recipients} destinataire(s)",
+            ['recipients' => $recipients]);
+    }
+
+    public function announcementReminded(Announcement $announcement, int $recipients): void
+    {
+        $this->record(ActivityEvent::AnnouncementReminded, $announcement,
+            "a relancé {$recipients} non-lu(s) du communiqué « {$announcement->title} »",
+            ['recipients' => $recipients]);
+    }
+
+    public function announcementWithdrawn(Announcement $announcement): void
+    {
+        $this->record(ActivityEvent::AnnouncementWithdrawn, $announcement,
+            "a retiré le communiqué « {$announcement->title} »");
+    }
+
+    public function announcementDeleted(string $title): void
+    {
+        $this->record(ActivityEvent::AnnouncementDeleted, null,
+            "a supprimé le brouillon de communiqué « {$title} »");
     }
 
     private function leavePeriod(LeaveRequest $leave): string

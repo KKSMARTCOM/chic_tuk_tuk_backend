@@ -101,6 +101,12 @@ enum ActivityEvent: string
     case RemunerationStatementCancelled = 'remuneration_statement.cancelled';
     case RemunerationStatementsPurged = 'remuneration_statement.purged';
 
+    // Communiqués (2026-10-13)
+    case AnnouncementSent = 'announcement.sent';
+    case AnnouncementReminded = 'announcement.reminded';
+    case AnnouncementWithdrawn = 'announcement.withdrawn';
+    case AnnouncementDeleted = 'announcement.deleted';
+
     // Réglages
     case PricingUpdated = 'settings.pricing_updated';
     case ContractTermsUpdated = 'settings.contract_terms_updated';
@@ -182,6 +188,10 @@ enum ActivityEvent: string
             self::RemunerationStatementSendRequested => 'Envoi d\'une fiche de rémunération demandé',
             self::RemunerationStatementCancelled => 'Fiche de rémunération annulée',
             self::RemunerationStatementsPurged => 'Fiches annulées vidées',
+            self::AnnouncementSent => 'Communiqué envoyé',
+            self::AnnouncementReminded => 'Communiqué relancé',
+            self::AnnouncementWithdrawn => 'Communiqué retiré',
+            self::AnnouncementDeleted => 'Brouillon de communiqué supprimé',
             self::PricingUpdated => 'Tarifs modifiés',
             self::ContractTermsUpdated => 'Réglages des contrats modifiés',
         };
@@ -205,6 +215,7 @@ enum ActivityEvent: string
             'vehicle' => 'Flotte',
             'payment' => 'Paiements',
             'remuneration_statement' => 'Fiches de rémunération',
+            'announcement' => 'Communiqués',
             default => 'Réglages',
         };
     }
