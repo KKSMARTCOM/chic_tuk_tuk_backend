@@ -294,4 +294,21 @@ class ReferenceRolesSeederTest extends TestCase
             $this->assertFalse($user->hasPermissionTo($permission), "utilisateur ne doit pas porter {$permission}");
         }
     }
+
+    /**
+     * Les communiqués (2026-10-13) : l'utilisateur rédige et suit ; envoyer, relancer et
+     * retirer parlent au nom de l'agence, à l'administrateur seul.
+     */
+    public function test_utilisateur_drafts_announcements_but_only_admin_sends(): void
+    {
+        $this->semer();
+
+        $admin = Role::query()->where('name', 'admin')->firstOrFail();
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        $this->assertTrue($admin->hasPermissionTo('draft-announcements'));
+        $this->assertTrue($admin->hasPermissionTo('send-announcements'));
+        $this->assertTrue($user->hasPermissionTo('draft-announcements'));
+        $this->assertFalse($user->hasPermissionTo('send-announcements'));
+    }
 }

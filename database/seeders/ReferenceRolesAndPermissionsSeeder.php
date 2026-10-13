@@ -83,6 +83,11 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'delete-commissions' => ['Annuler une commission', 'Annuler une commission due par un agent'],
         'view-commissions' => ['Voir les commissions', 'Voir les commissions'],
 
+        // Communiqués (2026-10-13). Rédiger et suivre se délègue ; envoyer, relancer et
+        // retirer parlent au nom de l'agence, à tous et par e-mail : administrateur seul.
+        'draft-announcements' => ['Rédiger les communiqués', 'Rédiger les brouillons de communiqué et consulter leur suivi de lecture'],
+        'send-announcements' => ['Envoyer les communiqués', 'Envoyer, relancer ou retirer un communiqué'],
+
         // Contrats
         // `manage-contracts` retirée le 2026-09-26 (F4) : découpée en ces quatre. Le seeder
         // ne supprime rien, la ligne reste en base sans aucun rôle.
@@ -257,6 +262,8 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 'create-vehicles',
                 'create-zones',
                 'delete-leaves',
+                // Ajoutée le 2026-10-13 : rédiger et suivre les communiqués, pas les envoyer.
+                'draft-announcements',
                 'edit-bookings',
                 'edit-circuits',
                 'edit-contracts',
