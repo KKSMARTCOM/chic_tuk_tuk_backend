@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Announcement\Presentation\Api\V1\Admin\AnnouncementController;
 use App\Domains\Audit\Presentation\Api\V1\Admin\ActivityLogController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
@@ -209,6 +210,45 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::delete('/vehicle-contracts/{contract}', [VehicleContractController::class, 'destroy'])
             ->middleware('permission:delete-contracts')->name('vehicle-contracts.destroy');
+
+        /*
+         * Les communiqués (2026-10-13). Rédiger et suivre : `draft-announcements` ;
+         * envoyer, relancer, retirer : `send-announcements`, à l'administrateur seul.
+         *
+         * ⚠️ Les deux chemins `recipients/*` sont déclarés AVANT `{announcement}`, et
+         * `{announcement}` est contraint aux uuid : sans quoi « recipients » serait pris pour
+         * un identifiant — et PostgreSQL refuserait de le comparer à une colonne uuid (500).
+         */
+        Route::middleware('permission:draft-announcements')->group(function () {
+            Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+            Route::post('/announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
+            Route::post('/announcements/recipients/preview', [AnnouncementController::class, 'preview'])->name('announcements.recipients.preview');
+            Route::get('/announcements/recipients/search', [AnnouncementController::class, 'searchUsers'])->name('announcements.recipients.search');
+
+            Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show'])
+                ->whereUuid('announcement')->name('announcements.show');
+            Route::put('/announcements/{announcement}', [AnnouncementController::class, 'update'])
+                ->whereUuid('announcement')->name('announcements.update');
+            Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])
+                ->whereUuid('announcement')->name('announcements.destroy');
+            Route::post('/announcements/{announcement}/attachments', [AnnouncementController::class, 'addAttachment'])
+                ->whereUuid('announcement')->name('announcements.attachments.store');
+            Route::get('/announcements/{announcement}/attachments/{attachment}', [AnnouncementController::class, 'downloadAttachment'])
+                ->whereUuid(['announcement', 'attachment'])->name('announcements.attachments.show');
+            Route::delete('/announcements/{announcement}/attachments/{attachment}', [AnnouncementController::class, 'removeAttachment'])
+                ->whereUuid(['announcement', 'attachment'])->name('announcements.attachments.destroy');
+            Route::get('/announcements/{announcement}/recipients', [AnnouncementController::class, 'recipients'])
+                ->whereUuid('announcement')->name('announcements.recipients');
+        });
+
+        Route::middleware('permission:send-announcements')->group(function () {
+            Route::post('/announcements/{announcement}/send', [AnnouncementController::class, 'send'])
+                ->whereUuid('announcement')->name('announcements.send');
+            Route::post('/announcements/{announcement}/remind', [AnnouncementController::class, 'remind'])
+                ->whereUuid('announcement')->name('announcements.remind');
+            Route::post('/announcements/{announcement}/withdraw', [AnnouncementController::class, 'withdraw'])
+                ->whereUuid('announcement')->name('announcements.withdraw');
+        });
 
         // Le journal d'activité (2026-09-29), en lecture seule, à l'administrateur seul.
         Route::get('/activity-log', [ActivityLogController::class, 'index'])

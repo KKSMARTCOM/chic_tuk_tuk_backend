@@ -12,9 +12,9 @@ final class SaveAnnouncementData extends BaseData
     public function __construct(
         public string $title,
         public ?string $body,
-        /** @var list<string> */
+        /** @var string[] */
         public array $targetProfiles = [],
-        /** @var list<string> */
+        /** @var string[] */
         public array $targetUserIds = [],
     ) {}
 

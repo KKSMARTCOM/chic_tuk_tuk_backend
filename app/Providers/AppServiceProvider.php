@@ -27,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
      * 2026_09_15_100000_rewrite_morph_types_to_aliases.
      */
     private const MORPH_MAP = [
+        'announcement'     => \App\Models\Announcement::class,
         'booking'          => \App\Models\Booking::class,
         'commission'       => \App\Models\Commission::class,
         'driver'           => \App\Models\Driver::class,

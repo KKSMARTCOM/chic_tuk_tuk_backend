@@ -1,3 +1,79 @@
+declare namespace App.Domains.Announcement.Application.Data {
+export type AdminAnnouncementData = {
+id: string;
+title: string;
+body: string;
+body_html: string;
+status: 'draft' | 'sent' | 'withdrawn';
+status_label: string;
+target_profiles: Array<string>;
+target_users: Array<App.Domains.Announcement.Application.Data.AnnouncementUserData>;
+attachments: Array<App.Domains.Announcement.Application.Data.AnnouncementAttachmentData>;
+created_by_name: string | null;
+sent_by_name: string | null;
+sent_at: string | null;
+withdrawn_at: string | null;
+last_reminded_at: string | null;
+recipients_count: number;
+read_count: number;
+};
+export type AdminAnnouncementListItemData = {
+id: string;
+title: string;
+status: 'draft' | 'sent' | 'withdrawn';
+status_label: string;
+created_by_name: string | null;
+sent_at: string | null;
+recipients_count: number;
+read_count: number;
+};
+export type AdminAnnouncementPageData = {
+announcements: Array<App.Domains.Announcement.Application.Data.AdminAnnouncementListItemData>;
+pagination: App.Shared.Data.PaginationData;
+};
+export type AnnouncementAttachmentData = {
+id: string;
+original_name: string;
+mime_type: string;
+size: number;
+};
+export type AnnouncementRecipientData = {
+user_id: string;
+name: string | null;
+profil: string;
+read_at: string | null;
+emailed_at: string | null;
+email_skipped: 'no_address' | 'opted_out' | null;
+reminded_count: number;
+};
+export type AnnouncementRecipientPageData = {
+recipients: Array<App.Domains.Announcement.Application.Data.AnnouncementRecipientData>;
+pagination: App.Shared.Data.PaginationData;
+};
+export type AnnouncementUserData = {
+id: string;
+name: string;
+profil: string;
+has_email: boolean;
+};
+export type PreviewRecipientsData = {
+target_profiles: Array<string>;
+target_user_ids: Array<string>;
+};
+export type RecipientPreviewData = {
+total: number;
+with_email: number;
+};
+export type SaveAnnouncementData = {
+title: string;
+body: string | null;
+target_profiles: Array<string>;
+target_user_ids: Array<string>;
+};
+}
+declare namespace App.Domains.Announcement.Domain {
+export type AnnouncementStatus = 'draft' | 'sent' | 'withdrawn';
+}
 declare namespace App.Domains.Audit.Application.Data {
 export type ActivityEntryData = {
 id: number;
@@ -25,7 +101,7 @@ events: Array<App.Domains.Audit.Application.Data.ActivityEventOptionData>;
 };
 }
 declare namespace App.Domains.Audit.Domain {
-export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
+export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'announcement.sent' | 'announcement.reminded' | 'announcement.withdrawn' | 'announcement.deleted' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
 }
 declare namespace App.Domains.Booking.Application.Data {
 export type AdminBookingDetailData = {
