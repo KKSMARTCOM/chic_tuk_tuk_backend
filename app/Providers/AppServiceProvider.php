@@ -128,5 +128,10 @@ class AppServiceProvider extends ServiceProvider
         // protège en plus. Son isolement est justement ce qui compte le plus ici.
         RateLimiter::for('public-bookings', fn (Request $request) => Limit::perHour(10)
             ->by('public-bookings|'.$request->ip()));
+
+        // L'inscription d'un abonnement (2026-10-14) : un parent qui remplit pour trois
+        // enfants recharge, revient, renvoie — 30/min reste large et borne l'essai de jetons.
+        RateLimiter::for('public-enrollments', fn (Request $request) => Limit::perMinute(30)
+            ->by('public-enrollments|'.$request->ip()));
     }
 }

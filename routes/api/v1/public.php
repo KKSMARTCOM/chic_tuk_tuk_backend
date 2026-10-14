@@ -1,6 +1,7 @@
 <?php
 
 use App\Domains\Booking\Presentation\Api\V1\Public\BookingController;
+use App\Domains\Booking\Presentation\Api\V1\Public\EnrollmentController;
 use App\Domains\Booking\Presentation\Api\V1\Public\PricingController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,4 +39,8 @@ Route::prefix('public')->name('public.')->group(function () {
     Route::post('/bookings', [BookingController::class, 'store'])
         ->middleware(['throttle:public-bookings', 'turnstile'])
         ->name('bookings.store');
+
+    // L'inscription d'un abonnement (2026-10-14) : la portée est le jeton seul.
+    Route::get('/enrollments/{token}', [EnrollmentController::class, 'show'])
+        ->middleware('throttle:public-enrollments')->name('enrollments.show');
 });
