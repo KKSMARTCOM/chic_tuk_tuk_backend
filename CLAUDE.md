@@ -921,8 +921,13 @@ rémunération le lira. Spec : `docs/specs/2026-09-30-fiches-de-remuneration-des
 - Le calendrier fait foi, les paiements lui sont rapprochés : un paiement sur un jour
   d'arrêt, ou un jour comptabilisé sans paiement, est une anomalie, pas une correction.
 - La génération du soir saute tout jour couvert par une pause véhicule.
-- `vehicle_contract_terms.invested_amount` est une donnée d'affichage, LUE selon la durée
-  du contrat, jamais copiée sur lui.
+- Le montant investi est une donnée d'affichage PORTÉE PAR LE CONTRAT depuis le 2026-10-14
+  (`vehicle_contracts.invested_amount`) : saisi à la création, à défaut COPIÉ de
+  `vehicle_contract_terms.invested_amount` pour sa durée (`ContractTerms::investedAmountFor`),
+  qui ne sert plus qu'à le proposer. La migration a recopié celui des réglages sur les contrats
+  existants. Il se corrige par `PATCH /admin/vehicle-contracts/{id}/invested-amount`
+  (`edit-contracts`), permis même avec un agent actif — aucun calcul ne le lit —, refusé sur un
+  contrat annulé, tracé au journal (`vehicle.contract_invested_amount_updated`).
 - La date de fin du contrat n'est plus exposée au propriétaire ; les accesseurs
   `planned_end_date` et `extended_end_date` restent pour l'administration.
 
