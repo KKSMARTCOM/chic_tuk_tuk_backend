@@ -19,6 +19,8 @@ final class AdminOwnerVehicleContractData extends BaseData
         public float $unlimitedInternet,
         public float $spotifyPremium,
         public float $managerRemuneration,
+        /** Porté par le contrat depuis le 2026-10-14. */
+        public ?float $investedAmount,
         public ?string $notes,
     ) {}
 
@@ -34,6 +36,7 @@ final class AdminOwnerVehicleContractData extends BaseData
             unlimitedInternet: (float) $contract->unlimited_internet,
             spotifyPremium: (float) $contract->spotify_premium,
             managerRemuneration: (float) $contract->manager_remuneration,
+            investedAmount: $contract->invested_amount !== null ? (float) $contract->invested_amount : null,
             notes: $contract->notes,
         );
     }

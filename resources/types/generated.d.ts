@@ -888,6 +888,7 @@ end_date: string | null;
 unlimited_internet: number;
 spotify_premium: number;
 manager_remuneration: number;
+invested_amount: number | null;
 notes: string | null;
 };
 export type AdminOwnerVehicleData = {
