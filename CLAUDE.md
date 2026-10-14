@@ -867,6 +867,22 @@ charges prélevées par les fiches validées, progression vers le revenu cible, 
 pauses) ; `OwnerContractDetailData::latestStatement`, les chiffres figés de la dernière
 fiche validée — l'aperçu n'en recalcule aucun.
 
+## L'inscription d'un abonnement (2026-10-14)
+
+Spec : `docs/specs/2026-10-14-inscription-abonnement-design.md`. Tout parent d'abonnement
+naît avec une `SubscriptionEnrollment` (`CreateBooking` → `CreateEnrollment`) et son jeton de
+64 caractères, valable 30 jours ; `POST /public/bookings` rend `enrollment_url`. Le landing lit
+et envoie par `GET|POST /public/enrollments/{token}` (`EnrollmentAccess` : forme vérifiée avant
+toute requête, 410 `ENROLLMENT_ALREADY_SUBMITTED|LINK_EXPIRED|BOOKING_CLOSED`). L'admin seul
+voit les réponses (`enrollment` sur la fiche, `view-bookings`), les corrige et renouvelle le lien
+(`edit-bookings`), télécharge la pièce par route authentifiée ; filtre `filter[enrollment]`.
+
+- ⚠️ **L'inscription SUIT le parent recréé** par `CancelBooking` (cas 2) : sans cela, son lien
+  mourrait avec la course annulée.
+- ⚠️ La pièce d'identité (disque privé, `enrollments/{id}/…`) est effacée par
+  `app:purge-enrollment-id-documents` (03:30) 3 mois après la fin de l'abonnement ; la ligne
+  garde `id_document_purged_at`.
+
 ## Commandes artisan
 
 - `app:expire-bookings` → `ExpireStaleBookings` : les courses pending dépassées de 24 h
@@ -891,6 +907,7 @@ Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `boots
 | `app:activate-leave-pauses`      | toutes les 2 heures           |
 | `app:generate-remuneration-statements` | le 1er du mois à 02:00 |
 | `app:purge-remuneration-pdfs`   | tous les jours à 03:00        |
+| `app:purge-enrollment-id-documents` | tous les jours à 03:30 |
 
 ⚠️ **L'application tourne en UTC, le Bénin est à UTC+1.** Seul `app:generate-daily` suit le
 fuseau du Bénin (2026-10-07) : à 23:30 UTC, il partait à 00:30 le lendemain au Bénin. Ne pas

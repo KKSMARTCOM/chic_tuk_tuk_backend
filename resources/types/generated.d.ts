@@ -123,7 +123,7 @@ events: Array<App.Domains.Audit.Application.Data.ActivityEventOptionData>;
 };
 }
 declare namespace App.Domains.Audit.Domain {
-export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_invested_amount_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'announcement.sent' | 'announcement.reminded' | 'announcement.withdrawn' | 'announcement.deleted' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
+export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.enrollment_submitted' | 'booking.enrollment_corrected' | 'booking.enrollment_link_renewed' | 'booking.enrollment_id_document_purged' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_invested_amount_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'announcement.sent' | 'announcement.reminded' | 'announcement.withdrawn' | 'announcement.deleted' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
 }
 declare namespace App.Domains.Booking.Application.Data {
 export type AdminBookingDetailData = {
@@ -191,6 +191,7 @@ can_reopen: boolean;
 can_edit: boolean;
 can_transfer_subscription: boolean;
 can_terminate_subscription: boolean;
+enrollment: App.Domains.Booking.Application.Data.AdminEnrollmentData | null;
 };
 export type AdminBookingDriverOptionData = {
 id: string;
@@ -238,6 +239,32 @@ in_progress_today: number;
 cancelled_today: number;
 recent_pending: Array<App.Domains.Booking.Application.Data.AdminRecentBookingData>;
 top_drivers: Array<App.Domains.Booking.Application.Data.DriverRevenueData>;
+};
+export type AdminEnrollmentData = {
+id: string;
+status: 'missing' | 'submitted';
+url: string;
+token_expires_at: string;
+link_expired: boolean;
+submitted_at: string | null;
+client_name: string | null;
+whatsapp: string | null;
+email: string | null;
+home_address: string | null;
+kind: 'school' | 'work' | null;
+school_name: string | null;
+school_contact: string | null;
+workplace: string | null;
+work_hours: string | null;
+pickup_landmark: string | null;
+dropoff_landmark: string | null;
+id_document_type: 'cni' | 'passport' | 'other' | null;
+id_document_other: string | null;
+has_id_document: boolean;
+id_document_uploaded_at: string | null;
+id_document_purged_at: string | null;
+corrected_at: string | null;
+people: Array<App.Domains.Booking.Application.Data.EnrollmentPersonData>;
 };
 export type AdminRecentBookingData = {
 id: string;
@@ -325,6 +352,7 @@ return_time: string | null;
 is_recurring: boolean;
 days: number;
 total_price: number;
+enrollment_url: string | null;
 };
 export type BookingHistoryData = {
 id: string;
@@ -424,6 +452,21 @@ name: string | null;
 earnings: number;
 commission_due: number;
 };
+export type EnrollmentPersonData = {
+position: number;
+full_name: string;
+age: number | null;
+school_class: string | null;
+health_notes: string | null;
+profession: string | null;
+};
+export type EnrollmentPersonInputData = {
+full_name: string | null;
+age: number | null;
+school_class: string | null;
+health_notes: string | null;
+profession: string | null;
+};
 export type PriceQuoteData = {
 distance_km: number;
 base_price: number;
@@ -441,6 +484,39 @@ price_per_km: number;
 time_surcharge: number;
 surcharge_free_start_hour: number;
 surcharge_free_end_hour: number;
+};
+export type PublicEnrollmentBookingData = {
+booking_number: string;
+from_location: string;
+to_location: string;
+pickup_date: string;
+pickup_time: string;
+round_trip: boolean;
+return_time: string | null;
+week_days: App.Domains.Booking.Domain.Enums.WeekDays | null;
+days: number;
+special_requests: string | null;
+};
+export type PublicEnrollmentData = {
+booking: App.Domains.Booking.Application.Data.PublicEnrollmentBookingData;
+phone: string | null;
+};
+export type SubmitEnrollmentData = {
+client_name: string;
+whatsapp: string;
+email: string | null;
+home_address: string;
+kind: 'school' | 'work';
+school_name: string | null;
+school_contact: string | null;
+workplace: string | null;
+work_hours: string | null;
+pickup_landmark: string | null;
+dropoff_landmark: string | null;
+people: Array<App.Domains.Booking.Application.Data.EnrollmentPersonInputData>;
+id_document_type: 'cni' | 'passport' | 'other' | null;
+id_document_other: string | null;
+commitments: Record<string, boolean>;
 };
 export type TerminateSubscriptionData = {
 cancellation_reason: string | null;
