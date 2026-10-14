@@ -5,6 +5,7 @@ namespace App\Domains\Booking\Application\Actions;
 use App\Domains\Booking\Domain\BookingLifecycle;
 use App\Models\Booking;
 use App\Shared\Http\ApiException;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Supprimer une réservation — ex-Admin\BookingController::destroy().
@@ -45,6 +46,15 @@ final class DeleteAdminBooking
 
         if (! in_array($booking->status, ['cancelled', 'expired'])) {
             throw new \Exception('Cette course ne peut pas être supprimée car elle est en cours ou en attente.');
+        }
+
+        // La base efface l'inscription en cascade, pas son fichier : la pièce d'identité
+        // resterait sur le disque, hors de portée de la purge (relecture du 2026-10-14).
+        if ($enrollment = $booking->enrollment) {
+            if ($enrollment->id_document_path) {
+                Storage::disk('local')->delete($enrollment->id_document_path);
+            }
+            Storage::disk('local')->deleteDirectory("enrollments/{$enrollment->id}");
         }
 
         $booking->delete();

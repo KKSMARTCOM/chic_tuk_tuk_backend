@@ -50,4 +50,17 @@ class PurgeEnrollmentIdDocumentsTest extends TestCase
 
         $this->assertNotNull($cancelled->fresh()->id_document_purged_at);
     }
+
+    /** Relecture finale du 2026-10-14 : la cascade en base laissait le fichier sur le disque, hors de portée de la purge. */
+    public function test_deleting_a_cancelled_subscription_erases_its_id_document(): void
+    {
+        Storage::fake('local');
+        $enrollment = $this->withDocument(['status' => 'cancelled', 'cancelled_at' => now()]);
+        $path = $enrollment->id_document_path;
+
+        app(\App\Domains\Booking\Application\Actions\DeleteAdminBooking::class)($enrollment->booking);
+
+        $this->assertNull(SubscriptionEnrollment::find($enrollment->id));
+        Storage::disk('local')->assertMissing($path);
+    }
 }
