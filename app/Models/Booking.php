@@ -140,6 +140,12 @@ class Booking extends Model
     }
 
     // Réservations enfants pour les trajets récurrents
+    /** L'inscription d'un abonnement — sur la course PARENTE seulement (2026-10-14). */
+    public function enrollment()
+    {
+        return $this->hasOne(SubscriptionEnrollment::class);
+    }
+
     public function childBookings()
     {
         return $this->hasMany(Booking::class, 'parent_booking_id');

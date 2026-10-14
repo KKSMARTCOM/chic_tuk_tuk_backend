@@ -70,6 +70,9 @@ return [
 
     'front_app_url' => env('FRONT_APP_URL') ?: 'http://localhost:3000',
 
+    // Le landing (2026-10-14) : les liens d'inscription d'abonnement y mènent.
+    'front_landing_url' => env('FRONT_LANDING_URL') ?: 'http://localhost:3001',
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
