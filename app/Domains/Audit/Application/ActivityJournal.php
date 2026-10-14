@@ -17,6 +17,7 @@ use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\Role;
+use App\Models\SubscriptionEnrollment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
@@ -131,6 +132,32 @@ final class ActivityJournal
             "a réservé en ligne la course {$booking->booking_number}",
             actor: trim(($booking->client_name ?: 'Un client').' (en ligne)'),
         );
+    }
+
+    public function enrollmentSubmitted(SubscriptionEnrollment $enrollment): void
+    {
+        $this->record(ActivityEvent::BookingEnrollmentSubmitted, $enrollment->booking,
+            "a rempli l'inscription de l'abonnement {$enrollment->booking?->booking_number}",
+            actor: trim(($enrollment->client_name ?: 'Un client').' (en ligne)'));
+    }
+
+    /** @param  list<string>  $fields */
+    public function enrollmentCorrected(SubscriptionEnrollment $enrollment, array $fields): void
+    {
+        $this->record(ActivityEvent::BookingEnrollmentCorrected, $enrollment->booking,
+            "a corrigé l'inscription de l'abonnement {$enrollment->booking?->booking_number}",
+            ['fields' => $fields]);
+    }
+
+    public function enrollmentLinkRenewed(SubscriptionEnrollment $enrollment): void
+    {
+        $this->record(ActivityEvent::BookingEnrollmentLinkRenewed, $enrollment->booking,
+            "a renouvelé le lien d'inscription de l'abonnement {$enrollment->booking?->booking_number}");
+    }
+
+    public function enrollmentIdDocumentsPurged(int $count): void
+    {
+        $this->record(ActivityEvent::BookingEnrollmentIdDocumentPurged, null, "a effacé {$count} pièce(s) d'identité d'abonnements terminés");
     }
 
     public function bookingCreated(Booking $booking): void

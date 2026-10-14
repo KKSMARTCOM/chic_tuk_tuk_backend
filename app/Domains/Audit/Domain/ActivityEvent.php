@@ -22,6 +22,10 @@ enum ActivityEvent: string
 
     // Réservations
     case BookingCreated = 'booking.created';
+    case BookingEnrollmentSubmitted = 'booking.enrollment_submitted';
+    case BookingEnrollmentCorrected = 'booking.enrollment_corrected';
+    case BookingEnrollmentLinkRenewed = 'booking.enrollment_link_renewed';
+    case BookingEnrollmentIdDocumentPurged = 'booking.enrollment_id_document_purged';
     case BookingUpdated = 'booking.updated';
     case BookingDeleted = 'booking.deleted';
     case BookingDriverAssigned = 'booking.driver_assigned';
@@ -123,6 +127,10 @@ enum ActivityEvent: string
             self::PasswordChanged => 'Mot de passe changé',
             self::PasswordReset => 'Mot de passe réinitialisé',
             self::BookingCreated => 'Réservation créée',
+            self::BookingEnrollmentSubmitted => 'Inscription d\'abonnement reçue',
+            self::BookingEnrollmentCorrected => 'Inscription d\'abonnement corrigée',
+            self::BookingEnrollmentLinkRenewed => 'Lien d\'inscription renouvelé',
+            self::BookingEnrollmentIdDocumentPurged => 'Pièces d\'identité effacées',
             self::BookingUpdated => 'Réservation modifiée',
             self::BookingDeleted => 'Réservation supprimée',
             self::BookingDriverAssigned => 'Agent affecté',

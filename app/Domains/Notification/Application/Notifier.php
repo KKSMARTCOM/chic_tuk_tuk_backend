@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
+use App\Models\SubscriptionEnrollment;
 use App\Models\User;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
@@ -436,6 +437,18 @@ final class Notifier
             'url' => "/announcements/{$announcement->id}",
             'announcement_id' => $announcement->id,
         ]));
+    }
+
+    /** Une inscription d'abonnement est arrivée (2026-10-14) : les administrateurs. */
+    public function enrollmentSubmitted(SubscriptionEnrollment $enrollment): void
+    {
+        $booking = $enrollment->booking;
+        $this->versLesAdmins(
+            'Inscription reçue',
+            "{$enrollment->client_name} a rempli l'inscription de l'abonnement {$booking?->booking_number}.",
+            'info',
+            $booking ? "/admin/bookings/{$booking->id}" : null,
+        );
     }
 
     // ----- Acheminement ------------------------------------------------------

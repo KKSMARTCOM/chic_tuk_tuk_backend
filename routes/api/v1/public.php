@@ -43,4 +43,6 @@ Route::prefix('public')->name('public.')->group(function () {
     // L'inscription d'un abonnement (2026-10-14) : la portée est le jeton seul.
     Route::get('/enrollments/{token}', [EnrollmentController::class, 'show'])
         ->middleware('throttle:public-enrollments')->name('enrollments.show');
+    Route::post('/enrollments/{token}', [EnrollmentController::class, 'submit'])
+        ->middleware('throttle:public-enrollments')->name('enrollments.submit');
 });
