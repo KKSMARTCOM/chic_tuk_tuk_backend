@@ -62,6 +62,13 @@ final class ListAdminBookings
                 // réservée (`subscription_driver_id`) sans être acceptée n'est pas la sienne.
                 ListQuery::exact('driver_id'),
                 AllowedFilter::callback('kind', fn (Builder $q, $value) => self::filterKind($q, (string) $value)),
+                // L'inscription d'un abonnement (2026-10-14) : sur les parents seulement.
+                AllowedFilter::callback('enrollment', fn (Builder $q, $value) => match ((string) $value) {
+                    '' => null,
+                    'submitted' => $q->whereHas('enrollment', fn (Builder $e) => $e->whereNotNull('submitted_at')),
+                    'missing' => $q->whereHas('enrollment', fn (Builder $e) => $e->whereNull('submitted_at')),
+                    default => throw new ApiException(400, 'INVALID_LIST_QUERY', 'Ce tri ou ce filtre n\'est pas proposé par cette liste.'),
+                }),
                 ListQuery::search(fn (Builder $q, string $search) => $q->where(function (Builder $inner) use ($search) {
                     foreach (self::SEARCHABLE as $column) {
                         $inner->orWhere($column, 'LIKE', "%{$search}%");

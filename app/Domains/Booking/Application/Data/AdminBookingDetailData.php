@@ -179,6 +179,8 @@ final class AdminBookingDetailData extends BaseData
          */
         public bool $canTransferSubscription,
         public bool $canTerminateSubscription,
+        /** L'inscription d'un abonnement (2026-10-14) ; nulle hors parent d'abonnement. */
+        public ?AdminEnrollmentData $enrollment = null,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -261,6 +263,7 @@ final class AdminBookingDetailData extends BaseData
             canEdit: BookingLifecycle::canEdit($booking),
             canTransferSubscription: BookingLifecycle::canTransferSubscription($booking),
             canTerminateSubscription: BookingLifecycle::canTerminateSubscription($booking),
+            enrollment: $booking->is_recurring && $booking->enrollment ? AdminEnrollmentData::fromModel($booking->enrollment) : null,
         );
     }
 

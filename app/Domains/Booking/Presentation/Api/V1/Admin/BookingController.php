@@ -67,7 +67,7 @@ final class BookingController
         try {
             $booking = Booking::with([
                 'user', 'driver.user', 'touristCircuit', 'promoCode',
-                'parentBooking.user', 'childBookings', 'subscriptionDriver.user',
+                'parentBooking.user', 'childBookings', 'subscriptionDriver.user', 'enrollment.people',
             ])->findOrFail($bookingId);
 
             return response()->json(AdminBookingDetailData::fromModel($booking));
@@ -197,7 +197,7 @@ final class BookingController
     {
         try {
             $booking = $update(Booking::findOrFail($bookingId), $data)
-                ->load(['user', 'driver.user', 'parentBooking', 'childBookings']);
+                ->load(['user', 'driver.user', 'parentBooking', 'childBookings', 'enrollment.people']);
             $this->journal->bookingUpdated($booking);
 
             return response()->json(AdminBookingDetailData::fromModel($booking));

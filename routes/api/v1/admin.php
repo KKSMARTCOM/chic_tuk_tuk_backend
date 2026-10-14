@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Booking\Presentation\Api\V1\Admin\EnrollmentController as BookingEnrollmentController;
 use App\Domains\Announcement\Presentation\Api\V1\Admin\AnnouncementController;
 use App\Domains\Audit\Presentation\Api\V1\Admin\ActivityLogController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
@@ -396,6 +397,8 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::get('/bookings/assignable-drivers', [BookingController::class, 'assignableDrivers'])
                 ->name('bookings.assignable-drivers');
             Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
+            Route::get('/bookings/{booking}/enrollment/id-document', [BookingEnrollmentController::class, 'idDocument'])
+                ->name('bookings.enrollment.id-document');
         });
 
         // Le devis sert AUX DEUX formulaires, création et édition : n'importe laquelle
@@ -427,6 +430,11 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
                 ->name('bookings.transfer-subscription');
             Route::post('/bookings/{booking}/terminate-subscription', [BookingController::class, 'terminateSubscription'])
                 ->name('bookings.terminate-subscription');
+            // L'inscription d'un abonnement (2026-10-14).
+            Route::put('/bookings/{booking}/enrollment', [BookingEnrollmentController::class, 'update'])
+                ->name('bookings.enrollment.update');
+            Route::post('/bookings/{booking}/enrollment/link', [BookingEnrollmentController::class, 'renewLink'])
+                ->name('bookings.enrollment.link');
         });
 
         Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])
