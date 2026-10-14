@@ -29,7 +29,9 @@ use Illuminate\Support\Facades\Mail;
  * règlement en pièce jointe tient dans ce délai, et un paquet tué reprend où il s'était arrêté.
  *
  * Un e-mail qui échoue est marqué `failed` et va au journal, sans arrêter les suivants. Un
- * communiqué retiré avant la remise ne part plus ; une relance saute ceux qui l'ont lu.
+ * communiqué retiré ne part plus, même au milieu d'un paquet : son statut est relu avant
+ * chaque destinataire (2026-10-14). Un compte désactivé depuis l'envoi ne reçoit rien, et
+ * une relance saute ceux qui l'ont lu.
  */
 final class DeliverAnnouncement implements ShouldQueue
 {
@@ -77,7 +79,11 @@ final class DeliverAnnouncement implements ShouldQueue
             ->whereIn('id', $this->recipientIds)
             ->get()
             ->each(function (AnnouncementRecipient $recipient) use ($announcement, $notifier, $reminderAt) {
-                if (! $recipient->user || ($this->reminder && $recipient->read_at !== null)) {
+                // Retiré pendant la remise : `false` arrête le paquet.
+                if (! $this->stillSent($announcement)) {
+                    return false;
+                }
+                if (! $recipient->user || ! $recipient->user->is_active || ($this->reminder && $recipient->read_at !== null)) {
                     return;
                 }
 
@@ -85,6 +91,11 @@ final class DeliverAnnouncement implements ShouldQueue
                     ? $this->remind($announcement, $recipient, $notifier, $reminderAt)
                     : $this->publish($announcement, $recipient, $notifier);
             });
+    }
+
+    private function stillSent(Announcement $announcement): bool
+    {
+        return Announcement::query()->whereKey($announcement->id)->value('status') === AnnouncementStatus::Sent;
     }
 
     private function publish(Announcement $announcement, AnnouncementRecipient $recipient, Notifier $notifier): void

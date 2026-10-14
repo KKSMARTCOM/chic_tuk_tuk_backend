@@ -68,6 +68,24 @@ class AdminAnnouncementsApiTest extends TestCase
         ])->assertStatus(409)->assertJsonPath('code', 'ANNOUNCEMENT_NOT_DRAFT');
     }
 
+    /**
+     * Un identifiant mal formé est un 422, jamais une requête PostgreSQL qui échoue en 500.
+     * Vérifié le 2026-10-14 : le validateur saute `exists` dès que `uuid` a refusé la valeur ;
+     * ce test garde cet ordre si les règles changent.
+     */
+    public function test_a_malformed_recipient_id_is_a_validation_error(): void
+    {
+        $token = $this->login(['draft-announcements']);
+
+        $this->asBearer($token)->postJson('/api/v1/admin/announcements', [
+            'title' => 'Casque', 'body' => 'x', 'target_profiles' => [], 'target_user_ids' => ['pas-un-uuid'],
+        ])->assertStatus(422)->assertJsonValidationErrors(['target_user_ids.0']);
+
+        $this->asBearer($token)->postJson('/api/v1/admin/announcements/recipients/preview', [
+            'target_profiles' => [], 'target_user_ids' => ['pas-un-uuid'],
+        ])->assertStatus(422)->assertJsonValidationErrors(['target_user_ids.0']);
+    }
+
     public function test_the_tracking_lists_readers_and_can_filter_unread(): void
     {
         $announcement = Announcement::factory()->sent()->create();

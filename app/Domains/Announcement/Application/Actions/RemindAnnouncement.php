@@ -27,9 +27,15 @@ final class RemindAnnouncement
                     'Une relance a été faite à '.$locked->last_reminded_at->copy()->timezone('Africa/Porto-Novo')->format('H:i').' : attendez une heure entre deux relances.');
             }
 
-            $ids = $locked->recipients()->whereNull('read_at')->pluck('id');
-            if ($ids->isEmpty()) {
+            $unread = $locked->recipients()->whereNull('read_at');
+            if (! $unread->exists()) {
                 throw new ApiException(409, 'ANNOUNCEMENT_ALL_READ', 'Tous les destinataires ont déjà lu ce communiqué.');
+            }
+
+            // Un compte désactivé depuis l'envoi n'est plus relancé (2026-10-14).
+            $ids = $unread->whereHas('user', fn ($q) => $q->where('is_active', true))->pluck('id');
+            if ($ids->isEmpty()) {
+                throw new ApiException(409, 'ANNOUNCEMENT_NOTHING_TO_REMIND', 'Les destinataires qui n\'ont pas lu ce communiqué n\'ont plus de compte actif.');
             }
 
             // `reminded_count` est compté par le job, à la remise réelle : un destinataire qui

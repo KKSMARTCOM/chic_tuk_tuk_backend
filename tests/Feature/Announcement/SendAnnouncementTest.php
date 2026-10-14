@@ -99,6 +99,25 @@ class SendAnnouncementTest extends TestCase
         $this->assertSame(1, app(RemindAnnouncement::class)($announcement->fresh()));
     }
 
+    /** Défaut reporté du 2026-10-13, corrigé le 2026-10-14. */
+    public function test_a_reminder_leaves_out_accounts_disabled_since_sending(): void
+    {
+        $announcement = Announcement::factory()->sent()->create();
+        $disabled = AnnouncementRecipient::factory()->for($announcement)->create();
+        $disabled->user->update(['is_active' => false]);
+
+        try {
+            app(RemindAnnouncement::class)($announcement);
+            $this->fail('La relance aurait dû être refusée.');
+        } catch (ApiException $e) {
+            $this->assertSame('ANNOUNCEMENT_NOTHING_TO_REMIND', $e->errorCode);
+        }
+
+        AnnouncementRecipient::factory()->for($announcement)->create();
+        $this->assertSame(1, app(RemindAnnouncement::class)($announcement->fresh()));
+        $this->assertSame(0, $disabled->fresh()->reminded_count);
+    }
+
     public function test_a_reminder_with_everyone_read_is_refused(): void
     {
         $announcement = Announcement::factory()->sent()->create();

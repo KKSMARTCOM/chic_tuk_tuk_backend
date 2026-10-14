@@ -80,6 +80,40 @@ class DeliverAnnouncementTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    /** Défaut reporté du 2026-10-13, corrigé le 2026-10-14 : le paquet en cours finissait sa remise. */
+    public function test_a_withdrawal_during_a_delivery_stops_the_rest_of_the_batch(): void
+    {
+        Mail::fake();
+        $announcement = Announcement::factory()->sent()->create();
+        $first = AnnouncementRecipient::factory()->for($announcement)->create();
+        $second = AnnouncementRecipient::factory()->for($announcement)->create();
+        // L'admin retire le communiqué pendant que le premier destinataire est servi.
+        Notification::created(function () use ($announcement) {
+            Announcement::whereKey($announcement->id)->update(['status' => 'withdrawn', 'withdrawn_at' => now()]);
+        });
+
+        (new DeliverAnnouncement($announcement->id, [$first->id, $second->id]))->handle(app(Notifier::class));
+
+        // L'ordre de remise n'est pas fixé : un seul des deux est servi, l'autre plus du tout.
+        $this->assertSame(1, Notification::count(), 'le second destinataire ne reçoit plus rien');
+        $this->assertSame(1, collect([$first->fresh(), $second->fresh()])->whereNotNull('notified_at')->count());
+    }
+
+    /** Défaut reporté du 2026-10-13, corrigé le 2026-10-14 : un compte désactivé recevait encore. */
+    public function test_an_account_disabled_after_sending_receives_nothing(): void
+    {
+        Mail::fake();
+        $announcement = Announcement::factory()->sent()->create(['last_reminded_at' => now()]);
+        $disabled = AnnouncementRecipient::factory()->for($announcement)->create();
+        $disabled->user->update(['is_active' => false]);
+
+        DeliverAnnouncement::dispatchFor($announcement, [$disabled->id], false);
+        DeliverAnnouncement::dispatchFor($announcement, [$disabled->id], true);
+
+        $this->assertSame(0, Notification::count());
+        Mail::assertNothingSent();
+    }
+
     public function test_a_deleted_account_does_not_stop_the_others(): void
     {
         Mail::fake();
