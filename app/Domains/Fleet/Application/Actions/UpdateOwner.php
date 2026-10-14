@@ -133,6 +133,11 @@ final class UpdateOwner
             $contractData['notes'] = $data['contract_notes'];
         }
 
+        // Le montant investi : laissé vide, le contrat en cours garde le sien (2026-10-14).
+        if (($data['invested_amount'] ?? null) !== null) {
+            $contractData['invested_amount'] = $data['invested_amount'];
+        }
+
         $activeContract = $vehicle->activeVehicleContract;
 
         if (! empty($data['contract_id']) && $activeContract?->id === $data['contract_id']) {
@@ -155,6 +160,7 @@ final class UpdateOwner
                 'vehicle_id' => $vehicle->id,
                 'owner_id' => $ownerId,
                 'status' => 'active',
+                'invested_amount' => ContractTerms::investedAmountFor($months, $data['invested_amount'] ?? null),
             ]));
         }
         // Sinon (contrat actif mais non identifié dans $data) → on ne touche pas

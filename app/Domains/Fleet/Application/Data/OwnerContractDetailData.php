@@ -7,7 +7,6 @@ use App\Domains\Finance\Domain\ContractMonthCalculator;
 use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
-use App\Models\VehicleContractTerm;
 use App\Shared\Data\BaseData;
 
 /**
@@ -53,9 +52,8 @@ final class OwnerContractDetailData extends BaseData
         $calculator = ContractMonthCalculator::for($contract);
         $months = (int) $contract->contract_months;
         $worked = $calculator->workedMonths();
-        // Lu dans les réglages, jamais copié sur le contrat : une durée qui n'est plus
-        // proposée n'en a pas.
-        $invested = VehicleContractTerm::query()->where('months', $months)->value('invested_amount');
+        // Porté par le contrat depuis le 2026-10-14 : il n'est plus le même pour tous.
+        $invested = $contract->invested_amount;
         $latest = RemunerationStatement::visibleToOwners()
             ? $contract->remunerationStatements()->where('status', 'validated')->orderByDesc('month')->first()
             : null;

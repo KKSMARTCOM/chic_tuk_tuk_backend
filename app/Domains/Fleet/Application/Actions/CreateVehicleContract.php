@@ -48,6 +48,7 @@ final class CreateVehicleContract
                 'contract_months' => $data['contract_months'],
                 ...ContractTerms::dailyAmountsFor((int) $data['contract_months']),
                 ...ContractTerms::chargesFrom($data),
+                'invested_amount' => ContractTerms::investedAmountFor((int) $data['contract_months'], $data['invested_amount'] ?? null),
             ]);
         });
     }

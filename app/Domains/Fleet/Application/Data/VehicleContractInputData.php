@@ -9,7 +9,7 @@ use App\Shared\Data\BaseData;
  *
  * L'API reçoit directement le nombre de mois, qui doit être une durée proposée dans les
  * réglages (`ContractTerms`). Les trois charges mensuelles, laissées vides, prennent
- * les valeurs par défaut de ces mêmes réglages.
+ * les valeurs par défaut de ces mêmes réglages, comme le montant investi (2026-10-14).
  */
 final class VehicleContractInputData extends BaseData
 {
@@ -21,6 +21,7 @@ final class VehicleContractInputData extends BaseData
         public ?float $spotifyPremium = null,
         public ?float $managerRemuneration = null,
         public ?string $notes = null,
+        public ?float $investedAmount = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -34,6 +35,7 @@ final class VehicleContractInputData extends BaseData
             'spotify_premium' => ['nullable', 'numeric', 'min:0'],
             'manager_remuneration' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'invested_amount' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
@@ -47,6 +49,8 @@ final class VehicleContractInputData extends BaseData
             'total_amount.numeric' => 'Le montant total du contrat doit être un nombre.',
             'start_date.required' => 'La date de début du contrat est obligatoire.',
             'start_date.date' => 'La date de début du contrat doit être une date valide.',
+            'invested_amount.numeric' => 'Le montant investi est un nombre.',
+            'invested_amount.min' => 'Le montant investi ne peut pas être négatif.',
         ];
     }
 
@@ -65,6 +69,7 @@ final class VehicleContractInputData extends BaseData
             'spotify_premium' => $this->spotifyPremium,
             'manager_remuneration' => $this->managerRemuneration,
             'contract_notes' => $this->notes,
+            'invested_amount' => $this->investedAmount,
         ];
     }
 }

@@ -23,6 +23,7 @@ final class CreateVehicleContractData extends BaseData
         public ?float $spotifyPremium = null,
         public ?float $managerRemuneration = null,
         public ?string $notes = null,
+        public ?float $investedAmount = null,
         /** En attente de son premier agent : il commencera avec lui (2026-10-09). */
         public bool $pending = false,
     ) {}
@@ -62,6 +63,7 @@ final class CreateVehicleContractData extends BaseData
             'spotify_premium' => $this->spotifyPremium,
             'manager_remuneration' => $this->managerRemuneration,
             'notes' => $this->notes,
+            'invested_amount' => $this->investedAmount,
         ];
     }
 }

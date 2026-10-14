@@ -30,10 +30,13 @@ class VehicleContract extends Model
         // Le mois où chaque cumul a été atteint (2026-10-12).
         'revenue_reached_month',
         'charges_reached_month',
+        // Saisi à la création, à défaut copié des réglages (2026-10-14) ; affichage seul.
+        'invested_amount',
     ];
 
     protected $casts = [
         'total_amount'    => 'decimal:2',
+        'invested_amount' => 'decimal:2',
         'monthly_payment' => 'decimal:2',
         'contract_months' => 'integer',
         'unlimited_internet' => 'decimal:2',

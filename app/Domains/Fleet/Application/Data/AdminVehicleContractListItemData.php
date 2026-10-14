@@ -37,6 +37,8 @@ final class AdminVehicleContractListItemData extends BaseData
         public ?float $unlimitedInternet,
         public ?float $spotifyPremium,
         public ?float $managerRemuneration,
+        /** Saisi à la création, corrigeable même avec un agent actif (2026-10-14). */
+        public ?float $investedAmount,
         public ?string $notes,
         public bool $isEditable,
         public bool $isDeletable,
@@ -74,6 +76,7 @@ final class AdminVehicleContractListItemData extends BaseData
             unlimitedInternet: $contract->unlimited_internet !== null ? (float) $contract->unlimited_internet : null,
             spotifyPremium: $contract->spotify_premium !== null ? (float) $contract->spotify_premium : null,
             managerRemuneration: $contract->manager_remuneration !== null ? (float) $contract->manager_remuneration : null,
+            investedAmount: $contract->invested_amount !== null ? (float) $contract->invested_amount : null,
             notes: $contract->notes,
             isEditable: $contract->vehicle?->activeDriverContract === null,
             isDeletable: $contract->status !== 'active' && ! $hasHistory,

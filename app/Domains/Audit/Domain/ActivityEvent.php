@@ -73,6 +73,7 @@ enum ActivityEvent: string
     case VehiclePauseCancelled = 'vehicle.pause_cancelled';
     case VehicleContractCreated = 'vehicle.contract_created';
     case VehicleContractUpdated = 'vehicle.contract_updated';
+    case VehicleContractInvestedAmountUpdated = 'vehicle.contract_invested_amount_updated';
     case VehicleContractDeleted = 'vehicle.contract_deleted';
     case VehicleContractActivated = 'vehicle.contract_activated';
     case VehicleContractTargetReached = 'vehicle.contract_target_reached';
@@ -165,6 +166,7 @@ enum ActivityEvent: string
             self::VehiclePauseCancelled => 'Pause véhicule annulée',
             self::VehicleContractCreated => 'Contrat propriétaire créé',
             self::VehicleContractUpdated => 'Contrat propriétaire modifié',
+            self::VehicleContractInvestedAmountUpdated => 'Montant investi corrigé',
             self::VehicleContractDeleted => 'Contrat propriétaire supprimé',
             self::VehicleContractActivated => 'Contrat propriétaire commencé',
             self::VehicleContractTargetReached => 'Cumul du contrat atteint',

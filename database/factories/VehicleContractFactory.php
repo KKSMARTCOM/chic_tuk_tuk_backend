@@ -32,6 +32,7 @@ class VehicleContractFactory extends Factory
             'unlimited_internet' => 5_000,
             'spotify_premium' => 2_500,
             'manager_remuneration' => 20_000,
+            'invested_amount' => 1_799_500,
         ];
     }
 

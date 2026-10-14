@@ -39,6 +39,15 @@ final class ContractTerms
     }
 
     /**
+     * Le montant investi d'un nouveau contrat : celui saisi, sinon celui des réglages de sa
+     * durée (2026-10-14). COPIÉ comme le reste : changer le réglage ne touche plus le contrat.
+     */
+    public static function investedAmountFor(int $months, mixed $given): mixed
+    {
+        return $given ?? VehicleContractTerm::query()->where('months', $months)->value('invested_amount');
+    }
+
+    /**
      * Les charges mensuelles, complétées par les valeurs par défaut quand elles sont
      * laissées vides.
      *

@@ -615,6 +615,18 @@ final class ActivityJournal
         );
     }
 
+    public function vehicleContractInvestedAmountUpdated(VehicleContract $contract, ?float $previous, float $amount): void
+    {
+        $contract->loadMissing('vehicle');
+        $from = $previous !== null ? number_format($previous, 0, ',', ' ').' F' : 'aucun';
+        $this->record(
+            ActivityEvent::VehicleContractInvestedAmountUpdated,
+            $contract,
+            "a corrigé le montant investi du contrat de {$contract->vehicle?->vehicle_number} : {$from} → ".number_format($amount, 0, ',', ' ').' F',
+            ['previous' => $previous, 'invested_amount' => $amount],
+        );
+    }
+
     public function vehicleContractDeleted(string $contractId, ?Vehicle $vehicle): void
     {
         $this->record(

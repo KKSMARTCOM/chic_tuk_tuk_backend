@@ -195,6 +195,10 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::put('/vehicle-contracts/{contract}', [VehicleContractController::class, 'update'])
             ->middleware('permission:edit-contracts')->name('vehicle-contracts.update');
 
+        // Le montant investi se corrige même avec un agent actif : affichage seul (2026-10-14).
+        Route::patch('/vehicle-contracts/{contract}/invested-amount', [VehicleContractController::class, 'updateInvestedAmount'])
+            ->middleware('permission:edit-contracts')->name('vehicle-contracts.invested-amount');
+
         // Les affectations internes (2026-10-09) : un agent sur un véhicule, sans paiement.
         Route::middleware('permission:edit-contracts')->group(function () {
             Route::post('/vehicle-contracts/{contract}/internal-assignments', [InternalAssignmentController::class, 'store'])

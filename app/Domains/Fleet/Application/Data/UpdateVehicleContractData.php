@@ -27,6 +27,7 @@ final class UpdateVehicleContractData extends BaseData
         public ?float $spotifyPremium = null,
         public ?float $managerRemuneration = null,
         public ?string $notes = null,
+        public ?float $investedAmount = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -65,6 +66,7 @@ final class UpdateVehicleContractData extends BaseData
             'spotify_premium' => $this->spotifyPremium,
             'manager_remuneration' => $this->managerRemuneration,
             'notes' => $this->notes,
+            'invested_amount' => $this->investedAmount,
         ];
     }
 }

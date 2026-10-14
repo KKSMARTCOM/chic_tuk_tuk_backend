@@ -167,6 +167,25 @@ class AdminOwnerCreateApiTest extends TestCase
         $this->assertEquals(229, $contract->daily_tax);
     }
 
+    /** Le montant investi se saisit avec le contrat ; vide, il prend celui des réglages (2026-10-14). */
+    public function test_the_contract_keeps_its_invested_amount_or_takes_the_settings_one(): void
+    {
+        $token = $this->login(['create-owners']);
+        $this->asBearer($token)->postJson('/api/v1/admin/owners', $this->payload([
+            'vehicle' => ['mode' => 'new', 'vehicle_number' => 'BJ-1234-AB', 'vehicle_type' => 'tricycle',
+                'contract' => $this->contract(['invested_amount' => 1_650_000])],
+        ]))->assertCreated();
+
+        $this->asBearer($token)->postJson('/api/v1/admin/owners', $this->payload([
+            'email' => 'autre@example.test', 'phone' => '96999999',
+            'vehicle' => ['mode' => 'new', 'vehicle_number' => 'BJ-5678-AB', 'vehicle_type' => 'tricycle',
+                'contract' => $this->contract()],
+        ]))->assertCreated();
+
+        $this->assertEquals(1_650_000, Vehicle::query()->where('vehicle_number', 'BJ-1234-AB')->firstOrFail()->activeVehicleContract->invested_amount);
+        $this->assertEquals(1_799_500, Vehicle::query()->where('vehicle_number', 'BJ-5678-AB')->firstOrFail()->activeVehicleContract->invested_amount);
+    }
+
     /** Le total suit la durée ; seul un administrateur en impose un autre (2026-10-06). */
     public function test_a_total_off_the_settings_needs_the_override_permission(): void
     {

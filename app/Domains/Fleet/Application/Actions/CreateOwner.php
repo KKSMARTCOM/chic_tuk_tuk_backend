@@ -82,6 +82,7 @@ final class CreateOwner
                     ...ContractTerms::dailyAmountsFor($months),
                     'monthly_payment' => $data['contract_monthly_payment'] ?? 0,
                     ...ContractTerms::chargesFrom($data),
+                    'invested_amount' => ContractTerms::investedAmountFor($months, $data['invested_amount'] ?? null),
                     'start_date' => $data['contract_start_date'] ?? now(),
                     'notes' => $data['contract_notes'] ?? null,
                     'status' => 'active',

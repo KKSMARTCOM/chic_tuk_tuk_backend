@@ -56,6 +56,11 @@ final class UpdateVehicleContract
                 'manager_remuneration' => $data['manager_remuneration'] ?? $contract->manager_remuneration,
             ];
 
+            // Le montant investi : laissé vide, le contrat garde le sien (2026-10-14).
+            if (($data['invested_amount'] ?? null) !== null) {
+                $updateData['invested_amount'] = $data['invested_amount'];
+            }
+
             // Repasser en attente : seulement un contrat qui n'a jamais roulé (2026-10-09).
             if ($updateData['status'] === 'pending') {
                 $started = $contract->driverContracts()->exists()

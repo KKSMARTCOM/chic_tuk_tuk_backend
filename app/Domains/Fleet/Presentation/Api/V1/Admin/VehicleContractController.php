@@ -9,8 +9,10 @@ use App\Domains\Fleet\Application\Actions\ListVehicleContracts;
 use App\Domains\Fleet\Application\Actions\SettleVehicleContract;
 use App\Domains\Fleet\Application\Actions\ShowVehicleContractDefaults;
 use App\Domains\Fleet\Application\Actions\ShowVehicleContractDetail;
+use App\Domains\Fleet\Application\Actions\UpdateInvestedAmount;
 use App\Domains\Fleet\Application\Actions\UpdateVehicleContract;
 use App\Domains\Fleet\Application\Data\CreateVehicleContractData;
+use App\Domains\Fleet\Application\Data\UpdateInvestedAmountData;
 use App\Domains\Fleet\Application\Data\UpdateVehicleContractData;
 use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
@@ -92,6 +94,28 @@ final class VehicleContractController
         } catch (\Throwable $e) {
             return $this->failure($e, $request, 'la modification du contrat propriétaire',
                 'Ce contrat n\'a pas pu être modifié.', 'VEHICLE_CONTRACT_UPDATE_FAILED');
+        }
+    }
+
+    /** Corriger le montant investi, même avec un agent actif (2026-10-14). */
+    public function updateInvestedAmount(
+        Request $request,
+        string $contractId,
+        UpdateInvestedAmountData $data,
+        UpdateInvestedAmount $update,
+        ShowVehicleContractDetail $show,
+    ): JsonResponse {
+        try {
+            $contract = VehicleContract::findOrFail($contractId);
+            [$previous, $amount] = $update($contract, $data->investedAmount);
+            $this->journal->vehicleContractInvestedAmountUpdated($contract, $previous, $amount);
+
+            return response()->json($show($contractId));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'la correction du montant investi',
+                'Le montant investi n\'a pas pu être corrigé.', 'VEHICLE_CONTRACT_INVESTED_AMOUNT_FAILED');
         }
     }
 
