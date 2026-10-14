@@ -48,9 +48,10 @@ class VehicleContractDefaultsApiTest extends TestCase
         $response = $this->fetch($this->login(['create-owners']))->assertOk();
 
         $this->assertEquals([
-            ['months' => 24, 'total_amount' => 3_100_000],
-            ['months' => 30, 'total_amount' => 3_604_872],
-            ['months' => 36, 'total_amount' => 4_049_100],
+            // Le montant investi préremplit le contrat (2026-10-14).
+            ['months' => 24, 'total_amount' => 3_100_000, 'invested_amount' => 1_799_500],
+            ['months' => 30, 'total_amount' => 3_604_872, 'invested_amount' => 1_799_500],
+            ['months' => 36, 'total_amount' => 4_049_100, 'invested_amount' => 1_799_500],
         ], $response->json('durations'));
         $this->assertEquals(5_000, $response->json('unlimited_internet'));
         $this->assertEquals(2_500, $response->json('spotify_premium'));

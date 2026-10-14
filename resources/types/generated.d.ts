@@ -1096,6 +1096,7 @@ phone: string | null;
 export type ContractDurationData = {
 months: number;
 total_amount: number;
+invested_amount: number | null;
 };
 export type CreateOwnerData = {
 name: string;

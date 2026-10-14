@@ -19,7 +19,11 @@ final class ShowVehicleContractDefaults
 
         return new VehicleContractDefaultsData(
             durations: VehicleContractTerm::query()->orderBy('months')->get()
-                ->map(fn (VehicleContractTerm $term) => new ContractDurationData($term->months, (float) $term->total_amount))
+                ->map(fn (VehicleContractTerm $term) => new ContractDurationData(
+                    $term->months,
+                    (float) $term->total_amount,
+                    $term->invested_amount !== null ? (float) $term->invested_amount : null,
+                ))
                 ->all(),
             unlimitedInternet: (float) $charges->unlimited_internet,
             spotifyPremium: (float) $charges->spotify_premium,
