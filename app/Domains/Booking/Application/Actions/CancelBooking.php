@@ -5,6 +5,7 @@ namespace App\Domains\Booking\Application\Actions;
 use App\Domains\Notification\Application\Notifier;
 use App\Models\Booking;
 use App\Models\Driver;
+use App\Models\SubscriptionEnrollment;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
 
@@ -155,6 +156,12 @@ final class CancelBooking
                     'user_id'               => $booking->user_id,
                     'client_name'           => $booking->client_name,
                 ]);
+
+                // L'inscription suit le parent recréé : sur la course annulée, son lien
+                // mourrait (spec 2026-10-14, §4.2).
+                SubscriptionEnrollment::query()
+                    ->where('booking_id', $booking->id)
+                    ->update(['booking_id' => $newParent->id]);
 
                 // Recréer la course retour cachée si aller-retour
                 if ($booking->round_trip && $booking->return_time) {

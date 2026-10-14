@@ -28,6 +28,8 @@ class BookingConfirmationData extends BaseData
         public bool          $isRecurring,
         public int           $days,
         public int           $totalPrice,
+        /** Le lien d'inscription d'un abonnement (2026-10-14) ; nul pour une course simple. */
+        public ?string       $enrollmentUrl = null,
     ) {}
 
     public static function fromModel(Booking $booking): self
@@ -51,6 +53,7 @@ class BookingConfirmationData extends BaseData
             isRecurring: (bool) $booking->is_recurring,
             days: (int) ($booking->days ?? 1),
             totalPrice: (int) $booking->total_price,
+            enrollmentUrl: $booking->is_recurring ? $booking->enrollment?->url() : null,
         );
     }
 }

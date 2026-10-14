@@ -161,6 +161,11 @@ final class CreateBooking
         // l'envoi directement : c'était le SEUL déclencheur de notification de toute
         // l'application, et son URL pointait vers une route Blade qu'un front Nuxt ne
         // sait pas ouvrir.
+        // Tout abonnement naît avec son inscription, en ligne comme depuis l'admin (2026-10-14).
+        if ($isRecurring) {
+            app(CreateEnrollment::class)($booking);
+        }
+
         app(Notifier::class)->bookingCreated($booking);
 
         return $booking;
