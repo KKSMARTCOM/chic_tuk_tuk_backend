@@ -56,6 +56,18 @@ class TerminateSubscriptionTest extends TestCase
         $this->assertSame(0, Booking::where('parent_booking_id', $parent->id)->count());
     }
 
+    /** 2026-10-15 : la date de résiliation fait courir la conservation de la pièce d'identité. */
+    public function test_the_termination_date_is_kept_on_the_parent(): void
+    {
+        $a = $this->makeDriver();
+        $parent = $this->makeParent(['status' => 'completed', 'driver_id' => $a->id, 'subscription_driver_id' => $a->id]);
+        $this->travelTo(now()->setTime(10, 0));
+
+        $this->asAdmin()->postJson("/api/v1/admin/bookings/{$parent->id}/terminate-subscription")->assertOk();
+
+        $this->assertSame(now()->toDateTimeString(), $parent->fresh()->subscription_terminated_at?->toDateTimeString());
+    }
+
     public function test_cancelling_a_first_day_still_to_come_cancels_everything_with_the_reason(): void
     {
         $a = $this->makeDriver();

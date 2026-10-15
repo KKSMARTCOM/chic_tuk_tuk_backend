@@ -881,7 +881,9 @@ voit les réponses (`enrollment` sur la fiche, `view-bookings`), les corrige et 
   mourrait avec la course annulée.
 - ⚠️ La pièce d'identité (disque privé, `enrollments/{id}/…`) est effacée par
   `app:purge-enrollment-id-documents` (03:30) 3 mois après la fin de l'abonnement ; la ligne
-  garde `id_document_purged_at`.
+  garde `id_document_purged_at`. ⚠️ Résilié ou annulé, c'est 3 mois après la RÉSILIATION, pas
+  après la fin prévue (2026-10-15) : `TerminateSubscription` pose
+  `bookings.subscription_terminated_at`, seule trace du jour, le parent gardant son statut.
 
 ## Commandes artisan
 

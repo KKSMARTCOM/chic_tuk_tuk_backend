@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\Storage;
  *
  * Terminé = ni le parent ni ses courses ne sont à venir ou en cours, et il ne reste ni jour
  * à générer ni trajet à rattraper. Fin = la plus tardive de la fin prévue, de la dernière
- * course et de l'annulation du parent.
+ * course et de l'annulation du parent. Résilié ou annulé (décidé le 2026-10-15), la fin
+ * prévue ne compte plus : fin = la plus tardive de la résiliation et de la dernière course
+ * non annulée.
  */
 class PurgeEnrollmentIdDocuments extends Command
 {
@@ -65,6 +67,16 @@ class PurgeEnrollmentIdDocuments extends Command
             || Booking::query()->where('parent_booking_id', $parent->id)->whereIn('status', $open)->exists();
         if ($stillRunning) {
             return null;
+        }
+
+        $stoppedAt = $parent->subscription_terminated_at ?? ($parent->status === 'cancelled' ? $parent->cancelled_at : null);
+        if ($stoppedAt) {
+            $lastRide = Booking::query()->where('parent_booking_id', $parent->id)->where('status', '!=', 'cancelled')->max('pickup_date');
+
+            return collect([$stoppedAt, $lastRide, $parent->status === 'cancelled' ? null : $parent->pickup_date])
+                ->filter()
+                ->map(fn ($date) => Carbon::parse($date))
+                ->max();
         }
 
         $lastRide = Booking::query()->where('parent_booking_id', $parent->id)->max('pickup_date');

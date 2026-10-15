@@ -18,7 +18,9 @@ use Illuminate\Support\Facades\DB;
  *  - plus de jours à générer ni de trajets à rattraper — c'est ce que lisent le cron de
  *    génération et la commande de rattrapage ;
  *  - les courses à venir (en attente ou acceptées) sont annulées, avec le motif ;
- *  - ce qui est en cours ou fait ne bouge pas.
+ *  - ce qui est en cours ou fait ne bouge pas ;
+ *  - le jour de la résiliation est gardé (2026-10-15) : la pièce d'identité de
+ *    l'inscription est effacée 3 mois après lui.
  *
  * Un parent encore en attente ou accepté se résilie, lui, par le changement de statut
  * ordinaire (`ChangeBookingStatus`), qui annule tout : rien n'a encore été conduit.
@@ -37,6 +39,7 @@ final class TerminateSubscription
                 'remaining_days' => 0,
                 'makeup_go_count' => 0,
                 'makeup_return_count' => 0,
+                'subscription_terminated_at' => now(),
             ]);
 
             Booking::where('parent_booking_id', $parent->id)
