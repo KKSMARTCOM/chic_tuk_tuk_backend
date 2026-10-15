@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Http;
  */
 final class MeasureRouteDistance
 {
+    private const SNAP_RADIUS_METERS = 2000;
+
     public function __invoke(float $from_lng, float $from_lat, float $to_lng, float $to_lat): float
     {
         // Calcul de la distance
@@ -24,6 +26,9 @@ final class MeasureRouteDistance
                 [(float) $from_lng, (float) $from_lat],
                 [(float) $to_lng, (float) $to_lat],
             ],
+            // Rayon de recherche de la route la plus proche, en mètres, pour chaque point :
+            // 350 par défaut, trop court là où les routes sont mal cartographiées (2026-10-15).
+            'radiuses' => [self::SNAP_RADIUS_METERS, self::SNAP_RADIUS_METERS],
         ]);
 
         if (! $response->successful()) {
