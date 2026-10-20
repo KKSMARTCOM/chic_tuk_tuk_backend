@@ -56,6 +56,21 @@ final class ListVehicleContracts
         return VehicleContract::query()
             ->with(['owner', 'vehicle.activeDriverContract'])
             ->withSum(['payments as completed_paid' => fn ($query) => $query->where('status', 'completed')], 'net_amount')
-            ->withCount(['driverContracts', 'payments', 'pauses', 'internalAssignments']);
+            ->withCount(['driverContracts', 'payments', 'pauses', 'internalAssignments'])
+            // Les cumuls de la dernière fiche validée, en une requête pour toute la page.
+            ->addSelect([
+                'last_cumulative_revenue' => self::lastFigure('cumulative_revenue'),
+                'last_cumulative_charges' => self::lastFigure('cumulative_charges'),
+            ]);
+    }
+
+    private static function lastFigure(string $key): \Illuminate\Database\Query\Builder
+    {
+        return \Illuminate\Support\Facades\DB::table('remuneration_statements')
+            ->selectRaw('(figures->>?)::numeric', [$key])
+            ->whereColumn('remuneration_statements.vehicle_contract_id', 'vehicle_contracts.id')
+            ->where('remuneration_statements.status', 'validated')
+            ->orderByDesc('remuneration_statements.month')
+            ->limit(1);
     }
 }

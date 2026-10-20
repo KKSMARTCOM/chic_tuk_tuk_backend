@@ -267,4 +267,27 @@ class AdminVehicleContractsReadApiTest extends TestCase
         $this->assertTrue($rows[$ready->id]['ready_to_settle']);
         $this->assertSame(1, $rows->where('ready_to_settle', true)->count());
     }
+
+    /** Relecture du 2026-10-12 (spec §7.1) : les deux cumuls dans la liste, d'après la dernière fiche validée. */
+    public function test_the_list_shows_both_cumulatives_from_the_last_validated_sheet(): void
+    {
+        $contract = VehicleContract::factory()->create([
+            'total_amount' => 1_000_000, 'contract_months' => 10,
+            'unlimited_internet' => 5_000, 'spotify_premium' => 0, 'manager_remuneration' => 15_000,
+        ]);
+        $sheet = fn (string $month, string $status, float $revenue, float $charges) => \App\Models\RemunerationStatement::factory()
+            ->{$status === 'validated' ? 'validated' : 'cancelled'}()
+            ->create(['vehicle_contract_id' => $contract->id, 'month' => $month, 'figures' => ['cumulative_revenue' => $revenue, 'cumulative_charges' => $charges]]);
+        $sheet('2028-01-01', 'validated', 300_000, 40_000);
+        $sheet('2028-02-01', 'validated', 450_000, 120_000);
+        $sheet('2028-03-01', 'cancelled', 900_000, 200_000);
+        $fresh = VehicleContract::factory()->create();
+
+        $rows = collect($this->asBearer($this->login(['view-contracts']))->getJson('/api/v1/admin/vehicle-contracts')->assertOk()->json('contracts'))
+            ->keyBy('id');
+
+        $this->assertSame(45, $rows[$contract->id]['revenue_percent']);
+        $this->assertSame(60, $rows[$contract->id]['charges_percent']);
+        $this->assertSame(0, $rows[$fresh->id]['revenue_percent']);
+    }
 }

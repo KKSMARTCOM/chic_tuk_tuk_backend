@@ -239,7 +239,8 @@ class AdminVehicleContractWritesApiTest extends TestCase
     public function test_reactivating_a_contract_on_a_vehicle_already_under_contract_is_refused(): void
     {
         $vehicle = Vehicle::factory()->create();
-        $old = VehicleContract::factory()->forVehicle($vehicle)->completed()->create();
+        // Un contrat ANNULÉ : un soldé ne change plus de statut du tout (2026-10-20).
+        $old = VehicleContract::factory()->forVehicle($vehicle)->create(['status' => 'cancelled']);
         VehicleContract::factory()->forVehicle($vehicle)->create();
 
         $this->asBearer($this->login(['edit-contracts']))
@@ -247,7 +248,7 @@ class AdminVehicleContractWritesApiTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('code', 'VEHICLE_HAS_ACTIVE_CONTRACT');
 
-        $this->assertSame('completed', $old->fresh()->status);
+        $this->assertSame('cancelled', $old->fresh()->status);
     }
 
     public function test_moving_an_active_contract_to_a_vehicle_under_contract_is_refused(): void

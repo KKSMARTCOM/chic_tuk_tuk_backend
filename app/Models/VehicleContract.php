@@ -91,6 +91,24 @@ class VehicleContract extends Model
     }
 
     // Montant total déjà payé
+    /** Retenue par instance : une liste de paiements partage le même contrat chargé. */
+    private ?\Carbon\CarbonInterface $finalStatementIssuedOn = null;
+
+    private bool $finalStatementIssuedOnLoaded = false;
+
+    /** La date d'établissement de la dernière fiche validée — celle de `Payment::FINAL_ISSUED_ON_SQL`. */
+    public function finalStatementIssuedOn(): ?\Carbon\CarbonInterface
+    {
+        if (! $this->finalStatementIssuedOnLoaded) {
+            $value = $this->remunerationStatements()->where('status', 'validated')
+                ->selectRaw('MAX(COALESCE(issued_on, validated_at::date)) AS final')->value('final');
+            $this->finalStatementIssuedOn = $value ? \Carbon\Carbon::parse($value)->startOfDay() : null;
+            $this->finalStatementIssuedOnLoaded = true;
+        }
+
+        return $this->finalStatementIssuedOn;
+    }
+
     public function getTotalPaidAttribute(): float
     {
         // Jusqu'à la date de fin : au-delà, les versements reviennent à l'agence (2026-10-12).

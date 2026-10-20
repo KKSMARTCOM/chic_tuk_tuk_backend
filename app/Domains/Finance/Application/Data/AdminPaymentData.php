@@ -69,9 +69,7 @@ final class AdminPaymentData extends BaseData
             paymentMethod: $payment->payment_method,
             status: $payment->status,
             paymentDate: $payment->payment_date?->toDateString(),
-            isAgency: $payment->vehicleContract?->end_date !== null
-                && $payment->payment_date !== null
-                && $payment->payment_date->gt($payment->vehicleContract->end_date),
+            isAgency: $payment->isAgency(),
             referenceNumber: $payment->reference_number,
             notes: $payment->notes,
             contractMonths: $payment->vehicleContract?->contract_months,

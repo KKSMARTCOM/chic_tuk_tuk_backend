@@ -46,12 +46,54 @@ class Payment extends Model
         return $this->belongsTo(VehicleContract::class);
     }
 
-    /** Ce que le propriétaire voit : jusqu'à la date de fin de son contrat (spec 2026-10-12, §5). */
+    /**
+     * Ce que le propriétaire voit : tout ce qui ne revient pas à l'agence (spec 2026-10-12, §5).
+     *
+     * ⚠️ La version SQL de `isAgency()` : les deux doivent rester d'accord, sinon un paiement
+     * serait à la fois chez le propriétaire et « Agence » chez l'admin.
+     */
     public function scopeForOwner(Builder $query): Builder
     {
         return $query->whereHas('vehicleContract', fn (Builder $contract) => $contract->where(fn (Builder $q) => $q
             ->whereNull('vehicle_contracts.end_date')
-            ->orWhereColumn('vehicle_contracts.end_date', '>=', 'payments.payment_date')));
+            ->orWhere(fn (Builder $settled) => $settled
+                ->whereColumn('vehicle_contracts.end_date', '>=', 'payments.payment_date')
+                ->where(fn (Builder $counted) => $counted
+                    ->whereNotNull('payments.remuneration_statement_id')
+                    ->orWhereRaw('('.self::FINAL_ISSUED_ON_SQL.') IS NULL')
+                    ->orWhere(fn (Builder $collected) => $collected
+                        ->where('payments.status', '!=', 'pending')
+                        ->whereRaw("NOT (payments.status = 'completed' AND payments.collected_on IS NOT NULL AND payments.collected_on > (".self::FINAL_ISSUED_ON_SQL.'))'))))));
+    }
+
+    /** La date d'établissement de la dernière fiche validée du contrat (la fiche finale d'un contrat soldé). */
+    private const FINAL_ISSUED_ON_SQL = "SELECT MAX(COALESCE(rs.issued_on, rs.validated_at::date)) FROM remuneration_statements rs WHERE rs.vehicle_contract_id = vehicle_contracts.id AND rs.status = 'validated'";
+
+    /**
+     * Revient à l'agence (spec 2026-10-12, §5) : daté après la fin du contrat soldé ; ou, du
+     * dernier mois, laissé hors de la fiche finale — encore en attente, ou encaissé après elle
+     * (relecture du 2026-10-12, réglé le 2026-10-20). Aucune fiche ne le versera plus au
+     * propriétaire, puisque le contrat ne se solde qu'une fois les deux cumuls atteints.
+     */
+    public function isAgency(): bool
+    {
+        $contract = $this->vehicleContract;
+        if (! $contract?->end_date) {
+            return false;
+        }
+        if ($this->payment_date->gt($contract->end_date)) {
+            return true;
+        }
+        if ($this->remuneration_statement_id !== null) {
+            return false;
+        }
+        $final = $contract->finalStatementIssuedOn();
+        if ($final === null) {
+            return false;
+        }
+
+        return $this->status === 'pending'
+            || ($this->status === 'completed' && $this->collected_on !== null && $this->collected_on->gt($final));
     }
 
     public function driverContract()

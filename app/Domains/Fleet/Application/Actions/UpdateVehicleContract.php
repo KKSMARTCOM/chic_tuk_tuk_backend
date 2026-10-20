@@ -22,6 +22,11 @@ final class UpdateVehicleContract
         if ($data->status === 'completed' && $contract->status !== 'completed') {
             throw ValidationException::withMessages(['status' => 'Un contrat se solde par « Solder le contrat », une fois ses deux cumuls atteints.']);
         }
+        // Et ne s'en va plus (relecture du 2026-10-12) : repassé « Actif », il gardait sa date
+        // de fin, qui borne déjà les fiches et le propriétaire, et redevenait « À solder ».
+        if ($contract->status === 'completed' && $data->status !== 'completed') {
+            throw ValidationException::withMessages(['status' => 'Un contrat soldé ne change plus de statut.']);
+        }
 
         return $this->updateContract($contract, $data->toServicePayload());
     }

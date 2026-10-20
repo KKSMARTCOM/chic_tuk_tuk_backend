@@ -89,6 +89,32 @@ class SettledContractPaymentsTest extends TestCase
         $this->assertFalse($rows['2026-08-14']['is_agency']);
     }
 
+    /** Réglé le 2026-10-20 : la même règle que chez le propriétaire (`payment_date` est NOT NULL en base). */
+    public function test_payments_left_out_of_the_final_statement_are_tagged_agency(): void
+    {
+        $agent = $this->settledWithAnAgent();
+        \App\Models\RemunerationStatement::factory()->validated()->create([
+            'vehicle_contract_id' => $agent->vehicle_contract_id, 'month' => '2026-08-01', 'issued_on' => '2026-09-03',
+        ]);
+        $make = fn (string $day, string $status, array $extra = []) => Payment::factory()->status($status)->create([
+            'vehicle_contract_id' => $agent->vehicle_contract_id, 'driver_contract_id' => $agent->id,
+            'payment_date' => $day, 'payment_month' => '2026-08-01', 'reference_number' => $day,
+        ] + $extra);
+        $make('2026-08-12', 'completed', ['collected_on' => '2026-08-12']);
+        $make('2026-08-27', 'completed', ['collected_on' => '2026-09-10']);
+        $make('2026-08-28', 'pending');
+
+        $user = User::factory()->profil(Profil::Admin)->create(['password' => Hash::make('bon-mot-de-passe')]);
+        $user->givePermissionTo(Permission::firstOrCreate(['name' => 'view-payments', 'guard_name' => 'web']));
+        $token = $this->postJson('/api/v1/auth/login', ['email' => $user->email, 'password' => 'bon-mot-de-passe'])->json('token');
+        Auth::forgetGuards();
+
+        $rows = collect($this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/v1/admin/payments')->json('payments'))
+            ->mapWithKeys(fn ($row) => [$row['reference_number'] => $row['is_agency']]);
+
+        $this->assertSame(['2026-08-12' => false, '2026-08-27' => true, '2026-08-28' => true], $rows->sortKeys()->all());
+    }
+
     public function test_an_old_hand_settled_contract_does_not_resume_the_evening_generation(): void
     {
         // Relecture finale : « Soldé » choisi à la main avant le 2026-10-12, sans cumuls atteints.

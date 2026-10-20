@@ -3,6 +3,8 @@
 namespace App\Domains\Fleet\Application\Data;
 
 use App\Domains\Fleet\Domain\Enums\VehicleContractStatus;
+use App\Domains\Finance\Domain\ContractTargets;
+use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
 use App\Shared\Data\BaseData;
 use Spatie\TypeScriptTransformer\Attributes\TypeScriptType;
@@ -44,6 +46,9 @@ final class AdminVehicleContractListItemData extends BaseData
         public bool $isDeletable,
         /** Les deux cumuls atteints, contrat actif : « À solder » (spec 2026-10-12, §4.1). */
         public bool $readyToSettle,
+        /** Les deux cumuls d'après la dernière fiche validée, en % de leur cible, plafonnés à 100 (spec 2026-10-12, §7.1). */
+        public int $revenuePercent,
+        public int $chargesPercent,
         public string $createdAt,
     ) {}
 
@@ -57,6 +62,8 @@ final class AdminVehicleContractListItemData extends BaseData
             || $contract->payments_count > 0
             || $contract->pauses_count > 0
             || $contract->internal_assignments_count > 0;
+
+        $cumulatives = self::cumulatives($contract);
 
         return new self(
             id: $contract->id,
@@ -81,7 +88,32 @@ final class AdminVehicleContractListItemData extends BaseData
             isEditable: $contract->vehicle?->activeDriverContract === null,
             isDeletable: $contract->status !== 'active' && ! $hasHistory,
             readyToSettle: $contract->isReadyToSettle(),
+            revenuePercent: self::percent($cumulatives['revenue'], ContractTargets::revenue($contract)),
+            chargesPercent: self::percent($cumulatives['charges'], ContractTargets::charges($contract)),
             createdAt: $contract->created_at->toIso8601String(),
         );
+    }
+
+    /**
+     * Les cumuls de la dernière fiche validée : lus de la sous-requête de la liste
+     * (`ListVehicleContracts::query()`), sinon d'une requête — la fiche d'un seul contrat.
+     *
+     * @return array{revenue: float, charges: float}
+     */
+    private static function cumulatives(VehicleContract $contract): array
+    {
+        if (array_key_exists('last_cumulative_revenue', $contract->getAttributes())) {
+            return ['revenue' => (float) $contract->last_cumulative_revenue, 'charges' => (float) $contract->last_cumulative_charges];
+        }
+        $figures = RemunerationStatement::query()->where('vehicle_contract_id', $contract->id)
+            ->where('status', 'validated')->orderByDesc('month')->value('figures') ?? [];
+        $figures = is_string($figures) ? json_decode($figures, true) : $figures;
+
+        return ['revenue' => (float) ($figures['cumulative_revenue'] ?? 0), 'charges' => (float) ($figures['cumulative_charges'] ?? 0)];
+    }
+
+    private static function percent(float $cumulative, float $target): int
+    {
+        return $target > 0 ? (int) min(100, round($cumulative / $target * 100)) : 0;
     }
 }

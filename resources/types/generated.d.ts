@@ -1036,6 +1036,8 @@ notes: string | null;
 is_editable: boolean;
 is_deletable: boolean;
 ready_to_settle: boolean;
+revenue_percent: number;
+charges_percent: number;
 created_at: string;
 };
 export type AdminVehicleContractMonthData = {

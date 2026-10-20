@@ -21,6 +21,8 @@ class OwnerSettledContractTest extends TestCase
 
     private Vehicle $vehicle;
 
+    private VehicleContract $contract;
+
     /** Comme `OwnerVehicleShowTest::loginOwner()`. */
     private function actingAsOwner(): self
     {
@@ -37,7 +39,7 @@ class OwnerSettledContractTest extends TestCase
         }
         $this->token = $this->postJson('/api/v1/auth/login', ['email' => $owner->email, 'password' => 'bon-mot-de-passe'])->json('token');
         $this->vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        $contract = VehicleContract::factory()->forVehicle($this->vehicle)->create([
+        $contract = $this->contract = VehicleContract::factory()->forVehicle($this->vehicle)->create([
             'status' => 'completed', 'start_date' => '2026-01-01', 'end_date' => '2026-08-31',
         ]);
         foreach (['2026-08-14', '2026-09-14'] as $day) {
@@ -52,6 +54,28 @@ class OwnerSettledContractTest extends TestCase
 
         $this->assertSame(['2026-08-14'], collect($response->json('payments'))->pluck('payment_date')->all());
         $this->assertEquals(5_000, $response->json('totals.paid'));
+    }
+
+    /**
+     * Relecture du 2026-10-12, réglé le 2026-10-20 : un paiement du dernier mois encaissé après
+     * la fiche finale, ou jamais encaissé, n'entre dans aucune fiche — il revient à l'agence.
+     */
+    public function test_last_month_payments_left_out_of_the_final_statement_are_the_agency_s(): void
+    {
+        $final = \App\Models\RemunerationStatement::factory()->validated()->create([
+            'vehicle_contract_id' => $this->contract->id, 'month' => '2026-08-01', 'issued_on' => '2026-09-03',
+        ]);
+        $make = fn (string $day, string $status, array $extra = []) => Payment::factory()->onDay($day)->status($status)
+            ->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 5_000] + $extra);
+        $make('2026-08-26', 'completed', ['collected_on' => '2026-09-01', 'remuneration_statement_id' => $final->id]);
+        $make('2026-08-27', 'completed', ['collected_on' => '2026-09-10']);
+        $make('2026-08-28', 'pending');
+
+        $response = $this->actingAsOwner()->getJson("/api/v1/owner/vehicles/{$this->vehicle->id}/payment-list")->assertOk();
+
+        $this->assertEqualsCanonicalizing(['2026-08-14', '2026-08-26'], collect($response->json('payments'))->pluck('payment_date')->all());
+        $this->assertEquals(10_000, $response->json('totals.paid'));
+        $this->assertEquals(0, $response->json('totals.pending'));
     }
 
     public function test_the_vehicle_shows_completed_without_its_pause(): void

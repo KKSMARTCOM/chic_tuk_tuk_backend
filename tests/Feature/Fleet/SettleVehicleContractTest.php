@@ -76,6 +76,24 @@ class SettleVehicleContractTest extends TestCase
         $this->assertSame('active', $contract->refresh()->status);
     }
 
+    /** Relecture du 2026-10-12 : repassé « Actif », le contrat gardait sa fin et redevenait « À solder ». */
+    public function test_a_settled_contract_does_not_leave_completed_through_the_form(): void
+    {
+        $contract = VehicleContract::factory()->create([
+            'contract_months' => 30, 'total_amount' => 3_604_872, 'status' => 'completed', 'end_date' => '2026-08-31',
+        ]);
+
+        foreach (['active', 'cancelled', 'pending'] as $status) {
+            $this->asAdmin()
+                ->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", [
+                    'contract_months' => 30, 'total_amount' => 3_604_872, 'start_date' => '2026-01-01', 'status' => $status,
+                ])
+                ->assertStatus(422)->assertJsonValidationErrors('status');
+        }
+
+        $this->assertSame('completed', $contract->refresh()->status);
+    }
+
     public function test_settling_removes_the_later_draft_sheets(): void
     {
         // Relecture finale : cumuls atteints en mars, solde en mai ; le brouillon d'avril tombe.
