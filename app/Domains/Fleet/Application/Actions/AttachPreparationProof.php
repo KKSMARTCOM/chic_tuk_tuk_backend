@@ -21,14 +21,16 @@ final class AttachPreparationProof
 
     public function __invoke(VehicleContract $contract, VehicleContractPreparationStep $step, UploadedFile $file): void
     {
-        DB::transaction(function () use ($contract, $step, $file) {
-            $contract = VehicleContract::query()->lockForUpdate()->findOrFail($contract->id);
-            PreparationSteps::assertEditable($contract);
-            $step = VehicleContractPreparationStep::query()->lockForUpdate()->findOrFail($step->id);
-            PreparationSteps::assertNotAgentArrival($step, 'file');
+        $path = null;
+        try {
+            DB::transaction(function () use ($contract, $step, $file, &$path) {
+                $contract = VehicleContract::query()->lockForUpdate()->findOrFail($contract->id);
+                PreparationSteps::assertEditable($contract);
+                $step = VehicleContractPreparationStep::query()->lockForUpdate()->findOrFail($step->id);
+                PreparationSteps::assertNotAgentArrival($step, 'file');
 
-            $path = $file->store("preparation/{$contract->id}", 'local');
-            try {
+                $path = $file->store("preparation/{$contract->id}", 'local');
+                // L'ancienne preuve ne part qu'après la validation (PreparationSteps::forgetProof).
                 PreparationSteps::forgetProof($step);
                 $step->fill([
                     'proof_path' => $path,
@@ -36,10 +38,13 @@ final class AttachPreparationProof
                     'proof_mime_type' => (string) $file->getMimeType(),
                     'proof_size' => (int) $file->getSize(),
                 ])->save();
-            } catch (\Throwable $e) {
+            });
+        } catch (\Throwable $e) {
+            // L'écriture a échoué : le fichier rangé ne serait désigné par rien.
+            if ($path) {
                 Storage::disk('local')->delete($path);
-                throw $e;
             }
-        });
+            throw $e;
+        }
     }
 }

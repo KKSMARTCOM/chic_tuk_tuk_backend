@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Fleet;
 
+use App\Domains\Fleet\Application\Actions\AttachPreparationProof;
+use App\Domains\Fleet\Application\Actions\RemovePreparationStep;
+use App\Domains\Fleet\Application\Actions\UpdatePreparationStep;
 use App\Domains\Fleet\Domain\PreparationSteps;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Notification;
@@ -12,6 +15,7 @@ use App\Models\VehicleContractPreparationStep;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Kreait\Firebase\Contract\Messaging;
@@ -234,5 +238,42 @@ class AdminPreparationStepApiTest extends TestCase
             'vehicle.preparation_proof_removed', 'vehicle.preparation_step_undone', 'vehicle.preparation_step_renamed',
             'vehicle.preparation_step_added', 'vehicle.preparation_step_removed',
         ], Activity::where('event', 'like', 'vehicle.preparation_%')->pluck('event')->all());
+    }
+
+    /**
+     * Relecture finale : le fichier ne part qu'une fois l'écriture validée. Une transaction
+     * annulée garde la preuve, que la base désigne toujours.
+     */
+    public function test_a_rolled_back_untick_or_removal_keeps_the_proof_file(): void
+    {
+        $step = $this->step();
+        $path = "preparation/{$this->contract->id}/p.pdf";
+        Storage::disk('local')->put($path, '%PDF');
+        $step->update(['done_on' => '2026-10-08', 'proof_path' => $path, 'proof_original_name' => 'p.pdf']);
+
+        DB::beginTransaction();
+        app(UpdatePreparationStep::class)($this->contract, $step, ['done_on' => null], null);
+        DB::rollBack();
+        Storage::disk('local')->assertExists($path);
+
+        $step->update(['done_on' => null]);
+        DB::beginTransaction();
+        app(RemovePreparationStep::class)($this->contract, $step->fresh());
+        DB::rollBack();
+        Storage::disk('local')->assertExists($path);
+    }
+
+    public function test_a_replaced_proof_keeps_the_old_file_if_the_write_rolls_back(): void
+    {
+        $step = $this->step();
+        $old = "preparation/{$this->contract->id}/ancien.pdf";
+        Storage::disk('local')->put($old, '%PDF');
+        $step->update(['proof_path' => $old, 'proof_original_name' => 'ancien.pdf']);
+
+        DB::beginTransaction();
+        app(AttachPreparationProof::class)($this->contract, $step, UploadedFile::fake()->create('nouveau.pdf', 10, 'application/pdf'));
+        DB::rollBack();
+
+        Storage::disk('local')->assertExists($old);
     }
 }

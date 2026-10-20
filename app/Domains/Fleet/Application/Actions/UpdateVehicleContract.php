@@ -111,10 +111,12 @@ final class UpdateVehicleContract
             $previousStatus = $contract->status;
             $contract->update($updateData);
 
-            // Les étapes de préparation suivent le statut (spec 2026-10-20, §4.3 bis).
-            if ($previousStatus === 'pending' && $contract->status === 'active') {
+            // Les étapes de préparation suivent le statut d'ARRIVÉE, d'où qu'on vienne, annulé
+            // compris (spec 2026-10-20, §4.3 bis ; relecture finale) : actif = arrivée cochée,
+            // en attente = arrivée à faire, et la liste existe.
+            if ($contract->status === 'active' && $previousStatus !== 'active') {
                 PreparationSteps::markAgentArrival($contract, $contract->start_date->toDateString());
-            } elseif ($previousStatus === 'active' && $contract->status === 'pending') {
+            } elseif ($contract->status === 'pending' && $previousStatus !== 'pending') {
                 PreparationSteps::reopen($contract);
             }
 

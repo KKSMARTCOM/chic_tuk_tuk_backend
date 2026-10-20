@@ -6,6 +6,7 @@ use App\Models\PreparationStepTemplate;
 use App\Models\VehicleContract;
 use App\Models\VehicleContractPreparationStep;
 use App\Shared\Http\ApiException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -80,11 +81,15 @@ final class PreparationSteps
         }
     }
 
-    /** Efface la preuve d'une étape, fichier compris (sans enregistrer). */
+    /**
+     * Retire la preuve d'une étape (sans enregistrer). ⚠️ Le fichier ne part qu'APRÈS la
+     * validation de la transaction (relecture finale) : une écriture annulée garde la preuve
+     * que la base désigne encore — une facture ou une attestation ne se retrouve pas.
+     */
     public static function forgetProof(VehicleContractPreparationStep $step): void
     {
-        if ($step->proof_path) {
-            Storage::disk('local')->delete($step->proof_path);
+        if ($path = $step->proof_path) {
+            DB::afterCommit(fn () => Storage::disk('local')->delete($path));
         }
         $step->fill(['proof_path' => null, 'proof_original_name' => null, 'proof_mime_type' => null, 'proof_size' => null]);
     }

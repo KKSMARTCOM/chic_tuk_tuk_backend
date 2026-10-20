@@ -132,4 +132,36 @@ class PreparationStepsLifecycleTest extends TestCase
         $this->assertSame(10, $contract->preparationSteps()->count());
         $this->assertSame(1, $contract->preparationSteps()->whereNotNull('done_on')->count());
     }
+
+    /** Relecture finale : les étapes suivent le statut d'arrivée, même en passant par « annulé ». */
+    public function test_an_active_contract_cancelled_then_pending_gets_its_steps(): void
+    {
+        $contract = VehicleContract::factory()->create(['status' => 'active', 'start_date' => '2026-10-01', 'contract_months' => 30, 'total_amount' => 3_604_872]);
+
+        $this->asAdmin()->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->payload(['status' => 'cancelled']))->assertOk();
+        $this->asAdmin()->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->payload(['status' => 'pending']))->assertOk();
+
+        $this->assertSame(10, $contract->preparationSteps()->count());
+    }
+
+    public function test_an_activated_contract_cancelled_then_pending_reopens_its_arrival(): void
+    {
+        $contract = $this->pending();
+        $this->arrival($contract)->update(['done_on' => '2026-10-18']);
+        $contract->update(['status' => 'cancelled', 'start_date' => '2026-10-18']);
+
+        $this->asAdmin()->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->payload(['status' => 'pending']))->assertOk();
+
+        $this->assertNull($this->arrival($contract)->done_on);
+    }
+
+    public function test_a_pending_contract_cancelled_then_activated_ticks_its_arrival(): void
+    {
+        $contract = $this->pending();
+        $contract->update(['status' => 'cancelled', 'start_date' => '2026-10-01']);
+
+        $this->asAdmin()->putJson("/api/v1/admin/vehicle-contracts/{$contract->id}", $this->payload(['status' => 'active', 'start_date' => '2026-10-19']))->assertOk();
+
+        $this->assertSame('2026-10-19', $this->arrival($contract)->done_on?->toDateString());
+    }
 }
