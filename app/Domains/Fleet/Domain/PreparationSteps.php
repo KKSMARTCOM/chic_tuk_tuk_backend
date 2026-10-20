@@ -46,6 +46,21 @@ final class PreparationSteps
         return $contracts->count();
     }
 
+    /** Le contrat est mis en service : l'arrivée du premier agent est cochée à cette date (§4.3, §4.3 bis). Sans notification. */
+    public static function markAgentArrival(VehicleContract $contract, string $date): void
+    {
+        VehicleContractPreparationStep::where('vehicle_contract_id', $contract->id)->where('is_agent_arrival', true)
+            ->update(['done_on' => $date, 'done_by' => null, 'done_at' => now()]);
+    }
+
+    /** Le contrat repasse en attente (§4.3 bis) : l'arrivée se décoche, ou la liste naît s'il n'en a pas. */
+    public static function reopen(VehicleContract $contract): void
+    {
+        VehicleContractPreparationStep::where('vehicle_contract_id', $contract->id)->where('is_agent_arrival', true)
+            ->update(['done_on' => null, 'done_by' => null, 'done_at' => null]);
+        self::seedFor($contract);
+    }
+
     /** Les étapes ne se modifient que tant que le contrat est en attente (§4.2). */
     public static function isEditable(VehicleContract $contract): bool
     {

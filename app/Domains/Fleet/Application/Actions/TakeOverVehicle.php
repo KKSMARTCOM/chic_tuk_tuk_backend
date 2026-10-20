@@ -4,6 +4,7 @@ namespace App\Domains\Fleet\Application\Actions;
 
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Notification\Application\Notifier;
+use App\Domains\Fleet\Domain\PreparationSteps;
 use App\Models\Driver;
 use App\Models\VehicleContract;
 use Carbon\Carbon;
@@ -42,6 +43,8 @@ final class TakeOverVehicle
         $activated = false;
         if ($contract->status === 'pending') {
             $contract->update(['status' => 'active', 'start_date' => $start->toDateString()]);
+            // Mise en service : l'arrivée du premier agent se coche à sa date (spec 2026-10-20, §4.3).
+            PreparationSteps::markAgentArrival($contract, $start->toDateString());
             $activated = true;
         }
 

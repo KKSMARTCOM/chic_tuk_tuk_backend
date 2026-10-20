@@ -6,6 +6,7 @@ use App\Domains\Fleet\Application\Data\UpdateVehicleContractData;
 use App\Domains\Fleet\Domain\ContractTerms;
 use App\Domains\Fleet\Domain\VehicleContractRules;
 use App\Models\Vehicle;
+use App\Domains\Fleet\Domain\PreparationSteps;
 use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
@@ -107,7 +108,15 @@ final class UpdateVehicleContract
                 VehicleContractRules::assertCanCarryAnActiveContract($vehicle, except: $contract);
             }
 
+            $previousStatus = $contract->status;
             $contract->update($updateData);
+
+            // Les étapes de préparation suivent le statut (spec 2026-10-20, §4.3 bis).
+            if ($previousStatus === 'pending' && $contract->status === 'active') {
+                PreparationSteps::markAgentArrival($contract, $contract->start_date->toDateString());
+            } elseif ($previousStatus === 'active' && $contract->status === 'pending') {
+                PreparationSteps::reopen($contract);
+            }
 
             return $contract->refresh();
         });

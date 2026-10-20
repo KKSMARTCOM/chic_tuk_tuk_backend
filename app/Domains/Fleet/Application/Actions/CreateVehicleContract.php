@@ -6,6 +6,7 @@ use App\Domains\Fleet\Application\Data\CreateVehicleContractData;
 use App\Domains\Fleet\Domain\ContractTerms;
 use App\Domains\Fleet\Domain\VehicleContractRules;
 use App\Models\Vehicle;
+use App\Domains\Fleet\Domain\PreparationSteps;
 use App\Models\VehicleContract;
 use Illuminate\Support\Facades\DB;
 
@@ -36,7 +37,7 @@ final class CreateVehicleContract
             $vehicle = Vehicle::query()->lockForUpdate()->findOrFail($data['vehicle_id']);
             VehicleContractRules::assertCanCarryAnActiveContract($vehicle);
 
-            return VehicleContract::create([
+            $contract = VehicleContract::create([
                 'vehicle_id' => $vehicle->id,
                 'owner_id' => $vehicle->owner_id,
                 'total_amount' => $data['total_amount'],
@@ -50,6 +51,13 @@ final class CreateVehicleContract
                 ...ContractTerms::chargesFrom($data),
                 'invested_amount' => ContractTerms::investedAmountFor((int) $data['contract_months'], $data['invested_amount'] ?? null),
             ]);
+
+            // En attente : le véhicule se prépare, ses étapes naissent avec lui (spec 2026-10-20, §4.1).
+            if ($contract->status === 'pending') {
+                PreparationSteps::seedFor($contract);
+            }
+
+            return $contract;
         });
     }
 }
