@@ -115,6 +115,7 @@ enum ActivityEvent: string
     // Réglages
     case PricingUpdated = 'settings.pricing_updated';
     case ContractTermsUpdated = 'settings.contract_terms_updated';
+    case PreparationStepsUpdated = 'settings.preparation_steps_updated';
 
     public function label(): string
     {
@@ -204,6 +205,7 @@ enum ActivityEvent: string
             self::AnnouncementDeleted => 'Brouillon de communiqué supprimé',
             self::PricingUpdated => 'Tarifs modifiés',
             self::ContractTermsUpdated => 'Réglages des contrats modifiés',
+            self::PreparationStepsUpdated => 'Étapes de préparation modifiées',
         };
     }
 

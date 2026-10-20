@@ -123,7 +123,7 @@ events: Array<App.Domains.Audit.Application.Data.ActivityEventOptionData>;
 };
 }
 declare namespace App.Domains.Audit.Domain {
-export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.enrollment_submitted' | 'booking.enrollment_corrected' | 'booking.enrollment_link_renewed' | 'booking.enrollment_id_document_purged' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_invested_amount_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'announcement.sent' | 'announcement.reminded' | 'announcement.withdrawn' | 'announcement.deleted' | 'settings.pricing_updated' | 'settings.contract_terms_updated';
+export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.enrollment_submitted' | 'booking.enrollment_corrected' | 'booking.enrollment_link_renewed' | 'booking.enrollment_id_document_purged' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_invested_amount_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'announcement.sent' | 'announcement.reminded' | 'announcement.withdrawn' | 'announcement.deleted' | 'settings.pricing_updated' | 'settings.contract_terms_updated' | 'settings.preparation_steps_updated';
 }
 declare namespace App.Domains.Booking.Application.Data {
 export type AdminBookingDetailData = {
@@ -1283,6 +1283,13 @@ state: "active" | "paused" | "immobilized" | "pending" | "completed";
 pause_reason_label: string | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractSummaryData | null;
 };
+export type PreparationStepSettingsData = {
+steps: Array<App.Domains.Fleet.Application.Data.PreparationStepTemplateData>;
+};
+export type PreparationStepTemplateData = {
+id: string;
+label: string;
+};
 export type SaveVehicleData = {
 vehicle_number: string;
 vehicle_type: 'moto' | 'tricycle' | 'car';
@@ -1309,6 +1316,9 @@ confirm_transfer: boolean;
 };
 export type UpdateOwnerPasswordData = {
 password: string;
+};
+export type UpdatePreparationStepSettingsData = {
+steps: Array<{ id: string | null; label: string }>;
 };
 export type UpdateVehicleContractData = {
 contract_months: number;

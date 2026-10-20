@@ -14,6 +14,7 @@ use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\InternalAssignmentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
+use App\Domains\Fleet\Presentation\Api\V1\Admin\PreparationStepSettingsController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractSettingsController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\RoleController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\UserController;
@@ -269,6 +270,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::put('/pricing', [PricingSettingsController::class, 'update'])->name('pricing.update');
             Route::get('/vehicle-contracts', [VehicleContractSettingsController::class, 'show'])->name('vehicle-contracts.show');
             Route::put('/vehicle-contracts', [VehicleContractSettingsController::class, 'update'])->name('vehicle-contracts.update');
+            // La liste par défaut des étapes de préparation (2026-10-20).
+            Route::get('/preparation-steps', [PreparationStepSettingsController::class, 'show'])->name('preparation-steps.show');
+            Route::put('/preparation-steps', [PreparationStepSettingsController::class, 'update'])->name('preparation-steps.update');
         });
 
         /*

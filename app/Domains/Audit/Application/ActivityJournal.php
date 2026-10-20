@@ -838,6 +838,11 @@ final class ActivityJournal
         $this->record(ActivityEvent::ContractTermsUpdated, null, 'a modifié les réglages des contrats propriétaires', $this->changes($before, $after));
     }
 
+    public function preparationStepsUpdated(array $before, array $after): void
+    {
+        $this->record(ActivityEvent::PreparationStepsUpdated, null, 'a modifié les étapes de préparation par défaut', $this->changes($before, $after));
+    }
+
     // ----- Fiches de rémunération --------------------------------------------------------
 
     /**
