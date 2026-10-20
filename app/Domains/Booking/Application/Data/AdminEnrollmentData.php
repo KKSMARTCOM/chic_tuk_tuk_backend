@@ -2,6 +2,7 @@
 
 namespace App\Domains\Booking\Application\Data;
 
+use App\Domains\Booking\Domain\EnrollmentAccess;
 use App\Models\SubscriptionEnrollment;
 use App\Shared\Data\BaseData;
 use Carbon\CarbonInterface;
@@ -17,6 +18,8 @@ final class AdminEnrollmentData extends BaseData
         public string $url,
         public string $tokenExpiresAt,
         public bool $linkExpired,
+        /** L'abonnement est annulé, expiré ou résilié : le lien ne sert plus, même renouvelé. */
+        public bool $linkClosed,
         public ?string $submittedAt,
         public ?string $clientName,
         public ?string $whatsapp,
@@ -51,6 +54,7 @@ final class AdminEnrollmentData extends BaseData
             url: $e->url(),
             tokenExpiresAt: $e->token_expires_at->toIso8601String(),
             linkExpired: $e->token_expires_at->isPast(),
+            linkClosed: EnrollmentAccess::bookingClosed($e),
             submittedAt: $iso($e->submitted_at),
             clientName: $e->client_name,
             whatsapp: $e->whatsapp,

@@ -58,4 +58,12 @@ class PublicEnrollmentReadTest extends TestCase
         $this->getJson("/api/v1/public/enrollments/{$sent->token}")->assertStatus(410)->assertJsonPath('code', 'ENROLLMENT_ALREADY_SUBMITTED');
         $this->getJson("/api/v1/public/enrollments/{$cancelled->token}")->assertStatus(410)->assertJsonPath('code', 'ENROLLMENT_BOOKING_CLOSED');
     }
+
+    /** 2026-10-15 : un abonnement résilié ferme son lien, même si son premier jour garde son statut. */
+    public function test_a_terminated_subscription_closes_its_link(): void
+    {
+        $terminated = SubscriptionEnrollment::factory()->for(Booking::factory()->subscriptionParent()->state(['status' => 'completed', 'subscription_terminated_at' => now()]), 'booking')->create();
+
+        $this->getJson("/api/v1/public/enrollments/{$terminated->token}")->assertStatus(410)->assertJsonPath('code', 'ENROLLMENT_BOOKING_CLOSED');
+    }
 }

@@ -76,6 +76,22 @@ class PurgeEnrollmentIdDocumentsTest extends TestCase
         $this->assertNotNull($cancelled->fresh()->id_document_purged_at);
     }
 
+    /** Relecture du 2026-10-14 : un fichier qui n'a pas pu être effacé n'est pas dit effacé. */
+    public function test_a_failed_deletion_keeps_the_document_for_the_next_night(): void
+    {
+        Storage::fake('local');
+        $enrollment = $this->withDocument(['status' => 'cancelled', 'cancelled_at' => now()->subMonths(4), 'pickup_date' => now()->subMonths(4)->toDateString()]);
+        $disk = \Mockery::mock(Storage::disk('local'))->makePartial();
+        $disk->shouldReceive('delete')->andReturn(false);
+        Storage::set('local', $disk);
+
+        $this->artisan('app:purge-enrollment-id-documents')->assertSuccessful();
+
+        $enrollment->refresh();
+        $this->assertNotNull($enrollment->id_document_path);
+        $this->assertNull($enrollment->id_document_purged_at);
+    }
+
     /** Relecture finale du 2026-10-14 : la cascade en base laissait le fichier sur le disque, hors de portée de la purge. */
     public function test_deleting_a_cancelled_subscription_erases_its_id_document(): void
     {

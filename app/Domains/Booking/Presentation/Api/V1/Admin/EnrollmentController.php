@@ -35,7 +35,10 @@ final class EnrollmentController extends Controller
             }
             $validated = Validator::make($request->all(), SubmitEnrollmentData::answerRules(), SubmitEnrollmentData::messages())->validate();
             $fields = $correct($enrollment, SubmitEnrollmentData::from($validated + ['commitments' => []]), $request->user());
-            $this->journal->enrollmentCorrected($enrollment->fresh('booking'), $fields);
+            // Une correction qui ne change rien n'a rien à tracer (relecture du 2026-10-14).
+            if ($fields !== []) {
+                $this->journal->enrollmentCorrected($enrollment->fresh('booking'), $fields);
+            }
 
             return $this->detail($bookingId);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

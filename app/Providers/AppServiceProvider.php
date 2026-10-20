@@ -130,8 +130,12 @@ class AppServiceProvider extends ServiceProvider
             ->by('public-bookings|'.$request->ip()));
 
         // L'inscription d'un abonnement (2026-10-14) : un parent qui remplit pour trois
-        // enfants recharge, revient, renvoie — 30/min reste large et borne l'essai de jetons.
-        RateLimiter::for('public-enrollments', fn (Request $request) => Limit::perMinute(30)
-            ->by('public-enrollments|'.$request->ip()));
+        // enfants recharge, revient, renvoie — 30 envois/min restent larges. La LECTURE est
+        // relevée à 300/min (relecture du 2026-10-14) : un lien ouvert depuis WhatsApp est
+        // lu par le serveur du landing, si bien que tous les clients partagent son IP. Le
+        // jeton de 64 caractères rend l'essai de jetons vain à ce rythme aussi.
+        RateLimiter::for('public-enrollments', fn (Request $request) => $request->isMethod('GET')
+            ? Limit::perMinute(300)->by('public-enrollments-read|'.$request->ip())
+            : Limit::perMinute(30)->by('public-enrollments|'.$request->ip()));
     }
 }

@@ -33,15 +33,21 @@ class PurgeEnrollmentIdDocuments extends Command
         $limit = now()->subMonths(self::RETENTION_MONTHS)->startOfDay();
         $count = 0;
 
+        // Par identifiant et non par page : la boucle vide la colonne qu'elle filtre, et un
+        // découpage par décalage sautait des lignes au-delà de 1000 (relecture du 2026-10-14).
         SubscriptionEnrollment::query()
             ->with('booking')
             ->whereNotNull('id_document_path')
+            ->lazyById()
             ->each(function (SubscriptionEnrollment $enrollment) use ($limit, &$count) {
                 $end = $this->endOf($enrollment->booking);
                 if ($end === null || $end->gte($limit)) {
                     return;
                 }
-                Storage::disk('local')->delete($enrollment->id_document_path);
+                // Un fichier resté sur le disque n'est pas dit effacé : la nuit suivante réessaie.
+                if (! Storage::disk('local')->delete($enrollment->id_document_path)) {
+                    return;
+                }
                 $enrollment->update(['id_document_path' => null, 'id_document_purged_at' => now()]);
                 $count++;
             });

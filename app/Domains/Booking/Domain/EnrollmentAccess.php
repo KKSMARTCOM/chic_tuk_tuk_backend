@@ -29,6 +29,20 @@ final class EnrollmentAccess
             ->firstOrFail();
     }
 
+    /**
+     * L'abonnement ne prend plus d'inscription : annulé, expiré, ou résilié (2026-10-15 — le
+     * premier jour d'un abonnement résilié garde son statut, seule la date le dit).
+     */
+    public static function bookingClosed(SubscriptionEnrollment $enrollment): bool
+    {
+        $booking = $enrollment->booking;
+
+        return ! $booking
+            || ! $booking->is_recurring
+            || in_array($booking->status, ['cancelled', 'expired'], true)
+            || $booking->subscription_terminated_at !== null;
+    }
+
     public static function assertOpen(SubscriptionEnrollment $enrollment): void
     {
         if ($enrollment->submitted_at !== null) {
@@ -37,8 +51,7 @@ final class EnrollmentAccess
         if ($enrollment->token_expires_at->isPast()) {
             throw new ApiException(410, 'ENROLLMENT_LINK_EXPIRED', 'Ce lien a expiré. Contactez-nous au '.self::AGENCY_PHONE.' pour en recevoir un nouveau.');
         }
-        $booking = $enrollment->booking;
-        if (! $booking || ! $booking->is_recurring || in_array($booking->status, ['cancelled', 'expired'], true)) {
+        if (self::bookingClosed($enrollment)) {
             throw new ApiException(410, 'ENROLLMENT_BOOKING_CLOSED', 'Cet abonnement n\'est plus actif. Contactez-nous au '.self::AGENCY_PHONE.'.');
         }
     }

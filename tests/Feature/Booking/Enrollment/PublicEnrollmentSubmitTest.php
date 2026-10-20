@@ -140,4 +140,35 @@ class PublicEnrollmentSubmitTest extends TestCase
         $this->assertSame('Awa Dossou', $enrollment->fresh()->client_name);
         $this->assertSame(1, $enrollment->fresh()->people()->count());
     }
+
+    /**
+     * Relecture du 2026-10-14 : le test ci-dessus est séquentiel, il ne prouve pas le verrou.
+     * Celui-ci vérifie que l'envoi relit l'inscription VERROUILLÉE, ce qui empêche deux
+     * envois simultanés de passer tous deux.
+     */
+    public function test_the_submission_reads_the_enrollment_under_a_row_lock(): void
+    {
+        $enrollment = $this->enrollment();
+        $locked = false;
+        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$locked) {
+            $locked = $locked || (str_contains($query->sql, 'subscription_enrollments') && str_contains(strtolower($query->sql), 'for update'));
+        });
+
+        $this->post("/api/v1/public/enrollments/{$enrollment->token}", $this->school(), ['Accept' => 'application/json'])->assertCreated();
+
+        $this->assertTrue($locked, 'l\'inscription doit être lue avec lockForUpdate()');
+    }
+
+    /** Relecture du 2026-10-14 : les ouvertures de lien passent par le serveur du landing, une seule IP pour tous. */
+    public function test_reading_the_link_is_limited_far_less_than_sending(): void
+    {
+        $token = str_repeat('z', 63);
+        for ($i = 0; $i < 31; $i++) {
+            $this->getJson("/api/v1/public/enrollments/{$token}")->assertNotFound();
+        }
+        for ($i = 0; $i < 30; $i++) {
+            $this->assertNotSame(429, $this->postJson("/api/v1/public/enrollments/{$token}", [])->status());
+        }
+        $this->postJson("/api/v1/public/enrollments/{$token}", [])->assertStatus(429);
+    }
 }

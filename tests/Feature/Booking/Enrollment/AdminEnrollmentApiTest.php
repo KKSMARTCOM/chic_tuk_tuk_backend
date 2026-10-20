@@ -119,6 +119,38 @@ class AdminEnrollmentApiTest extends TestCase
         $this->assertSame(1, Activity::where('event', 'booking.enrollment_link_renewed')->count());
     }
 
+    /** Relecture du 2026-10-14 : un lien dont l'abonnement est fermé ne doit plus se copier ni se renouveler. */
+    public function test_a_closed_booking_shows_its_link_closed_and_refuses_renewal(): void
+    {
+        $open = SubscriptionEnrollment::factory()->create();
+        $cancelled = SubscriptionEnrollment::factory()->expired()->for(Booking::factory()->subscriptionParent()->state(['status' => 'cancelled']), 'booking')->create();
+        $terminated = SubscriptionEnrollment::factory()->for(Booking::factory()->subscriptionParent()->state(['status' => 'completed', 'subscription_terminated_at' => now()]), 'booking')->create();
+        $token = $this->login(['view-bookings', 'edit-bookings']);
+
+        $this->asBearer($token)->getJson("/api/v1/admin/bookings/{$open->booking_id}")->assertJsonPath('enrollment.link_closed', false);
+        $this->asBearer($token)->getJson("/api/v1/admin/bookings/{$cancelled->booking_id}")->assertJsonPath('enrollment.link_closed', true);
+        $this->asBearer($token)->getJson("/api/v1/admin/bookings/{$terminated->booking_id}")->assertJsonPath('enrollment.link_closed', true);
+        $this->asBearer($token)->postJson("/api/v1/admin/bookings/{$cancelled->booking_id}/enrollment/link")
+            ->assertStatus(409)->assertJsonPath('code', 'ENROLLMENT_BOOKING_CLOSED');
+        $this->assertTrue($cancelled->fresh()->token_expires_at->isPast());
+    }
+
+    /** Relecture du 2026-10-14 : une correction qui ne change rien n'écrit rien au journal. */
+    public function test_an_empty_correction_is_not_journaled(): void
+    {
+        $enrollment = SubscriptionEnrollment::factory()->submittedSchool()->create();
+        $token = $this->login(['view-bookings', 'edit-bookings']);
+        $payload = $this->asBearer($token)->getJson("/api/v1/admin/bookings/{$enrollment->booking_id}")->json('enrollment');
+        $answers = collect($payload)->only([
+            'client_name', 'whatsapp', 'email', 'home_address', 'kind', 'school_name', 'school_contact', 'workplace',
+            'work_hours', 'pickup_landmark', 'dropoff_landmark', 'id_document_type', 'id_document_other',
+        ])->all() + ['people' => collect($payload['people'])->map(fn ($p) => collect($p)->only(['full_name', 'age', 'school_class', 'health_notes'])->all())->all()];
+
+        $this->asBearer($token)->putJson("/api/v1/admin/bookings/{$enrollment->booking_id}/enrollment", $answers)->assertOk();
+
+        $this->assertSame(0, Activity::where('event', 'booking.enrollment_corrected')->count());
+    }
+
     public function test_the_id_document_is_downloaded_or_said_purged(): void
     {
         Storage::fake('local');
@@ -145,5 +177,8 @@ class AdminEnrollmentApiTest extends TestCase
         $this->assertSame([$sent->booking_id], $ids('submitted'));
         $this->assertSame([$missing->booking_id], $ids('missing'));
         $this->asBearer($token)->getJson('/api/v1/admin/bookings?filter[enrollment]=autre')->assertStatus(400);
+        // Relecture du 2026-10-14 : une virgule faisait du filtre un tableau, et la liste un 500.
+        $this->asBearer($token)->getJson('/api/v1/admin/bookings?filter[enrollment]=submitted,missing')->assertStatus(400);
+        $this->asBearer($token)->getJson('/api/v1/admin/bookings?filter[kind]=single,subscription')->assertStatus(400);
     }
 }

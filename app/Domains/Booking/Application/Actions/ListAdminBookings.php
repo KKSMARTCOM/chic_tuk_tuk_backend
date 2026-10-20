@@ -61,9 +61,9 @@ final class ListAdminBookings
                 // L'agent qui a PRIS la course : une journée d'abonnement qui lui est
                 // réservée (`subscription_driver_id`) sans être acceptée n'est pas la sienne.
                 ListQuery::exact('driver_id'),
-                AllowedFilter::callback('kind', fn (Builder $q, $value) => self::filterKind($q, (string) $value)),
+                AllowedFilter::callback('kind', fn (Builder $q, $value) => self::filterKind($q, self::single($value))),
                 // L'inscription d'un abonnement (2026-10-14) : sur les parents seulement.
-                AllowedFilter::callback('enrollment', fn (Builder $q, $value) => match ((string) $value) {
+                AllowedFilter::callback('enrollment', fn (Builder $q, $value) => match (self::single($value)) {
                     '' => null,
                     'submitted' => $q->whereHas('enrollment', fn (Builder $e) => $e->whereNotNull('submitted_at')),
                     'missing' => $q->whereHas('enrollment', fn (Builder $e) => $e->whereNull('submitted_at')),
@@ -94,6 +94,19 @@ final class ListAdminBookings
                 )),
             ])
             ->defaultSort('-created_at')), $params);
+    }
+
+    /**
+     * Une seule valeur par filtre : le paquet découpe sur la virgule, et `(string)` d'un
+     * tableau levait une erreur — un 500 au lieu d'un 400 (relecture du 2026-10-14).
+     */
+    private static function single(mixed $value): string
+    {
+        if (is_array($value)) {
+            throw new ApiException(400, 'INVALID_LIST_QUERY', 'Ce tri ou ce filtre n\'est pas proposé par cette liste.');
+        }
+
+        return (string) $value;
     }
 
     /**

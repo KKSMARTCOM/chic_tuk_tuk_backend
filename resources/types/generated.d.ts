@@ -246,6 +246,7 @@ status: 'missing' | 'submitted';
 url: string;
 token_expires_at: string;
 link_expired: boolean;
+link_closed: boolean;
 submitted_at: string | null;
 client_name: string | null;
 whatsapp: string | null;
