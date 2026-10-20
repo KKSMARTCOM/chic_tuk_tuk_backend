@@ -84,6 +84,14 @@ enum ActivityEvent: string
     case VehicleContractCompleted = 'vehicle.contract_completed';
     case InternalAssignmentCreated = 'vehicle.internal_assignment_created';
     case InternalAssignmentEnded = 'vehicle.internal_assignment_ended';
+    case PreparationStepDone = 'vehicle.preparation_step_done';
+    case PreparationStepUndone = 'vehicle.preparation_step_undone';
+    case PreparationStepRedated = 'vehicle.preparation_step_redated';
+    case PreparationStepAdded = 'vehicle.preparation_step_added';
+    case PreparationStepRenamed = 'vehicle.preparation_step_renamed';
+    case PreparationStepRemoved = 'vehicle.preparation_step_removed';
+    case PreparationProofAttached = 'vehicle.preparation_proof_attached';
+    case PreparationProofRemoved = 'vehicle.preparation_proof_removed';
 
     // Paiements et commissions
     case PaymentCreated = 'payment.created';
@@ -182,6 +190,14 @@ enum ActivityEvent: string
             self::VehicleContractCompleted => 'Contrat propriétaire soldé',
             self::InternalAssignmentCreated => 'Agent interne affecté',
             self::InternalAssignmentEnded => 'Affectation interne terminée',
+            self::PreparationStepDone => 'Étape de préparation cochée',
+            self::PreparationStepUndone => 'Étape de préparation décochée',
+            self::PreparationStepRedated => 'Étape de préparation datée de nouveau',
+            self::PreparationStepAdded => 'Étape de préparation ajoutée',
+            self::PreparationStepRenamed => 'Étape de préparation renommée',
+            self::PreparationStepRemoved => 'Étape de préparation retirée',
+            self::PreparationProofAttached => 'Preuve d\'étape jointe',
+            self::PreparationProofRemoved => 'Preuve d\'étape retirée',
             self::PaymentCreated => 'Paiement enregistré',
             self::PaymentUpdated => 'Paiement modifié',
             self::PaymentValidated => 'Paiement validé',

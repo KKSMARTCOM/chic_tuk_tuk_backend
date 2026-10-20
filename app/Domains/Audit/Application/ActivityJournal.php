@@ -21,6 +21,7 @@ use App\Models\SubscriptionEnrollment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
+use App\Models\VehicleContractPreparationStep;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -594,6 +595,57 @@ final class ActivityJournal
             $description,
             ['internal_assignment_id' => $assignment->id, 'end_date' => $assignment->end_date?->toDateString()],
         );
+    }
+
+    // ----- Préparation du véhicule (2026-10-20) — objet : le contrat ------------------------
+
+    public function preparationStepDone(VehicleContractPreparationStep $step): void
+    {
+        $this->preparation(ActivityEvent::PreparationStepDone, $step, "a coché « {$step->label} » (faite le {$step->done_on?->format('d/m/Y')})");
+    }
+
+    public function preparationStepRedated(VehicleContractPreparationStep $step): void
+    {
+        $this->preparation(ActivityEvent::PreparationStepRedated, $step, "a daté « {$step->label} » du {$step->done_on?->format('d/m/Y')}");
+    }
+
+    public function preparationStepUndone(VehicleContractPreparationStep $step): void
+    {
+        $this->preparation(ActivityEvent::PreparationStepUndone, $step, "a décoché « {$step->label} »");
+    }
+
+    public function preparationStepAdded(VehicleContractPreparationStep $step): void
+    {
+        $this->preparation(ActivityEvent::PreparationStepAdded, $step, "a ajouté l'étape « {$step->label} »");
+    }
+
+    public function preparationStepRenamed(VehicleContractPreparationStep $step, string $previous): void
+    {
+        $this->preparation(ActivityEvent::PreparationStepRenamed, $step, "a renommé l'étape « {$previous} » en « {$step->label} »");
+    }
+
+    public function preparationStepRemoved(VehicleContract $contract, string $label): void
+    {
+        $contract->loadMissing('vehicle');
+        $this->record(ActivityEvent::PreparationStepRemoved, $contract, "a retiré l'étape « {$label} » de la préparation de {$contract->vehicle?->vehicle_number}", ['label' => $label]);
+    }
+
+    public function preparationProofAttached(VehicleContractPreparationStep $step): void
+    {
+        $this->preparation(ActivityEvent::PreparationProofAttached, $step, "a joint une preuve à « {$step->label} »");
+    }
+
+    public function preparationProofRemoved(VehicleContractPreparationStep $step): void
+    {
+        $this->preparation(ActivityEvent::PreparationProofRemoved, $step, "a retiré la preuve de « {$step->label} »");
+    }
+
+    private function preparation(ActivityEvent $event, VehicleContractPreparationStep $step, string $what): void
+    {
+        $contract = $step->vehicleContract()->with('vehicle')->first();
+        $this->record($event, $contract, "{$what} sur la préparation de {$contract?->vehicle?->vehicle_number}", [
+            'step_id' => $step->id, 'label' => $step->label, 'done_on' => $step->done_on?->toDateString(),
+        ]);
     }
 
     public function vehicleContractActivated(VehicleContract $contract, Driver $driver): void

@@ -10,6 +10,7 @@ use App\Models\RemunerationStatement;
 use App\Models\SubscriptionEnrollment;
 use App\Models\User;
 use App\Models\VehicleContract;
+use App\Models\VehicleContractPreparationStep;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -317,6 +318,21 @@ final class Notifier
                 .'. Contactez un administrateur si cela vous semble erroné.',
             'warning',
             null,
+        );
+    }
+
+    /** Une étape de préparation cochée : le propriétaire suit son véhicule (spec 2026-10-20, §4.4). */
+    public function preparationStepDone(VehicleContractPreparationStep $step): void
+    {
+        $vehicle = $step->vehicleContract?->vehicle;
+        $label = mb_strtolower(mb_substr($step->label, 0, 1)).mb_substr($step->label, 1);
+
+        $this->vers(
+            $vehicle?->owner,
+            'Préparation de votre véhicule',
+            ($vehicle?->vehicle_number ?? '').' : '.$label.', faite le '.$step->done_on?->format('d/m/Y').'.',
+            'info',
+            $vehicle ? "/owner/vehicles/{$vehicle->id}" : null,
         );
     }
 

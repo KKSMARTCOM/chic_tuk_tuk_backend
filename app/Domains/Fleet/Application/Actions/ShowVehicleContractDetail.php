@@ -11,6 +11,8 @@ use App\Domains\Fleet\Application\Data\AdminVehicleContractMonthData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractPartyData;
 use App\Domains\Fleet\Application\Data\VehiclePauseData;
 use App\Models\DriverContract;
+use App\Domains\Fleet\Application\Data\AdminPreparationData;
+use App\Domains\Fleet\Domain\PreparationSteps;
 use App\Models\InternalAssignment;
 
 /**
@@ -70,6 +72,8 @@ final class ShowVehicleContractDetail
                 ->map(fn (InternalAssignment $assignment) => AdminInternalAssignmentData::fromModel($assignment))
                 ->values()
                 ->all(),
+            preparationSteps: AdminPreparationData::forContract($contract)->preparationSteps,
+            preparationEditable: PreparationSteps::isEditable($contract),
         );
     }
 }

@@ -5,6 +5,9 @@ namespace App\Domains\Fleet\Domain;
 use App\Models\PreparationStepTemplate;
 use App\Models\VehicleContract;
 use App\Models\VehicleContractPreparationStep;
+use App\Shared\Http\ApiException;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Les règles de la préparation d'un véhicule (spec 2026-10-20, §4).
@@ -59,6 +62,31 @@ final class PreparationSteps
         VehicleContractPreparationStep::where('vehicle_contract_id', $contract->id)->where('is_agent_arrival', true)
             ->update(['done_on' => null, 'done_by' => null, 'done_at' => null]);
         self::seedFor($contract);
+    }
+
+    /** 409 hors attente : les étapes d'un contrat en service sont un historique (§4.2). */
+    public static function assertEditable(VehicleContract $contract): void
+    {
+        if (! self::isEditable($contract)) {
+            throw new ApiException(409, 'PREPARATION_LOCKED', 'Le véhicule est en service : sa préparation ne se modifie plus.');
+        }
+    }
+
+    /** L'arrivée du premier agent ne se touche pas à la main (§4.2). */
+    public static function assertNotAgentArrival(VehicleContractPreparationStep $step, string $field): void
+    {
+        if ($step->is_agent_arrival) {
+            throw ValidationException::withMessages([$field => 'L\'arrivée du premier agent se coche d\'elle-même, au démarrage de son contrat.']);
+        }
+    }
+
+    /** Efface la preuve d'une étape, fichier compris (sans enregistrer). */
+    public static function forgetProof(VehicleContractPreparationStep $step): void
+    {
+        if ($step->proof_path) {
+            Storage::disk('local')->delete($step->proof_path);
+        }
+        $step->fill(['proof_path' => null, 'proof_original_name' => null, 'proof_mime_type' => null, 'proof_size' => null]);
     }
 
     /** Les étapes ne se modifient que tant que le contrat est en attente (§4.2). */

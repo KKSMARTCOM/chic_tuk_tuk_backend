@@ -29,5 +29,9 @@ final class AdminVehicleContractDetailData extends BaseData
         public ?AdminInternalAssignmentData $currentInternalAssignment,
         /** @var array<int, AdminInternalAssignmentData> les affectations terminées, de la plus récente à la plus ancienne */
         public array $internalAssignments,
+        /** @var AdminPreparationStepData[] les étapes de préparation (spec 2026-10-20, §5.2) */
+        public array $preparationSteps,
+        /** Le contrat est en attente : ses étapes se modifient encore. */
+        public bool $preparationEditable,
     ) {}
 }

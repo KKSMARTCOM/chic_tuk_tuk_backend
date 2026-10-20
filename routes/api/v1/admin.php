@@ -14,6 +14,7 @@ use App\Domains\Fleet\Presentation\Api\V1\Admin\OwnerController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\InternalAssignmentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
+use App\Domains\Fleet\Presentation\Api\V1\Admin\PreparationStepController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\PreparationStepSettingsController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractSettingsController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\RoleController;
@@ -200,6 +201,19 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         // Le montant investi se corrige même avec un agent actif : affichage seul (2026-10-14).
         Route::patch('/vehicle-contracts/{contract}/invested-amount', [VehicleContractController::class, 'updateInvestedAmount'])
             ->middleware('permission:edit-contracts')->name('vehicle-contracts.invested-amount');
+
+        // La préparation du véhicule (2026-10-20) : lecture de la preuve sous `view-contracts`,
+        // tout le reste sous `edit-contracts`.
+        Route::get('/vehicle-contracts/{contract}/preparation-steps/{step}/proof', [PreparationStepController::class, 'proof'])
+            ->middleware('permission:view-contracts')->name('vehicle-contracts.preparation-steps.proof');
+        Route::middleware('permission:edit-contracts')->prefix('/vehicle-contracts/{contract}/preparation-steps')
+            ->name('vehicle-contracts.preparation-steps.')->group(function () {
+                Route::post('/', [PreparationStepController::class, 'store'])->name('store');
+                Route::patch('/{step}', [PreparationStepController::class, 'update'])->name('update');
+                Route::delete('/{step}', [PreparationStepController::class, 'destroy'])->name('destroy');
+                Route::post('/{step}/proof', [PreparationStepController::class, 'attachProof'])->name('proof.store');
+                Route::delete('/{step}/proof', [PreparationStepController::class, 'removeProof'])->name('proof.destroy');
+            });
 
         // Les affectations internes (2026-10-09) : un agent sur un véhicule, sans paiement.
         Route::middleware('permission:edit-contracts')->group(function () {
