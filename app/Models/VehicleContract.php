@@ -80,6 +80,12 @@ class VehicleContract extends Model
         return $this->hasMany(Payment::class);
     }
 
+    /** Les étapes de préparation, dans leur ordre (spec 2026-10-20). */
+    public function preparationSteps()
+    {
+        return $this->hasMany(VehicleContractPreparationStep::class)->orderBy('position');
+    }
+
     public function pauses()
     {
         return $this->hasMany(VehiclePause::class);
