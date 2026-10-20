@@ -898,6 +898,29 @@ contrat soldé : daté après la fin, ou — du dernier mois — laissé hors de
 (encore en attente, ou encaissé après elle, réglé le 2026-10-20). Un contrat soldé ne change
 plus de statut par le formulaire.
 
+## La préparation d'un véhicule (2026-10-20)
+
+Spec : `docs/specs/2026-10-20-preparation-vehicule-design.md`. Entre la création du contrat
+« en attente » et l'arrivée du premier agent, le propriétaire suit une frise d'étapes.
+
+- `preparation_step_templates` : la liste par défaut, réglée par
+  `GET|PUT /admin/settings/preparation-steps` (`manage-business-settings`, liste complète).
+- `vehicle_contract_preparation_steps` : les étapes d'un contrat, COPIÉES à sa création en
+  attente (`PreparationSteps::seedFor`), puis ajustées ; changer la liste par défaut ne les
+  touche pas. La dernière, `is_agent_arrival`, ne se touche pas à la main (422).
+- **Les étapes suivent le statut** (`PreparationSteps`) : `TakeOverVehicle` et l'activation à
+  la main cochent l'arrivée à la date de début ; un retour en attente la décoche (ou crée la
+  liste) ; hors attente, toute écriture répond `409 PREPARATION_LOCKED`. Une affectation
+  interne ne coche rien : pour le propriétaire, rien ne se passe avant le premier agent.
+- Gestes de l'admin sous `/admin/vehicle-contracts/{id}/preparation-steps` (`edit-contracts`) :
+  cocher avec une date jamais future, décocher (la preuve part avec), dater de nouveau,
+  renommer, ajouter, retirer (décocher d'abord), preuve PDF/JPG/PNG/WEBP de 10 Mo sur le disque
+  privé `preparation/{contract_id}/`. Le contrôleur trace (`vehicle.preparation_*`) et notifie
+  le propriétaire au seul passage « à faire » → « faite », lu sous verrou.
+- Le propriétaire lit `preparation_steps` sur `GET /owner/vehicles/{id}` et
+  `preparation_done|total` sur la liste, tant que le contrat est en attente (null ensuite), et
+  télécharge la preuve sous la même portée. Aucune permission nouvelle : pas de seeder.
+
 ## Commandes artisan
 
 - `app:expire-bookings` → `ExpireStaleBookings` : les courses pending dépassées de 24 h
