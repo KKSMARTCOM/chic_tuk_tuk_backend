@@ -884,6 +884,19 @@ voit les réponses (`enrollment` sur la fiche, `view-bookings`), les corrige et 
   garde `id_document_purged_at`. ⚠️ Résilié ou annulé, c'est 3 mois après la RÉSILIATION, pas
   après la fin prévue (2026-10-15) : `TerminateSubscription` pose
   `bookings.subscription_terminated_at`, seule trace du jour, le parent gardant son statut.
+- Le lien se FERME aussi à la résiliation (`EnrollmentAccess::bookingClosed`, 2026-10-20) ;
+  la fiche admin le dit (`link_closed`) et refuse alors le renouvellement
+  (`409 ENROLLMENT_BOOKING_CLOSED`). La LECTURE du lien est limitée à 300/min, l'envoi à
+  30 : ouvert depuis WhatsApp, le lien est lu par le serveur du landing, une IP pour tous.
+
+## La fin du contrat propriétaire aux cumuls (2026-10-12)
+
+Spec : `docs/specs/2026-10-12-fin-aux-cumuls-design.md`. ⚠️ **Ce qui revient à l'agence
+s'écrit à DEUX endroits qui doivent rester d'accord** : `Payment::scopeForOwner()` (SQL, ce
+que voit le propriétaire) et `Payment::isAgency()` (l'étiquette « Agence » de l'admin). Sur un
+contrat soldé : daté après la fin, ou — du dernier mois — laissé hors de la fiche finale
+(encore en attente, ou encaissé après elle, réglé le 2026-10-20). Un contrat soldé ne change
+plus de statut par le formulaire.
 
 ## Commandes artisan
 
