@@ -1264,6 +1264,13 @@ charges_deducted: number | null;
 revenue_progress: number;
 pauses: App.Domains.Fleet.Application.Data.OwnerContractPauseSummaryData;
 };
+export type OwnerPreparationStepData = {
+id: string;
+label: string;
+done_on: string | null;
+has_proof: boolean;
+is_agent_arrival: boolean;
+};
 export type OwnerVehicleAttachmentData = {
 mode: 'existing' | 'new';
 vehicle_id: string | null;
@@ -1279,6 +1286,7 @@ vehicle_type: string | null;
 state: "active" | "paused" | "immobilized" | "pending" | "completed";
 active_pause: App.Domains.Fleet.Application.Data.ActivePauseData | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractDetailData | null;
+preparation_steps: Array<App.Domains.Fleet.Application.Data.OwnerPreparationStepData> | null;
 };
 export type OwnerVehicleEditData = {
 id: string;
@@ -1298,6 +1306,8 @@ vehicle_type: string | null;
 state: "active" | "paused" | "immobilized" | "pending" | "completed";
 pause_reason_label: string | null;
 contract: App.Domains.Fleet.Application.Data.OwnerContractSummaryData | null;
+preparation_done: number | null;
+preparation_total: number | null;
 };
 export type PreparationStepSettingsData = {
 steps: Array<App.Domains.Fleet.Application.Data.PreparationStepTemplateData>;

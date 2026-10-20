@@ -39,6 +39,10 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:owner'])
             ->middleware('permission:view-own-contracts')
             ->name('vehicles.show');
 
+        Route::get('/vehicles/{id}/preparation-steps/{step}/proof', [VehicleController::class, 'preparationProof'])
+            ->middleware('permission:view-own-contracts')
+            ->name('vehicles.preparation-proof');
+
         Route::get('/vehicles/{id}/pauses', [VehicleController::class, 'pauses'])
             ->middleware('permission:view-own-leaves')
             ->name('vehicles.pauses');

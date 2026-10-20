@@ -45,11 +45,39 @@ final class VehicleController
         }
     }
 
+    /**
+     * La preuve d'une étape, tant que le véhicule est en préparation (spec 2026-10-20, §4.6).
+     * Après la mise en service, la frise a disparu : 404, comme le véhicule d'autrui.
+     */
+    public function preparationProof(Request $request, string $id, string $stepId): \Symfony\Component\HttpFoundation\Response
+    {
+        try {
+            $vehicle = $this->owned($request, $id);
+            $contract = $vehicle->liveVehicleContract;
+            $step = $contract?->status === 'pending'
+                ? $contract->preparationSteps()->whereKey($stepId)->whereNotNull('proof_path')->first()
+                : null;
+            if (! $step || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($step->proof_path)) {
+                throw (new ModelNotFoundException)->setModel(\App\Models\VehicleContractPreparationStep::class);
+            }
+
+            return \Illuminate\Support\Facades\Storage::disk('local')->download($step->proof_path, $step->proof_original_name ?? 'preuve');
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Erreur lors du téléchargement d\'une preuve de préparation : '.$e->getMessage(), [
+                'exception' => $e, 'user_id' => $request->user()?->id, 'vehicle_id' => $id,
+            ]);
+
+            return response()->json(['message' => 'La preuve n\'a pas pu être téléchargée. Réessayez.', 'code' => 'OWNER_PREPARATION_PROOF_FAILED'], 500);
+        }
+    }
+
     public function show(Request $request, string $id): JsonResponse
     {
         try {
             $vehicle = $this->owned($request, $id);
-            $vehicle->load(['activeVehicleContract', 'liveVehicleContract', 'settledVehicleContract', 'activePause']);
+            $vehicle->load(['activeVehicleContract', 'liveVehicleContract.preparationSteps', 'settledVehicleContract', 'activePause']);
 
             return response()->json(OwnerVehicleDetailData::fromModel($vehicle));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {
@@ -75,7 +103,7 @@ final class VehicleController
     {
         try {
             $vehicle = $this->owned($request, $id);
-            $vehicle->load(['pauses', 'driverContracts.leaveRequests', 'activeVehicleContract', 'liveVehicleContract', 'settledVehicleContract']);
+            $vehicle->load(['pauses', 'driverContracts.leaveRequests', 'activeVehicleContract', 'liveVehicleContract.preparationSteps', 'settledVehicleContract']);
 
             return response()->json(OwnerVehiclePausesData::fromModel($vehicle));
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

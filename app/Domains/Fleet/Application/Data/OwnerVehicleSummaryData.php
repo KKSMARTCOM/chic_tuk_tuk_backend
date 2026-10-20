@@ -19,6 +19,9 @@ final class OwnerVehicleSummaryData extends BaseData
         /** Le motif de la pause en cours, affiché à côté de l'état. */
         public ?string $pauseReasonLabel,
         public ?OwnerContractSummaryData $contract,
+        /** L'avancement de la préparation, tant que le véhicule est en attente (spec 2026-10-20, §6.1). */
+        public ?int $preparationDone = null,
+        public ?int $preparationTotal = null,
     ) {}
 
     /** Attend un véhicule ayant chargé `activeVehicleContract`, `liveVehicleContract`, `settledVehicleContract` et `activePause`. */
@@ -29,6 +32,7 @@ final class OwnerVehicleSummaryData extends BaseData
         // Soldé : l'agent qui continue roule pour l'agence, ses pauses ne sont pas celles du
         // propriétaire (spec 2026-10-12, §7.2).
         $pause = $settled ? null : $vehicle->activePause;
+        $pending = $vehicle->liveVehicleContract?->status === 'pending' ? $vehicle->liveVehicleContract : null;
 
         return new self(
             id: $vehicle->id,
@@ -44,6 +48,8 @@ final class OwnerVehicleSummaryData extends BaseData
             // Le véhicule peut n'avoir aucun contrat actif : c'est un cas réel, que le
             // Blade traite déjà par « Aucun contrat actif pour ce véhicule ».
             contract: $contract ? OwnerContractSummaryData::fromModel($contract) : null,
+            preparationDone: $pending ? $pending->preparationSteps->whereNotNull('done_on')->count() : null,
+            preparationTotal: $pending?->preparationSteps->count(),
         );
     }
 }

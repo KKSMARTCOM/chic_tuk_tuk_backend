@@ -17,6 +17,8 @@ final class OwnerVehicleDetailData extends BaseData
         public string $state,
         public ?ActivePauseData $activePause,
         public ?OwnerContractDetailData $contract,
+        /** @var OwnerPreparationStepData[]|null la frise, tant que le véhicule est en attente (spec 2026-10-20, §5.3) */
+        public ?array $preparationSteps = null,
     ) {}
 
     /** Attend un véhicule ayant chargé `activeVehicleContract`, `liveVehicleContract`, `settledVehicleContract` et `activePause`. */
@@ -40,6 +42,9 @@ final class OwnerVehicleDetailData extends BaseData
             },
             activePause: $pause ? ActivePauseData::fromModel($pause) : null,
             contract: $contract ? OwnerContractDetailData::fromModel($contract) : null,
+            preparationSteps: $vehicle->liveVehicleContract?->status === 'pending'
+                ? $vehicle->liveVehicleContract->preparationSteps->map(fn ($step) => OwnerPreparationStepData::fromModel($step))->all()
+                : null,
         );
     }
 }
