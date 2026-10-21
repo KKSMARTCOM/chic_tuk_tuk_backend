@@ -19,10 +19,13 @@ final class PermissionFamily
         'leaves' => 'Pauses',
         'leave-requests' => 'Demandes de pause',
         'drivers' => 'Agents',
+        // `manage-driver-accounts` (2026-10-21) se range avec les agents.
+        'driver-accounts' => 'Agents',
         'owners' => 'Propriétaires',
         'vehicles' => 'Véhicules',
-        'vehicle-pauses' => 'Pauses véhicule',
         'contracts' => 'Contrats',
+        // `reopen-driver-contracts` (2026-10-21) se range avec les contrats.
+        'driver-contracts' => 'Contrats',
         'commissions' => 'Commissions',
         'payments' => 'Paiements',
         'users' => 'Administrateurs',

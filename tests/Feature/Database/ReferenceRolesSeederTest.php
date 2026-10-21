@@ -118,8 +118,9 @@ class ReferenceRolesSeederTest extends TestCase
         // propriétaires — voir, créer, modifier, mais pas supprimer.
         $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
 
-        // `manage-vehicle-pauses` ajoutée le même jour : il gère déjà les pauses des agents.
-        foreach (['view-vehicles', 'create-vehicles', 'edit-vehicles', 'manage-vehicle-pauses'] as $permission) {
+        // `manage-vehicle-pauses`, ajoutée le même jour, a quitté le catalogue le 2026-10-21 :
+        // plus aucune pause véhicule ne se pose à la main.
+        foreach (['view-vehicles', 'create-vehicles', 'edit-vehicles'] as $permission) {
             $this->assertTrue($user->hasPermissionTo($permission), "utilisateur doit porter {$permission}");
         }
         $this->assertFalse($user->hasPermissionTo('delete-vehicles'));
@@ -310,5 +311,22 @@ class ReferenceRolesSeederTest extends TestCase
         $this->assertTrue($admin->hasPermissionTo('send-announcements'));
         $this->assertTrue($user->hasPermissionTo('draft-announcements'));
         $this->assertFalse($user->hasPermissionTo('send-announcements'));
+    }
+
+    public function test_les_rattrapages_de_l_etat_d_un_agent_sont_a_l_administrateur_seul(): void
+    {
+        $this->semer();
+
+        // Spec 2026-10-21, §6 : ouvrir ou fermer le compte d'un agent, annuler la fin d'un
+        // contrat agent — l'administrateur seul.
+        $admin = Role::query()->where('name', 'admin')->firstOrFail();
+        $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
+
+        foreach (['manage-driver-accounts', 'reopen-driver-contracts'] as $permission) {
+            $this->assertTrue($admin->hasPermissionTo($permission), "admin doit porter {$permission}");
+            $this->assertFalse($user->hasPermissionTo($permission), "utilisateur ne doit pas porter {$permission}");
+        }
+        $this->assertFalse(\Spatie\Permission\Models\Permission::query()
+            ->where('name', 'manage-vehicle-pauses')->whereHas('roles')->exists());
     }
 }

@@ -110,7 +110,7 @@ class ActivityJournalWorkforceTest extends TestCase
     {
         $driver = $this->agent();
 
-        $this->as($this->token(['edit-drivers']))
+        $this->as($this->token(['manage-driver-accounts']))
             ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-status", ['is_active' => false])
             ->assertOk();
 
@@ -119,17 +119,6 @@ class ActivityJournalWorkforceTest extends TestCase
         // L'agent, pas son compte : c'est lui qui a une fiche.
         $this->assertSame('driver', $entry->subject_type);
         $this->assertSame($driver->id, $entry->subject_id);
-    }
-
-    public function test_la_disponibilite_d_un_agent_est_tracee(): void
-    {
-        $driver = $this->agent();
-
-        $this->as($this->token(['edit-drivers']))
-            ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-availability", ['is_available' => false])
-            ->assertOk();
-
-        $this->assertSame('a rendu indisponible Koffi Mensah', $this->last('driver.availability_changed')->description);
     }
 
     public function test_un_role_est_trace_par_son_libelle(): void

@@ -101,7 +101,6 @@ final class UpdateDriver
                 'name' => $data['name'],
                 'email' => $data['email'] ?? $user->email,
                 'phone' => $data['phone'],
-                'is_active' => $data['is_active'] ?? $user->is_active,
                 'adresse' => $data['adresse'] ?? $user->adresse,
             ]);
 
@@ -109,7 +108,6 @@ final class UpdateDriver
             if ($user->driver) {
                 $user->driver->update([
                     'license_number' => $data['license_number'] ?? $user->driver->license_number,
-                    'is_available' => $data['is_available'] ?? $user->driver->is_available,
                     'agent_code' => $data['agent_code'] ?? $data['renewal_agent_code'] ?? $user->driver->agent_code,
                     'agent_id' => $data['agent_id'] ?? $data['renewal_agent_id'] ?? $user->driver->agent_id,
                 ]);

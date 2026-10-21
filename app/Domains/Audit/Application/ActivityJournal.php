@@ -4,7 +4,6 @@ namespace App\Domains\Audit\Application;
 
 use App\Domains\Audit\Domain\ActivityEvent;
 use App\Domains\Booking\Domain\Enums\BookingStatus;
-use App\Domains\Fleet\Domain\Enums\VehiclePauseReason;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Domains\Workforce\Domain\Enums\DriverContractEndReason;
 use App\Models\Announcement;
@@ -22,7 +21,6 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehicleContractPreparationStep;
-use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -359,16 +357,6 @@ final class ActivityJournal
 
     // ----- Agents -------------------------------------------------------------------------
 
-    public function driverAvailabilityChanged(Driver $driver, bool $available): void
-    {
-        $this->record(
-            ActivityEvent::DriverAvailabilityChanged,
-            $driver,
-            ($available ? 'a rendu disponible ' : 'a rendu indisponible ').$this->driverName($driver),
-            ['available' => $available],
-        );
-    }
-
     public function driverContractUpdated(DriverContract $contract): void
     {
         $this->record(
@@ -504,6 +492,9 @@ final class ActivityJournal
     }
 
     // ----- Flotte ------------------------------------------------------------------------
+    //
+    // Le statut et les pauses d'un véhicule ne s'écrivent plus à la main depuis le 2026-10-21 :
+    // `vehicle.status_changed` et `vehicle.pause_*` ne nomment plus que des lignes anciennes.
 
     public function vehicleCreated(Vehicle $vehicle): void
     {
@@ -515,13 +506,6 @@ final class ActivityJournal
         $this->record(ActivityEvent::VehicleUpdated, $vehicle, "a modifié le véhicule {$vehicle->vehicle_number}");
     }
 
-    public function vehicleStatusChanged(Vehicle $vehicle, bool $active): void
-    {
-        $verb = $active ? 'a réactivé' : 'a désactivé';
-
-        $this->record(ActivityEvent::VehicleStatusChanged, $vehicle, "{$verb} le véhicule {$vehicle->vehicle_number}", ['active' => $active]);
-    }
-
     public function vehicleDeleted(string $vehicleId, string $vehicleNumber): void
     {
         $this->record(
@@ -530,33 +514,6 @@ final class ActivityJournal
             "a supprimé le véhicule {$vehicleNumber}",
             ['vehicle_id' => $vehicleId, 'vehicle_number' => $vehicleNumber],
         );
-    }
-
-    public function vehiclePaused(VehiclePause $pause): void
-    {
-        $reason = VehiclePauseReason::tryFrom((string) $pause->reason_type)?->label();
-
-        $this->record(
-            ActivityEvent::VehiclePaused,
-            $pause->vehicle,
-            "a mis en pause le véhicule {$pause->vehicle?->vehicle_number}".($reason ? " ({$reason})" : ''),
-            ['pause_id' => $pause->id],
-        );
-    }
-
-    public function vehiclePauseEnded(VehiclePause $pause): void
-    {
-        $this->record(
-            ActivityEvent::VehiclePauseEnded,
-            $pause->vehicle,
-            "a mis fin à la pause du véhicule {$pause->vehicle?->vehicle_number}",
-            ['pause_id' => $pause->id],
-        );
-    }
-
-    public function vehiclePauseCancelled(Vehicle $vehicle): void
-    {
-        $this->record(ActivityEvent::VehiclePauseCancelled, $vehicle, "a annulé une pause du véhicule {$vehicle->vehicle_number}");
     }
 
     public function vehicleContractCreated(VehicleContract $contract): void

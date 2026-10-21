@@ -110,25 +110,6 @@ class ActivityJournalFleetFinanceTest extends TestCase
         $this->assertSame('a ajouté le véhicule BJ-4521-AB', $this->last('vehicle.created')->description);
     }
 
-    public function test_une_mise_en_pause_dit_son_motif(): void
-    {
-        $vehicle = Vehicle::factory()->create(['vehicle_number' => 'BJ-0007-CC', 'is_active' => true]);
-        VehicleContract::factory()->forVehicle($vehicle)->create();
-
-        $this->as($this->token(['manage-vehicle-pauses']))
-            ->postJson("/api/v1/admin/vehicles/{$vehicle->id}/pauses", [
-                'start_date' => now()->toDateString(),
-                'reason_type' => 'accident',
-            ])
-            ->assertCreated();
-
-        $entry = $this->last('vehicle.paused');
-        $this->assertSame('a mis en pause le véhicule BJ-0007-CC (Accident)', $entry->description);
-        $this->assertSame($vehicle->id, $entry->subject_id);
-    }
-
-    // ----- Paiements ---------------------------------------------------------------------
-
     public function test_valider_un_paiement_dit_le_montant_et_l_agent(): void
     {
         $contract = $this->contractedDriver();

@@ -1216,16 +1216,7 @@ notes: string | null;
 invested_amount: number | null;
 pending: boolean;
 };
-export type CreateVehiclePauseData = {
-start_date: string;
-end_date: string | null;
-reason_type: App.Domains.Fleet.Domain.Enums.VehiclePauseReason;
-reason_notes: string | null;
-};
 export type EndInternalAssignmentData = {
-end_date: string;
-};
-export type EndVehiclePauseData = {
 end_date: string;
 };
 export type OwnerContractDetailData = {
@@ -1322,9 +1313,6 @@ vehicle_type: 'moto' | 'tricycle' | 'car';
 notes: string | null;
 };
 export type SetOwnerStatusData = {
-is_active: boolean;
-};
-export type SetVehicleStatusData = {
 is_active: boolean;
 };
 export type UpdateInvestedAmountData = {
@@ -1848,9 +1836,6 @@ export type RequestLeaveData = {
 start_date: string;
 requested_days: number;
 };
-export type ToggleDriverAvailabilityData = {
-is_available: boolean;
-};
 export type ToggleDriverStatusData = {
 is_active: boolean;
 };
@@ -1863,10 +1848,8 @@ export type UpdateDriverData = {
 name: string;
 email: string | null;
 phone: string;
-is_active: boolean | null;
 adresse: string | null;
 license_number: string;
-is_available: boolean | null;
 agent_code: string | null;
 agent_id: string | null;
 owner_mode: 'existing' | 'renewal';

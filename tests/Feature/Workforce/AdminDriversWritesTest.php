@@ -45,43 +45,44 @@ class AdminDriversWritesTest extends TestCase
         return $this->withHeader('Authorization', "Bearer {$token}");
     }
 
-    // ----- Disponibilité --------------------------------------------------------
+    // ----- Disponibilité : plus de bascule manuelle (spec 2026-10-21, §4.1) ----------
 
-    public function test_edit_drivers_bascule_la_disponibilite(): void
+    public function test_la_disponibilite_ne_se_bascule_plus_a_la_main(): void
     {
         $driver = Driver::factory()->create(['is_available' => true]);
-        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers', 'manage-driver-accounts']);
 
         $this->entete($token)
             ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-availability", ['is_available' => false])
-            ->assertOk();
-
-        $this->assertFalse($driver->refresh()->is_available);
-    }
-
-    public function test_sans_edit_drivers_la_disponibilite_nest_pas_modifiable(): void
-    {
-        $driver = Driver::factory()->create(['is_available' => true]);
-        [, $token] = $this->connecter(Profil::Admin, ['view-drivers']);
-
-        $this->entete($token)
-            ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-availability", ['is_available' => false])
-            ->assertForbidden();
+            ->assertNotFound();
 
         $this->assertTrue($driver->refresh()->is_available);
     }
 
-    // ----- Statut du compte -------------------------------------------------------
+    // ----- Statut du compte : l'administrateur seul (spec 2026-10-21, §4.3) ---------
 
-    public function test_edit_drivers_bascule_le_statut_du_compte(): void
+    public function test_manage_driver_accounts_bascule_le_statut_du_compte(): void
     {
         $driver = Driver::factory()->create();
         $driver->user->update(['is_active' => true]);
-        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+        [, $token] = $this->connecter(Profil::Admin, ['manage-driver-accounts']);
 
         $this->entete($token)
             ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-status", ['is_active' => false])
             ->assertOk();
+
+        $this->assertFalse($driver->user->refresh()->is_active);
+    }
+
+    public function test_edit_drivers_ne_suffit_plus_pour_le_statut_du_compte(): void
+    {
+        $driver = Driver::factory()->create();
+        $driver->user->update(['is_active' => false]);
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-status", ['is_active' => true])
+            ->assertForbidden();
 
         $this->assertFalse($driver->user->refresh()->is_active);
     }

@@ -3,8 +3,6 @@
 namespace Tests\Feature\Fleet;
 
 use App\Domains\Fleet\Application\Actions\CreateAgentLeavePause;
-use App\Domains\Fleet\Application\Actions\PauseVehicle;
-use App\Domains\Fleet\Application\Data\CreateVehiclePauseData;
 use App\Models\DriverContract;
 use App\Models\VehicleContract;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,15 +23,6 @@ class SettledContractPausesTest extends TestCase
         $this->app->instance(Messaging::class, Mockery::mock(Messaging::class)->shouldIgnoreMissing());
         $contract = VehicleContract::factory()->completed()->create(['start_date' => '2026-01-01', 'end_date' => '2026-08-31']);
         $this->agent = DriverContract::factory()->forVehicleContract($contract)->create(['start_date' => '2026-01-01', 'status' => 'active']);
-    }
-
-    public function test_the_admin_can_still_immobilize_the_vehicle(): void
-    {
-        $pause = app(PauseVehicle::class)($this->agent->vehicle, CreateVehiclePauseData::from([
-            'start_date' => '2026-09-10', 'end_date' => null, 'reason_type' => 'accident',
-        ]));
-
-        $this->assertSame($this->agent->vehicle_contract_id, $pause->vehicle_contract_id);
     }
 
     public function test_an_agent_leave_pause_belongs_to_the_settled_contract(): void

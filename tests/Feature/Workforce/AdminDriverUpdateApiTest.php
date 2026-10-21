@@ -220,6 +220,20 @@ class AdminDriverUpdateApiTest extends TestCase
         $response->assertJsonPath('active_contract.contract_months', 14);
     }
 
+    public function test_le_formulaire_ne_touche_ni_au_compte_ni_a_la_disponibilite(): void
+    {
+        $driver = Driver::factory()->create(['is_available' => true]);
+        DriverContract::factory()->create(['driver_id' => $driver->id]);
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload(['is_active' => false, 'is_available' => false]))
+            ->assertOk();
+
+        $this->assertTrue((bool) $driver->user->refresh()->is_active);
+        $this->assertTrue($driver->refresh()->is_available);
+    }
+
     // ----- Les gardes du 2026-10-21 (spec état véhicule/agent, §3.5 et §4.4) -------
 
     /** Un véhicule dont l'agent est parti : pause `agent_change` en cours. */

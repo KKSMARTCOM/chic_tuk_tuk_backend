@@ -85,6 +85,11 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::get('/drivers/{driver}', [DriverController::class, 'show'])->name('drivers.show');
         });
 
+        // Le compte d'un agent : l'administrateur seul (spec 2026-10-21, §4.3). La disponibilité,
+        // elle, ne se règle plus à la main — `SyncDriverAvailability` la décide.
+        Route::post('/drivers/{driver}/toggle-status', [DriverController::class, 'toggleStatus'])
+            ->middleware('permission:manage-driver-accounts')->name('drivers.toggle-status');
+
         Route::post('/drivers', [DriverController::class, 'store'])
             ->middleware('permission:create-drivers')
             ->name('drivers.store');
@@ -92,10 +97,6 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::middleware('permission:edit-drivers')->group(function () {
             Route::put('/drivers/{driver}', [DriverController::class, 'update'])->name('drivers.update');
             Route::patch('/drivers/{driver}', [DriverController::class, 'update']);
-            Route::post('/drivers/{driver}/toggle-availability', [DriverController::class, 'toggleAvailability'])
-                ->name('drivers.toggle-availability');
-            Route::post('/drivers/{driver}/toggle-status', [DriverController::class, 'toggleStatus'])
-                ->name('drivers.toggle-status');
             Route::post('/drivers/{driver}/password', [DriverController::class, 'updatePassword'])
                 ->name('drivers.update-password');
         });
@@ -153,24 +154,15 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::post('/vehicles', [VehicleController::class, 'store'])
             ->middleware('permission:create-vehicles')->name('vehicles.store');
 
-        Route::middleware('permission:edit-vehicles')->group(function () {
-            Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
-            Route::post('/vehicles/{vehicle}/toggle-status', [VehicleController::class, 'setStatus'])
-                ->name('vehicles.toggle-status');
-        });
+        Route::put('/vehicles/{vehicle}', [VehicleController::class, 'update'])
+            ->middleware('permission:edit-vehicles')->name('vehicles.update');
 
         Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy'])
             ->middleware('permission:delete-vehicles')->name('vehicles.destroy');
 
-        // ⚠️ Les pauses VÉHICULE, à ne pas confondre avec les pauses AGENT de `/leaves`.
-        Route::middleware('permission:manage-vehicle-pauses')->group(function () {
-            Route::post('/vehicles/{vehicle}/pauses', [VehicleController::class, 'storePause'])
-                ->name('vehicles.pauses.store');
-            Route::patch('/vehicle-pauses/{pause}/end', [VehicleController::class, 'endPause'])
-                ->name('vehicle-pauses.end');
-            Route::delete('/vehicle-pauses/{pause}', [VehicleController::class, 'cancelPause'])
-                ->name('vehicle-pauses.cancel');
-        });
+        // ⚠️ Plus aucune écriture de l'état d'un véhicule (spec 2026-10-21) : statut et pauses
+        // véhicule découlent des pauses agent, du départ et de la reconduction. Les routes
+        // `toggle-status`, `pauses`, `vehicle-pauses/{pause}/end` et leur annulation ont disparu.
 
         /*
          * Les contrats propriétaire-véhicule (F3).

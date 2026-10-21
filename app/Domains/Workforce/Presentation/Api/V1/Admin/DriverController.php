@@ -9,12 +9,10 @@ use App\Domains\Workforce\Application\Actions\ListDrivers;
 use App\Domains\Workforce\Application\Actions\ListOwnersForNewContract;
 use App\Domains\Workforce\Application\Actions\ListOwnersForRenewal;
 use App\Domains\Workforce\Application\Actions\ShowDriverDetail;
-use App\Domains\Workforce\Application\Actions\ToggleDriverAvailability;
 use App\Domains\Workforce\Application\Actions\ToggleDriverStatus;
 use App\Domains\Workforce\Application\Actions\UpdateDriver;
 use App\Domains\Workforce\Application\Actions\UpdateDriverPassword;
 use App\Domains\Workforce\Application\Data\CreateDriverData;
-use App\Domains\Workforce\Application\Data\ToggleDriverAvailabilityData;
 use App\Domains\Workforce\Application\Data\ToggleDriverStatusData;
 use App\Domains\Workforce\Application\Data\UpdateDriverData;
 use App\Domains\Workforce\Application\Data\UpdateDriverPasswordData;
@@ -125,26 +123,6 @@ final class DriverController
         } catch (\Throwable $e) {
             return $this->echec($e, $request, 'la modification de l\'agent',
                 'Cet agent n\'a pas pu être modifié.', 'DRIVER_UPDATE_FAILED');
-        }
-    }
-
-    public function toggleAvailability(
-        Request $request,
-        string $driverId,
-        ToggleDriverAvailabilityData $data,
-        ToggleDriverAvailability $toggle,
-    ): JsonResponse {
-        try {
-            $driver = Driver::with('user')->findOrFail($driverId);
-            $toggle($driver, $data->isAvailable);
-            $this->journal->driverAvailabilityChanged($driver, $data->isAvailable);
-
-            return response()->json(['message' => 'Disponibilité mise à jour avec succès.']);
-        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
-            throw $e;
-        } catch (\Throwable $e) {
-            return $this->echec($e, $request, 'la disponibilité de l\'agent',
-                'La disponibilité n\'a pas pu être mise à jour.', 'DRIVER_AVAILABILITY_FAILED');
         }
     }
 

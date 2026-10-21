@@ -95,6 +95,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'delete-contracts' => ['Supprimer un contrat', 'Supprimer un contrat véhicule ou agent'],
         'edit-contracts' => ['Modifier un contrat', 'Modifier un contrat véhicule ou agent'],
         'view-contracts' => ['Voir les contrats', 'Voir les contrats véhicule et agent'],
+        // Ajoutée le 2026-10-21, à l'administrateur seul : défaire une fin de contrat agent
+        // saisie par erreur (spec état véhicule/agent, §5).
+        'reopen-driver-contracts' => ['Annuler la fin d\'un contrat agent', 'Rouvrir un contrat agent terminé par erreur'],
         // Ajoutée le 2026-10-06, à l'administrateur seul : le total d'un contrat propriétaire
         // suit le réglage de sa durée, sauf contrat négocié (`CheckContractTotal`).
         'override-contract-amount' => ['Négocier le montant d\'un contrat', 'Imposer un montant total différent du réglage de la durée'],
@@ -127,6 +130,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'create-drivers' => ['Créer un chauffeur', 'Créer un chauffeur'],
         'delete-drivers' => ['Supprimer un chauffeur', 'Supprimer un chauffeur'],
         'edit-drivers' => ['Modifier un chauffeur', 'Modifier un chauffeur'],
+        // Ajoutée le 2026-10-21, à l'administrateur seul : le départ ferme le compte d'un
+        // agent, seul l'administrateur le rouvre (spec état véhicule/agent, §4).
+        'manage-driver-accounts' => ['Ouvrir ou fermer le compte d\'un agent', 'Activer ou désactiver le compte d\'un agent'],
         'export-drivers' => ['Exporter les agents', 'Exporter la liste des agents'],
         'import-drivers' => ['Importer des agents', 'Importer des agents via fichier'],
         'view-drivers' => ['Voir les chauffeurs', 'Voir les chauffeurs'],
@@ -219,7 +225,8 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'view-users' => ['Voir les utilisateurs', 'Voir les utilisateurs'],
 
         // Pauses véhicule
-        'manage-vehicle-pauses' => ['Gérer les pauses véhicule', 'Gérer les pauses des véhicules'],
+        // `manage-vehicle-pauses` a quitté le catalogue le 2026-10-21 : l'état d'un véhicule
+        // découle des pauses agent et du départ, plus aucune pause véhicule ne se pose à la main.
 
         // Véhicules
         'create-vehicles' => ['Créer un véhicule', 'Créer un véhicule'],
@@ -281,8 +288,6 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 // valider et annuler — la suppression reste à l'administrateur.
                 'edit-payments',
                 'manage-settings',
-                // Ajoutée le 2026-09-25 : l'utilisateur gère déjà les pauses des agents.
-                'manage-vehicle-pauses',
                 'manage-zones',
                 'moderate-testimonials',
                 'reject-leave-requests',
