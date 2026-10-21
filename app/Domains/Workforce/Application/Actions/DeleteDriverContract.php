@@ -4,6 +4,7 @@ namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Workforce\Domain\DriverContractRules;
 use App\Models\DriverContract;
+use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
 
@@ -48,7 +49,32 @@ final class DeleteDriverContract
         // resterait ouverte, et le véhicule hors de toute liste.
         DB::transaction(function () use ($contract) {
             ($this->undoEnd)($contract);
+            $this->reopenPreviousAgentChange($contract);
             $contract->delete();
         });
+    }
+
+    /**
+     * Une reconduction avait fermé la pause `agent_change` de l'agent précédent la VEILLE de
+     * son début (`EndVehiclePauseBeforeAgentStart`). Supprimer cette reconduction rouvre cette
+     * pause : sans cela, le véhicule repasserait « Actif » sans agent — l'incident même que la
+     * spec du 2026-10-21 fait disparaître (relecture finale).
+     */
+    private function reopenPreviousAgentChange(DriverContract $contract): void
+    {
+        if ($contract->start_date === null) {
+            return;
+        }
+
+        $previous = VehiclePause::query()
+            ->where('vehicle_id', $contract->vehicle_id)
+            ->where('reason_type', 'agent_change')
+            ->whereDate('end_date', $contract->start_date->copy()->subDay())
+            ->first();
+
+        if ($previous) {
+            $previous->update(['end_date' => null]);
+            $contract->vehicle?->update(['is_active' => false]);
+        }
     }
 }

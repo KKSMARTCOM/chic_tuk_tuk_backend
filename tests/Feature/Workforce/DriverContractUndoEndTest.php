@@ -40,4 +40,33 @@ class DriverContractUndoEndTest extends TestCase
             ->flatMap(fn ($owner) => collect($owner->vehicles)->pluck('id'));
         $this->assertContains($vehicle->id, $offered->all());
     }
+
+    public function test_deleting_an_ended_renewal_reopens_the_previous_agent_change(): void
+    {
+        // Relecture finale : la reconduction avait fermé la veille de son début la pause de
+        // l'agent précédent. La supprimer ne doit pas laisser un véhicule « Actif » sans agent.
+        $vehicleContract = VehicleContract::factory()->create();
+        $vehicle = $vehicleContract->vehicle;
+        $previous = DriverContract::factory()->forVehicleContract($vehicleContract)->create([
+            'status' => 'ended', 'start_date' => '2026-06-01', 'end_date' => '2026-09-30',
+        ]);
+        $previousChange = VehiclePause::factory()->forContract($vehicleContract)->create([
+            'driver_contract_id' => $previous->id, 'reason_type' => 'agent_change', 'is_auto' => true,
+            'start_date' => '2026-10-01', 'end_date' => '2026-10-09',
+        ]);
+        $renewal = DriverContract::factory()->forVehicleContract($vehicleContract)->create([
+            'status' => 'ended', 'start_date' => '2026-10-10', 'end_date' => '2026-10-15',
+        ]);
+        VehiclePause::factory()->forContract($vehicleContract)->create([
+            'driver_contract_id' => $renewal->id, 'reason_type' => 'agent_change', 'is_auto' => true,
+            'start_date' => '2026-10-16', 'end_date' => null,
+        ]);
+        $vehicle->update(['is_active' => false]);
+
+        app(DeleteDriverContract::class)($renewal);
+
+        $this->assertNull($previousChange->refresh()->end_date);
+        $this->assertFalse((bool) $vehicle->refresh()->is_active);
+        $this->assertSame($previousChange->id, $vehicle->activePause?->id);
+    }
 }
