@@ -29,25 +29,28 @@ final class DeleteDriverContract
      */
     private function deleteContract(DriverContract $contract): void
     {
-        if ($contract->status === 'active') {
-            throw new ApiException(
-                409,
-                'DRIVER_CONTRACT_ACTIVE',
-                'Un contrat actif ne peut pas être supprimé. Terminez-le d\'abord.'
-            );
-        }
-
-        if (DriverContractRules::hasHistory($contract)) {
-            throw new ApiException(
-                409,
-                'DRIVER_CONTRACT_NOT_DELETABLE',
-                'Impossible de supprimer ce contrat : il a des pauses ou des paiements.'
-            );
-        }
-
-        // La fin du contrat est défaite avec lui (2026-10-21) : sa pause `agent_change`
-        // resterait ouverte, et le véhicule hors de toute liste.
+        // Relu sous verrou : une réouverture concurrente a pu le rendre actif entre-temps.
         DB::transaction(function () use ($contract) {
+            $contract = DriverContract::query()->lockForUpdate()->findOrFail($contract->id);
+
+            if ($contract->status === 'active') {
+                throw new ApiException(
+                    409,
+                    'DRIVER_CONTRACT_ACTIVE',
+                    'Un contrat actif ne peut pas être supprimé. Terminez-le d\'abord.'
+                );
+            }
+
+            if (DriverContractRules::hasHistory($contract)) {
+                throw new ApiException(
+                    409,
+                    'DRIVER_CONTRACT_NOT_DELETABLE',
+                    'Impossible de supprimer ce contrat : il a des pauses ou des paiements.'
+                );
+            }
+
+            // La fin du contrat est défaite avec lui (2026-10-21) : sa pause `agent_change`
+            // resterait ouverte, et le véhicule hors de toute liste.
             ($this->undoEnd)($contract);
             $this->reopenPreviousAgentChange($contract);
             $contract->delete();

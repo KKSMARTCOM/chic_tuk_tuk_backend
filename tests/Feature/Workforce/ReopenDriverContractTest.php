@@ -150,4 +150,12 @@ class ReopenDriverContractTest extends TestCase
             ->assertJsonPath('is_reopenable', true)
             ->assertJsonPath('days_to_generate', 2);
     }
+
+    public function test_a_closed_owner_contract_is_refused(): void
+    {
+        $contract = $this->endedContract();
+        $contract->vehicleContract->update(['status' => 'completed']);
+
+        $this->reopen($contract)->assertStatus(409)->assertJsonPath('code', 'DRIVER_CONTRACT_VEHICLE_CONTRACT_CLOSED');
+    }
 }

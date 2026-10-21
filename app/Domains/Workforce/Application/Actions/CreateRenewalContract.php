@@ -9,6 +9,7 @@ use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\Vehicle;
+use App\Models\VehicleContract;
 
 /**
  * Renouvelle le contrat d'un agent — ex-`DriverService::createRenewalContract()`, déplacé
@@ -33,7 +34,11 @@ final class CreateRenewalContract
 
         // Un renouvellement suppose un contrat qui a déjà roulé : jamais un contrat en
         // attente (spec 2026-10-09, §5.3).
-        $vehicleContract = $vehicle->activeVehicleContract;
+        // Verrou du contrat propriétaire AVANT les vérifications : deux reconductions, ou une
+        // reconduction et une réouverture, ne prennent pas le même véhicule en même temps.
+        $vehicleContract = $vehicle->activeVehicleContract
+            ? VehicleContract::query()->lockForUpdate()->find($vehicle->activeVehicleContract->id)
+            : null;
 
         if (! $vehicleContract) {
             throw new \Exception('Le véhicule sélectionné n\'a pas de contrat actif.');

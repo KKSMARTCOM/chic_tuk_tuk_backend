@@ -109,6 +109,8 @@ class ActivityJournalWorkforceTest extends TestCase
     public function test_desactiver_un_agent_a_l_agent_pour_objet(): void
     {
         $driver = $this->agent();
+        // Un agent en service ne se ferme plus que par la fin de son contrat (2026-10-21).
+        $driver->driverContracts()->update(['status' => 'ended', 'end_date' => now()->toDateString()]);
 
         $this->as($this->token(['manage-driver-accounts']))
             ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-status", ['is_active' => false])

@@ -87,6 +87,20 @@ class AdminDriversWritesTest extends TestCase
         $this->assertFalse($driver->user->refresh()->is_active);
     }
 
+    public function test_le_compte_d_un_agent_sous_contrat_ne_se_ferme_pas(): void
+    {
+        $driver = Driver::factory()->create();
+        \App\Models\DriverContract::factory()->create(['driver_id' => $driver->id]);
+        [, $token] = $this->connecter(Profil::Admin, ['manage-driver-accounts']);
+
+        $this->entete($token)
+            ->postJson("/api/v1/admin/drivers/{$driver->id}/toggle-status", ['is_active' => false])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'DRIVER_ACCOUNT_IN_SERVICE');
+
+        $this->assertTrue((bool) $driver->user->refresh()->is_active);
+    }
+
     // ----- Mot de passe ------------------------------------------------------------
 
     public function test_edit_drivers_reinitialise_le_mot_de_passe(): void

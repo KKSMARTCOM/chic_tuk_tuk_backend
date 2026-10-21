@@ -124,6 +124,13 @@ final class EndDriverContract
             ->where('status', 'ongoing')
             ->get();
 
+        // Les demandes en attente n'ont plus d'objet : refusées, sans notification — le compte
+        // de l'agent se ferme dans la même transaction.
+        LeaveRequest::query()
+            ->where('driver_id', $contract->driver_id)
+            ->where('status', 'pending')
+            ->update(['status' => 'rejected', 'rejection_reason' => 'Départ de l\'agent.']);
+
         foreach ($leaves as $leave) {
             if ($leave->start_date->copy()->startOfDay()->lte($endDate)) {
                 ($this->endLeave)($leave, $endDate->toDateString(), notifyOwner: false);

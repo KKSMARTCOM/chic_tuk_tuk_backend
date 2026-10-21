@@ -55,6 +55,16 @@ final class ReopenDriverContract
             return new ApiException(409, 'DRIVER_CONTRACT_NOT_ENDED', 'Ce contrat n\'est pas terminé.');
         }
 
+        // Le contrat propriétaire a pu être soldé ou terminé depuis le départ : on ne remet pas
+        // un agent sur un contrat clos.
+        if ($contract->vehicleContract?->status !== 'active') {
+            return new ApiException(
+                409,
+                'DRIVER_CONTRACT_VEHICLE_CONTRACT_CLOSED',
+                'Le contrat propriétaire de ce véhicule n\'est plus en cours.'
+            );
+        }
+
         $vehicleTaken = DriverContract::query()
             ->where('vehicle_id', $contract->vehicle_id)
             ->where('status', 'active')

@@ -9,6 +9,7 @@ use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use App\Shared\Http\ApiException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -68,5 +69,21 @@ class DriverContractUndoEndTest extends TestCase
         $this->assertNull($previousChange->refresh()->end_date);
         $this->assertFalse((bool) $vehicle->refresh()->is_active);
         $this->assertSame($previousChange->id, $vehicle->activePause?->id);
+    }
+
+    public function test_a_contract_reopened_meanwhile_is_not_deleted(): void
+    {
+        // Le modèle tenu par l'appelant dit « terminé », la base dit « actif » (réouverture
+        // concurrente) : la suppression relit sous verrou et refuse.
+        $contract = DriverContract::factory()->create(['status' => 'ended', 'end_date' => now()->subDay()->toDateString()]);
+        DriverContract::whereKey($contract->id)->update(['status' => 'active', 'end_date' => null]);
+
+        try {
+            app(DeleteDriverContract::class)($contract);
+            $this->fail('Refus attendu.');
+        } catch (ApiException $e) {
+            $this->assertSame('DRIVER_CONTRACT_ACTIVE', $e->errorCode);
+        }
+        $this->assertNotNull(DriverContract::find($contract->id));
     }
 }

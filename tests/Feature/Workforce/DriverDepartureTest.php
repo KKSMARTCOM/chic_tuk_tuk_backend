@@ -8,6 +8,7 @@ use App\Models\DriverContract;
 use App\Models\LeaveRequest;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
+use App\Shared\Http\ApiException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -138,11 +139,26 @@ class DriverDepartureTest extends TestCase
         try {
             $this->end($contract, now()->addDays(5)->toDateString());
             $this->fail('Refus attendu.');
-        } catch (\App\Shared\Http\ApiException $e) {
+        } catch (ApiException $e) {
             $this->assertSame('DRIVER_CONTRACT_END_IN_FUTURE', $e->errorCode);
         }
 
         $this->assertSame('active', $contract->refresh()->status);
         $this->assertTrue((bool) $contract->driver->user->refresh()->is_active);
+    }
+
+    public function test_departure_rejects_the_pending_requests(): void
+    {
+        $contract = $this->activeContract();
+        $request = LeaveRequest::factory()->pending()->create([
+            'driver_id' => $contract->driver_id,
+            'driver_contract_id' => $contract->id,
+        ]);
+
+        $this->end($contract);
+
+        $request->refresh();
+        $this->assertSame('rejected', $request->status);
+        $this->assertSame('Départ de l\'agent.', $request->rejection_reason);
     }
 }

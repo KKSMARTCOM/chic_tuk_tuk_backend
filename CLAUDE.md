@@ -954,7 +954,13 @@ démission : le propriétaire lisait « Actif » sans agent.
   `DRIVER_CONTRACT_NOT_ENDED|VEHICLE_TAKEN|STATEMENT_VALIDATED`, `DRIVER_HAS_ACTIVE_CONTRACT`).
   Le détail du contrat porte `is_reopenable` et `days_to_generate` ; rien n'est généré d'office.
   **Rejouer le seeder après déploiement.**
-- Supprimer un contrat agent terminé défait aussi sa fin (`UndoDriverContractEnd`).
+- Supprimer un contrat agent terminé défait aussi sa fin (`UndoDriverContractEnd`), relu sous
+  verrou ; une reconduction supprimée rouvre la pause `agent_change` qu'elle avait fermée la veille.
+- Relecture du 2026-10-21 : un départ ne se date pas dans le futur (`DRIVER_CONTRACT_END_IN_FUTURE`)
+  et refuse les demandes de pause en attente (« Départ de l'agent. ») ; le compte d'un agent en
+  service ne se ferme pas à la main (`DRIVER_ACCOUNT_IN_SERVICE`) ; la réouverture refuse un
+  contrat propriétaire qui n'est plus en cours (`DRIVER_CONTRACT_VEHICLE_CONTRACT_CLOSED`) ; la
+  reconduction verrouille le contrat propriétaire avant ses vérifications.
 - Recensement en lecture seule avant la prod : `docs/runbooks/scripts-2026-10/audit-etat-vehicule-agent.php`.
 
 ## Commandes artisan
