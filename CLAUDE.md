@@ -431,9 +431,10 @@ partagés avec le Blade. Trois règles décidées le même jour :
 - Un véhicule conduit par un agent (contrat agent actif) est en lecture seule sur la
   fiche : `OwnerService::update()` ignore ce qu'on lui envoie pour lui.
 
-**Les véhicules et leurs pauses** (`/admin/vehicles*`, `/admin/vehicle-pauses/*`, domaine
-`Fleet`) — liste, fiche, création, modification, statut, suppression, mise en pause, fin
-et annulation de pause, par `VehicleService`, partagé avec le Blade. Décidé le 2026-09-25 :
+**Les véhicules et leurs pauses** (`/admin/vehicles*`, domaine `Fleet`) — liste, fiche,
+création, modification, suppression. ⚠️ Statut et pauses véhicule ne s'écrivent plus à la main
+depuis le 2026-10-21 (voir « L'état d'un véhicule et de son agent ») : les règles ci-dessous sur
+les pauses manuelles ne valent plus que pour l'historique. Décidé le 2026-09-25 :
 
 - ⚠️ **Un véhicule qui a un contrat, véhicule ou agent, même terminé, ne se supprime pas**
   (`VEHICLE_NOT_DELETABLE`, `VehicleService::delete()`) : la cascade effaçait tout son
@@ -920,6 +921,41 @@ Spec : `docs/specs/2026-10-20-preparation-vehicule-design.md`. Entre la créatio
 - Le propriétaire lit `preparation_steps` sur `GET /owner/vehicles/{id}` et
   `preparation_done|total` sur la liste, tant que le contrat est en attente (null ensuite), et
   télécharge la preuve sous la même portée. Aucune permission nouvelle : pas de seeder.
+
+## L'état d'un véhicule et de son agent (2026-10-21)
+
+Spec : `docs/specs/2026-10-21-etat-vehicule-agent-design.md`. **L'état d'un véhicule et celui de
+son agent ne découlent que des événements de l'agent** : aucune route ne les écrit plus à la
+main. Un Utilisateur avait terminé la pause « changement d'agent » d'un véhicule après une
+démission : le propriétaire lisait « Actif » sans agent.
+
+- **Deux arrêts seulement** : la pause agent (panne, accident, motif légal compris — décomptée
+  du solde de l'agent) et le changement d'agent (départ). Les motifs `technical`, `accident`,
+  `legal`, `other` ne nomment plus que des pauses anciennes.
+- ⚠️ **Retirées** : `vehicles/{id}/toggle-status`, `vehicles/{id}/pauses`,
+  `vehicle-pauses/{id}/end`, `DELETE vehicle-pauses/{id}`, `drivers/{id}/toggle-availability`,
+  et les champs `is_active`/`is_available` de `PUT /admin/drivers/{id}`. Permission
+  `manage-vehicle-pauses` retirée du catalogue.
+- **Disponibilité** : `SyncDriverAvailability`, le SEUL endroit où elle se décide — un travail
+  (contrat agent actif ou affectation interne en cours) ET aucune pause agent COMMENCÉE. Tout flux
+  qui touche aux pauses ou au travail d'un agent l'appelle ; ne jamais écrire `is_available`
+  ailleurs.
+- **Départ** (`EndDriverContract`) : pauses agent commencées clôturées à la date de fin (au plus
+  tard aujourd'hui), pauses futures supprimées, véhicule immobilisé, agent indisponible, compte
+  FERMÉ. La clôture ne notifie pas « Reprise du véhicule » (`notifyOwner: false`).
+- **Gardes** (`VehicleAssignmentRules`) : `assertNotAwaitingRenewal` — un véhicule en
+  `agent_change` ne repart que par reconduction (`VEHICLE_AWAITS_RENEWAL`, jamais appelée par
+  `CreateRenewalContract`) ; `assertAccountOpen` — un compte fermé ne reçoit ni contrat ni
+  affectation interne (`DRIVER_ACCOUNT_DISABLED`). Les formulaires d'agent les enveloppent en
+  422 `DRIVER_CREATE_FAILED|DRIVER_UPDATE_FAILED`, message intact.
+- **L'administrateur seul** : `manage-driver-accounts` (`drivers/{id}/toggle-status`) et
+  `reopen-driver-contracts` (`POST driver-contracts/{id}/reopen`, `ReopenDriverContract` —
+  défait la fin : contrat actif, pause annulée, véhicule repris, compte rouvert ; refus
+  `DRIVER_CONTRACT_NOT_ENDED|VEHICLE_TAKEN|STATEMENT_VALIDATED`, `DRIVER_HAS_ACTIVE_CONTRACT`).
+  Le détail du contrat porte `is_reopenable` et `days_to_generate` ; rien n'est généré d'office.
+  **Rejouer le seeder après déploiement.**
+- Supprimer un contrat agent terminé défait aussi sa fin (`UndoDriverContractEnd`).
+- Recensement en lecture seule avant la prod : `docs/runbooks/scripts-2026-10/audit-etat-vehicule-agent.php`.
 
 ## Commandes artisan
 
