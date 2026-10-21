@@ -5,10 +5,13 @@ namespace App\Domains\Workforce\Application\Actions;
 use App\Domains\Workforce\Domain\DriverContractRules;
 use App\Models\DriverContract;
 use App\Shared\Http\ApiException;
+use Illuminate\Support\Facades\DB;
 
 /** Supprimer un contrat agent — la règle, ex-`DriverContractService::delete()`, vit ci-dessous. */
 final class DeleteDriverContract
 {
+    public function __construct(private readonly UndoDriverContractEnd $undoEnd) {}
+
     public function __invoke(DriverContract $contract): void
     {
         $this->deleteContract($contract);
@@ -41,6 +44,11 @@ final class DeleteDriverContract
             );
         }
 
-        $contract->delete();
+        // La fin du contrat est défaite avec lui (2026-10-21) : sa pause `agent_change`
+        // resterait ouverte, et le véhicule hors de toute liste.
+        DB::transaction(function () use ($contract) {
+            ($this->undoEnd)($contract);
+            $contract->delete();
+        });
     }
 }
