@@ -3,7 +3,10 @@
 # ================================
 FROM php:8.2-fpm-alpine AS builder
 
-RUN apk add --no-cache \
+# ⚠️ `apk upgrade` d'abord (2026-10-21) : l'image de base en cache peut retarder sur le dépôt
+# Alpine. Le 2026-10-21, elle portait musl 1.2.6-r2 quand les paquets -dev exigeaient
+# musl-dev r3 : `apk add --virtual` refusait de monter musl, et le build échouait.
+RUN apk upgrade --no-cache && apk add --no-cache \
     git curl zip unzip \
     libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev \
     libzip-dev oniguruma-dev postgresql-dev
@@ -31,8 +34,9 @@ RUN composer dump-autoload --optimize --no-dev 2>/dev/null || true
 # ================================
 FROM php:8.2-fpm-alpine AS production
 
-# Dépendances runtime + netcat pour le check DB dans start.sh
-RUN apk add --no-cache \
+# Dépendances runtime + netcat pour le check DB dans start.sh — après `apk upgrade`, pour que
+# les paquets de base suivent le dépôt (voir l'étape builder).
+RUN apk upgrade --no-cache && apk add --no-cache \
     nginx supervisor curl netcat-openbsd \
     libpng libjpeg-turbo libwebp freetype \
     libzip oniguruma postgresql-libs
