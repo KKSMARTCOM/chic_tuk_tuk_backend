@@ -32,6 +32,7 @@ final class UpdateDriver
         private readonly CreateRenewalContract $createRenewalContract,
         private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause,
         private readonly TakeOverVehicle $takeOver,
+        private readonly SyncDriverAvailability $syncAvailability,
     ) {}
 
     public function __invoke(Driver $driver, UpdateDriverData $data): User
@@ -157,6 +158,10 @@ final class UpdateDriver
                         'contract_months' => $data['existing_contract_months'],
                         'status' => 'active',
                     ]);
+
+                    // Un ancien agent rouvert, ou un agent interne passé sous contrat : la
+                    // fin de son affectation l'avait rendu indisponible (relecture du 2026-10-21).
+                    ($this->syncAvailability)($user->driver->refresh());
                 }
                 // Le mode « new » du Blade (propriétaire et véhicule créés à la volée) a été
                 // retiré le 2026-10-07 : l'API ne l'accepte pas (`in:existing,renewal`), et il

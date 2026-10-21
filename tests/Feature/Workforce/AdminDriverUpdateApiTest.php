@@ -344,6 +344,57 @@ class AdminDriverUpdateApiTest extends TestCase
         $this->assertNull($vehicle->refresh()->activePause);
     }
 
+    public function test_un_nouveau_contrat_rend_disponible_un_ancien_agent_rouvert(): void
+    {
+        // Relecture finale : son départ l'avait rendu indisponible, l'admin a rouvert son compte.
+        $driver = Driver::factory()->create(['is_available' => false]);
+        DriverContract::factory()->create(['driver_id' => $driver->id, 'status' => 'ended', 'end_date' => now()->subMonth()->toDateString()]);
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->forVehicle($vehicle)->create();
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload([
+                'is_active' => null,
+                'is_available' => null,
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'existing_contract_months' => 24,
+                'existing_start_date' => now()->toDateString(),
+            ]))
+            ->assertOk();
+
+        $this->assertTrue($driver->refresh()->is_available);
+    }
+
+    public function test_un_agent_interne_passe_sous_contrat_reste_disponible(): void
+    {
+        $driver = Driver::factory()->create();
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create();
+        \App\Models\InternalAssignment::factory()->create([
+            'vehicle_contract_id' => $vehicleContract->id,
+            'driver_id' => $driver->id,
+            'start_date' => now()->subDays(10)->toDateString(),
+        ]);
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload([
+                'is_active' => null,
+                'is_available' => null,
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'existing_contract_months' => 24,
+                'existing_start_date' => now()->toDateString(),
+            ]))
+            ->assertOk();
+
+        $this->assertTrue($driver->refresh()->is_available);
+    }
+
     // ----- Unicité, en s'excluant soi-même ---------------------------------------
 
     public function test_lagent_garde_son_propre_email_et_telephone(): void
