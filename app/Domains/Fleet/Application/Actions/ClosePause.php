@@ -12,8 +12,13 @@ use Illuminate\Support\Facades\DB;
  */
 final class ClosePause
 {
-    // Terminer une pause véhicule
-    public function __invoke(VehiclePause $pause, ?string $endDate = null): VehiclePause
+    /**
+     * Terminer une pause véhicule.
+     *
+     * `$notifyOwner` à faux pour le départ d'un agent : sa pause se clôt, mais le véhicule ne
+     * reprend pas — il passe immobilisé dans la même transaction.
+     */
+    public function __invoke(VehiclePause $pause, ?string $endDate = null, bool $notifyOwner = true): VehiclePause
     {
         $termine = DB::transaction(function () use ($pause, $endDate) {
             $pause->update(['end_date' => $endDate ?? now()->toDateString()]);
@@ -27,7 +32,9 @@ final class ClosePause
         });
 
         // Le propriétaire apprend la reprise sans avoir à ouvrir l'application.
-        app(Notifier::class)->vehiclePauseEnded($termine);
+        if ($notifyOwner) {
+            app(Notifier::class)->vehiclePauseEnded($termine);
+        }
 
         return $termine;
     }

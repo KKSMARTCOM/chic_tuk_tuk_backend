@@ -13,12 +13,19 @@ use Illuminate\Support\Facades\DB;
 /**
  * Terminer un contrat agent — ex-Admin\DriverContractController::end().
  *
- * ⚠️ Effets de bord, dans `endContract()` ci-dessous (ex-`DriverContractService::end()`) : le véhicule est désactivé,
- * une pause véhicule automatique « changement d'agent » s'ouvre à la date de fin, et le
- * compteur de pauses de l'agent est remis à zéro.
+ * ⚠️ Effets de bord, dans `endContract()` ci-dessous (ex-`DriverContractService::end()`) : les
+ * pauses agent sont clôturées ou supprimées, le véhicule est désactivé, une pause véhicule
+ * automatique « changement d'agent » s'ouvre, le compteur de pauses de l'agent est remis à
+ * zéro, et — depuis le 2026-10-21 — l'agent devient indisponible et son compte est fermé.
  */
 final class EndDriverContract
 {
+    public function __construct(
+        private readonly EndLeave $endLeave,
+        private readonly DeleteLeave $deleteLeave,
+        private readonly SyncDriverAvailability $syncAvailability,
+    ) {}
+
     public function __invoke(DriverContract $contract, EndDriverContractData $data): DriverContract
     {
         return $this->endContract($contract, $data->toServicePayload());
@@ -49,6 +56,12 @@ final class EndDriverContract
         }
 
         return DB::transaction(function () use ($contract, $data, $endDate) {
+            // Calculé AVANT de clore les pauses : il lit les pauses en cours ET terminées, le
+            // résultat ne change donc pas, mais l'ordre le rend évident.
+            $firstDayWithoutAgent = $this->firstDayWithoutAgent($contract, $endDate);
+
+            $this->settleLeaves($contract, $endDate);
+
             $contract->update([
                 'status' => 'ended',
                 'end_date' => $data['end_date'] ?? now()->toDateString(),
@@ -67,12 +80,17 @@ final class EndDriverContract
                 'is_active' => false,
             ]);
 
+            // Le départ ferme le compte (spec 2026-10-21, §4.2) : seul un administrateur le
+            // rouvrira. Plus de contrat, donc plus de disponibilité.
+            $contract->driver->user?->update(['is_active' => false]);
+            ($this->syncAvailability)($contract->driver->refresh());
+
             // Créer une pause véhicule pour changement d'agent
             VehiclePause::create([
                 'vehicle_id' => $contract->vehicle_id,
                 'vehicle_contract_id' => $contract->vehicle_contract_id,
                 'driver_contract_id' => $contract->id,
-                'start_date' => $this->firstDayWithoutAgent($contract, $endDate)->toDateString(),
+                'start_date' => $firstDayWithoutAgent->toDateString(),
                 'end_date' => null, // sera fermée à la création du prochain contrat agent
                 'reason_type' => 'agent_change',
                 'reason_notes' => $data['end_reason'].(! empty($data['end_notes']) ? ' — '.$data['end_notes'] : ''),
@@ -81,6 +99,28 @@ final class EndDriverContract
 
             return $contract->refresh();
         });
+    }
+
+    /**
+     * Aucune pause agent ne survit au contrat qu'elle concerne (spec 2026-10-21, §4.2) : celle
+     * qui a commencé au plus tard à la date de fin est clôturée à cette date (aujourd'hui si la
+     * fin est à venir — une clôture constate une fin arrivée) ; celle qui n'a pas commencé est
+     * supprimée, ses effets défaits.
+     */
+    private function settleLeaves(DriverContract $contract, Carbon $endDate): void
+    {
+        $leaves = LeaveRequest::query()
+            ->where('driver_id', $contract->driver_id)
+            ->where('status', 'ongoing')
+            ->get();
+
+        foreach ($leaves as $leave) {
+            if ($leave->start_date->copy()->startOfDay()->lte($endDate)) {
+                ($this->endLeave)($leave, $endDate->copy()->min(now()->startOfDay())->toDateString(), notifyOwner: false);
+            } else {
+                ($this->deleteLeave)($leave);
+            }
+        }
     }
 
     /**

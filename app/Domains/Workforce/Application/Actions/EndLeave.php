@@ -26,7 +26,8 @@ final class EndLeave
         private readonly SyncDriverAvailability $syncAvailability,
     ) {}
 
-    public function __invoke(LeaveRequest $pause, string $dateDeFin): LeaveRequest
+    /** `$notifyOwner` à faux pour le départ de l'agent : voir `ClosePause`. */
+    public function __invoke(LeaveRequest $pause, string $dateDeFin, bool $notifyOwner = true): LeaveRequest
     {
         if ($pause->status !== 'ongoing') {
             throw new ApiException(409, 'LEAVE_NOT_ONGOING', "Cette pause n'est pas en cours.");
@@ -53,7 +54,7 @@ final class EndLeave
             );
         }
 
-        return DB::transaction(function () use ($pause, $fin) {
+        return DB::transaction(function () use ($pause, $fin, $notifyOwner) {
             $joursEffectifs = LeaveRequest::countBusinessDays($pause->start_date, $fin);
 
             $pause->update([
@@ -71,7 +72,7 @@ final class EndLeave
             $agent->markLeaveDaysUsed($joursEffectifs);
 
             if ($pause->vehiclePause) {
-                ($this->closePause)($pause->vehiclePause, $fin->toDateString());
+                ($this->closePause)($pause->vehiclePause, $fin->toDateString(), $notifyOwner);
             }
 
             // ⚠️ Par la règle commune : une autre pause commencée le retient, une pause à
