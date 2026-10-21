@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Application\Actions;
 
+use App\Domains\Workforce\Application\Actions\SyncDriverAvailability;
 use App\Models\InternalAssignment;
 use App\Models\User;
 use App\Shared\Http\ApiException;
@@ -11,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 /** Terminer une affectation interne, à la main ou à l'arrivée d'un contrat agent. */
 final class EndInternalAssignment
 {
+    public function __construct(private readonly SyncDriverAvailability $syncAvailability) {}
+
     public function __invoke(InternalAssignment $assignment, string $endDate, string $reason, ?User $by): InternalAssignment
     {
         $assignment->refresh();
@@ -24,6 +27,7 @@ final class EndInternalAssignment
         }
 
         $assignment->update(['end_date' => $end->toDateString(), 'ended_reason' => $reason, 'ended_by' => $by?->id]);
+        ($this->syncAvailability)($assignment->driver);
 
         return $assignment->refresh();
     }

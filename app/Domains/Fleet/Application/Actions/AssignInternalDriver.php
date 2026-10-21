@@ -3,6 +3,7 @@
 namespace App\Domains\Fleet\Application\Actions;
 
 use App\Domains\Fleet\Domain\InternalAssignmentRules;
+use App\Domains\Workforce\Application\Actions\SyncDriverAvailability;
 use App\Models\Driver;
 use App\Models\InternalAssignment;
 use App\Models\User;
@@ -14,6 +15,8 @@ use Illuminate\Validation\ValidationException;
 /** Affecter un agent en interne (spec 2026-10-09, §3.2). Aucun paiement n'en découle. */
 final class AssignInternalDriver
 {
+    public function __construct(private readonly SyncDriverAvailability $syncAvailability) {}
+
     public function __invoke(VehicleContract $contract, Driver $driver, string $startDate, ?string $notes, ?User $by): InternalAssignment
     {
         return DB::transaction(function () use ($contract, $driver, $startDate, $notes, $by) {
@@ -28,13 +31,16 @@ final class AssignInternalDriver
                 throw ValidationException::withMessages(['start_date' => 'L\'affectation ne peut pas commencer avant le contrat propriétaire ('.$contract->start_date->format('d/m/Y').').']);
             }
 
-            return InternalAssignment::create([
+            $assignment = InternalAssignment::create([
                 'vehicle_contract_id' => $contract->id,
                 'driver_id' => $driver->id,
                 'start_date' => $start->toDateString(),
                 'notes' => $notes,
                 'created_by' => $by?->id,
             ]);
+            ($this->syncAvailability)($driver);
+
+            return $assignment;
         });
     }
 }

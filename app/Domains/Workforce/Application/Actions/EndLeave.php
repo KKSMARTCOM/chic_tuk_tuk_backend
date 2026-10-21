@@ -16,13 +16,15 @@ use Illuminate\Support\Facades\DB;
  * demandé, et c'est ce décompte qui alimente le solde.
  *
  * ⚠️ Trois effets en plus du statut : la pause véhicule est clôturée à la même date, et
- * l'agent redevient disponible — mais seulement s'il ne lui reste AUCUNE autre pause en
- * cours. Le rendre disponible sans cette vérification le remettrait en service alors
- * qu'une seconde pause court encore.
+ * la disponibilité de l'agent est recalculée par `SyncDriverAvailability` — une seconde
+ * pause commencée le retient, et un agent parti ne redevient pas disponible.
  */
 final class EndLeave
 {
-    public function __construct(private readonly ClosePause $closePause) {}
+    public function __construct(
+        private readonly ClosePause $closePause,
+        private readonly SyncDriverAvailability $syncAvailability,
+    ) {}
 
     public function __invoke(LeaveRequest $pause, string $dateDeFin): LeaveRequest
     {
@@ -72,11 +74,9 @@ final class EndLeave
                 ($this->closePause)($pause->vehiclePause, $fin->toDateString());
             }
 
-            // ⚠️ Seulement si plus AUCUNE pause ne court : sans cette condition, clôturer
-            // l'une remettrait l'agent en service alors qu'une autre est en cours.
-            if (! $agent->hasOngoingLeave()) {
-                $agent->update(['is_available' => true]);
-            }
+            // ⚠️ Par la règle commune : une autre pause commencée le retient, une pause à
+            // venir non, et un agent parti (sans contrat) ne redevient jamais disponible.
+            ($this->syncAvailability)($agent);
 
             return $pause->refresh();
         });

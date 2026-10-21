@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Fleet\Application\Actions\CreateAgentLeavePause;
+use App\Domains\Workforce\Application\Actions\SyncDriverAvailability;
 use App\Models\LeaveRequest;
 use Illuminate\Console\Command;
 
@@ -26,8 +27,10 @@ class ActivateLeavePauses extends Command
     /**
      * Execute the console command.
      */
-    public function handle(CreateAgentLeavePause $createAgentLeavePause, ActivityJournal $journal): int
+    public function handle(CreateAgentLeavePause $createAgentLeavePause, SyncDriverAvailability $syncAvailability, ActivityJournal $journal): int
     {
+        // `is_available = true` désigne ici « pas encore activée » : un agent sous contrat dont
+        // la pause commence est encore disponible jusqu'à ce passage.
         $toActivate = LeaveRequest::where('status', 'ongoing')
             ->whereDate('start_date', '<=', now()->toDateString())
             ->whereHas('driver', fn ($q) => $q->where('is_available', true))
@@ -36,7 +39,7 @@ class ActivateLeavePauses extends Command
 
         foreach ($toActivate as $leave) {
             $driver = $leave->driver;
-            $driver->update(['is_available' => false]);
+            $syncAvailability($driver);
 
             $contract = $driver->activeDriverContract;
             if ($contract && $contract->vehicle && ! $contract->vehicle->isOnPause()) {

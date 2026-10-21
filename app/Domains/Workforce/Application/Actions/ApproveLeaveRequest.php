@@ -26,6 +26,7 @@ final class ApproveLeaveRequest
     public function __construct(
         private readonly CreateAgentLeavePause $createAgentLeavePause,
         private readonly Notifier $notifier,
+        private readonly SyncDriverAvailability $syncAvailability,
     ) {}
 
     public function __invoke(LeaveRequest $demande): LeaveRequest
@@ -64,10 +65,8 @@ final class ApproveLeaveRequest
             $demande->update(['vehicle_pause_id' => $pause->id]);
 
             // Une pause qui commence aujourd'hui ou avant prend effet tout de suite ;
-            // une pause future laisse l'agent disponible d'ici là.
-            if ($demande->start_date->lte(now()->startOfDay())) {
-                $agent->update(['is_available' => false]);
-            }
+            // une pause future laisse l'agent disponible d'ici là (règle commune).
+            ($this->syncAvailability)($agent);
 
             return $demande->refresh();
         });

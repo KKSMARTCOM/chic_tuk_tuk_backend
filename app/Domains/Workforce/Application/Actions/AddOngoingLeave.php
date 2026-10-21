@@ -6,7 +6,6 @@ use App\Domains\Fleet\Application\Actions\CreateAgentLeavePause;
 use App\Models\Driver;
 use App\Models\LeaveRequest;
 use App\Shared\Http\ApiException;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,7 +23,10 @@ use Illuminate\Support\Facades\DB;
  */
 final class AddOngoingLeave
 {
-    public function __construct(private readonly CreateAgentLeavePause $createAgentLeavePause) {}
+    public function __construct(
+        private readonly CreateAgentLeavePause $createAgentLeavePause,
+        private readonly SyncDriverAvailability $syncAvailability,
+    ) {}
 
     public function __invoke(Driver $agent, string $dateDeDebut, int $joursDemandes, string $auteurId): LeaveRequest
     {
@@ -61,9 +63,7 @@ final class AddOngoingLeave
 
             $pause->update(['vehicle_pause_id' => $pauseVehicule->id]);
 
-            if (Carbon::parse($dateDeDebut)->lte(now()->startOfDay())) {
-                $agent->update(['is_available' => false]);
-            }
+            ($this->syncAvailability)($agent);
 
             return $pause->refresh();
         });

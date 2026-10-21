@@ -3,7 +3,6 @@
 namespace App\Domains\Workforce\Application\Actions;
 
 use App\Domains\Fleet\Application\Actions\CancelPause;
-use App\Models\Driver;
 use App\Models\LeaveRequest;
 use App\Shared\Http\ApiException;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +41,10 @@ final class DeleteLeave
     /** Les origines qu'un administrateur a saisies lui-même, et peut donc défaire. */
     private const ADMIN_SOURCES = ['admin_historical', 'legacy'];
 
-    public function __construct(private readonly CancelPause $cancelPause) {}
+    public function __construct(
+        private readonly CancelPause $cancelPause,
+        private readonly SyncDriverAvailability $syncAvailability,
+    ) {}
 
     public function __invoke(LeaveRequest $leave): void
     {
@@ -74,22 +76,8 @@ final class DeleteLeave
             // ⚠️ APRÈS la suppression : sinon la pause qu'on efface se compte elle-même
             // parmi celles qui retiennent l'agent, et il resterait indisponible.
             if ($driver) {
-                $driver->update(['is_available' => ! $this->aLeaveHasStarted($driver)]);
+                ($this->syncAvailability)($driver);
             }
         });
-    }
-
-    /**
-     * Une pause de cet agent a-t-elle RÉELLEMENT commencé ?
-     *
-     * Le statut ne suffit pas : une pause `ongoing` dont le début est à venir ne bloque
-     * personne. C'est la date qui décide.
-     */
-    private function aLeaveHasStarted(Driver $driver): bool
-    {
-        return $driver->leaveRequests()
-            ->where('status', 'ongoing')
-            ->whereDate('start_date', '<=', now()->startOfDay())
-            ->exists();
     }
 }

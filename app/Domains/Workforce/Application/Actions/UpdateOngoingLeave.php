@@ -2,7 +2,6 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
-use App\Models\Driver;
 use App\Models\LeaveRequest;
 use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
@@ -35,6 +34,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class UpdateOngoingLeave
 {
+    public function __construct(private readonly SyncDriverAvailability $syncAvailability) {}
+
     public function __invoke(LeaveRequest $leave, string $dateDeDebut, int $joursDemandes): LeaveRequest
     {
         if ($leave->status !== 'ongoing') {
@@ -60,26 +61,11 @@ final class UpdateOngoingLeave
             $driver = $leave->driver;
 
             if ($driver) {
-                $driver->update(['is_available' => ! $this->aLeaveHasStarted($driver)]);
+                ($this->syncAvailability)($driver);
             }
 
             return $leave->refresh();
         });
-    }
-
-    /**
-     * Une pause de cet agent a-t-elle RÉELLEMENT commencé ?
-     *
-     * `hasOngoingLeave()` ne suffit pas : il répond oui pour une pause `ongoing` dont la
-     * date de début est encore à venir, et bloquerait l'agent alors qu'il peut rouler.
-     * C'est la date qui décide, pas le statut.
-     */
-    private function aLeaveHasStarted(Driver $driver): bool
-    {
-        return $driver->leaveRequests()
-            ->where('status', 'ongoing')
-            ->whereDate('start_date', '<=', now()->startOfDay())
-            ->exists();
     }
 
     /**
