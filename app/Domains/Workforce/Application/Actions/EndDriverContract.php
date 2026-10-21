@@ -55,6 +55,17 @@ final class EndDriverContract
             );
         }
 
+        // ⚠️ Terminer, c'est constater un départ ARRIVÉ (2026-10-21), comme pour la clôture d'une
+        // pause (`LEAVE_END_IN_FUTURE`) : une fin future fermait le compte d'office, et les pauses
+        // de l'agent ne pouvaient pas être réglées à une date qui n'est pas encore venue.
+        if ($endDate->gt(now()->startOfDay())) {
+            throw new ApiException(
+                422,
+                'DRIVER_CONTRACT_END_IN_FUTURE',
+                'La date de fin ne peut pas être dans le futur : terminez le contrat le jour du départ.'
+            );
+        }
+
         return DB::transaction(function () use ($contract, $data, $endDate) {
             // Calculé AVANT de clore les pauses : il lit les pauses en cours ET terminées, le
             // résultat ne change donc pas, mais l'ordre le rend évident.
@@ -103,9 +114,8 @@ final class EndDriverContract
 
     /**
      * Aucune pause agent ne survit au contrat qu'elle concerne (spec 2026-10-21, §4.2) : celle
-     * qui a commencé au plus tard à la date de fin est clôturée à cette date (aujourd'hui si la
-     * fin est à venir — une clôture constate une fin arrivée) ; celle qui n'a pas commencé est
-     * supprimée, ses effets défaits.
+     * qui a commencé au plus tard à la date de fin — jamais future — est clôturée à cette date ;
+     * celle qui n'a pas commencé est supprimée, ses effets défaits.
      */
     private function settleLeaves(DriverContract $contract, Carbon $endDate): void
     {
@@ -116,7 +126,7 @@ final class EndDriverContract
 
         foreach ($leaves as $leave) {
             if ($leave->start_date->copy()->startOfDay()->lte($endDate)) {
-                ($this->endLeave)($leave, $endDate->copy()->min(now()->startOfDay())->toDateString(), notifyOwner: false);
+                ($this->endLeave)($leave, $endDate->toDateString(), notifyOwner: false);
             } else {
                 ($this->deleteLeave)($leave);
             }

@@ -123,4 +123,26 @@ class DriverDepartureTest extends TestCase
         $this->assertFalse((bool) $vehicle->is_active);
         $this->assertSame('agent_change', $vehicle->activePause?->reason_type);
     }
+
+    public function test_a_departure_dated_in_the_future_is_refused(): void
+    {
+        // Relecture finale : une fin future fermait le compte d'office, et une pause qui
+        // commence entre aujourd'hui et la fin faisait échouer le départ sur un message égarant.
+        $contract = $this->activeContract();
+        LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $contract->driver_id,
+            'driver_contract_id' => $contract->id,
+            'start_date' => now()->addDays(2)->toDateString(),
+        ]);
+
+        try {
+            $this->end($contract, now()->addDays(5)->toDateString());
+            $this->fail('Refus attendu.');
+        } catch (\App\Shared\Http\ApiException $e) {
+            $this->assertSame('DRIVER_CONTRACT_END_IN_FUTURE', $e->errorCode);
+        }
+
+        $this->assertSame('active', $contract->refresh()->status);
+        $this->assertTrue((bool) $contract->driver->user->refresh()->is_active);
+    }
 }
