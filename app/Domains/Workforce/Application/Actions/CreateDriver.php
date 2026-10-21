@@ -95,6 +95,7 @@ final class CreateDriver
 
         // Validation règles métier (1 véhicule = 1 agent)
         VehicleAssignmentRules::assertAssignable($vehicle);
+        VehicleAssignmentRules::assertNotAwaitingRenewal($vehicle);
 
         // Clôturer la pause active du véhicule si existante, la veille de l'arrivée
         ($this->endVehiclePause)($vehicle, $data['start_date'] ?? now()->toDateString());

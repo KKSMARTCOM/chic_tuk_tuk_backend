@@ -266,7 +266,8 @@ class AdminDriverContractsApiTest extends TestCase
         $contract = $this->activeContract(['start_date' => '2026-09-09']);
         $target = $this->freeVehicle();
         $pause = VehiclePause::factory()->forContract($target->activeVehicleContract)->ongoing()->create([
-            'start_date' => '2026-09-02', 'reason_type' => 'agent_change', 'is_auto' => true,
+            // Pause manuelle d'avant le 2026-10-21 : vers une `agent_change`, le déplacement est refusé.
+            'start_date' => '2026-09-02', 'reason_type' => 'technical', 'is_auto' => false,
         ]);
 
         $this->asBearer($this->login(['edit-contracts']))

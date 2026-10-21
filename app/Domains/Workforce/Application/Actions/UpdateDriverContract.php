@@ -59,6 +59,7 @@ final class UpdateDriverContract
 
             if ($vehicle->id !== $contract->vehicle_id) {
                 VehicleAssignmentRules::assertAssignable($vehicle, $contract->driver_id, $contract->id);
+                VehicleAssignmentRules::assertNotAwaitingRenewal($vehicle);
 
                 $vehicleContract = $vehicle->liveVehicleContract;
                 if (! $vehicleContract) {

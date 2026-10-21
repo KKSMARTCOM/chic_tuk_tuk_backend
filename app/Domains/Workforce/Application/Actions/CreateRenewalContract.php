@@ -19,6 +19,7 @@ final class CreateRenewalContract
     public function __construct(
         private readonly EndVehiclePauseBeforeAgentStart $endVehiclePause,
         private readonly TakeOverVehicle $takeOver,
+        private readonly SyncDriverAvailability $syncAvailability,
     ) {}
 
     public function __invoke(Driver $driver, array $data): void
@@ -53,6 +54,7 @@ final class CreateRenewalContract
 
         // Validation règles métier (1 véhicule = 1 agent)
         VehicleAssignmentRules::assertAssignable($vehicle);
+        VehicleAssignmentRules::assertAccountOpen($driver);
 
         // Clôturer la pause active du véhicule si existante, la veille de l'arrivée
         ($this->endVehiclePause)($vehicle, $data['renewal_start_date']);
@@ -76,5 +78,7 @@ final class CreateRenewalContract
             'contract_months' => $requestedMonths,
             'status' => 'active',
         ]);
+
+        ($this->syncAvailability)($driver);
     }
 }

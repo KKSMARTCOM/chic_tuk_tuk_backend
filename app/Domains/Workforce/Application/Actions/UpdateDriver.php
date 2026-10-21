@@ -131,6 +131,8 @@ final class UpdateDriver
                     }
 
                     VehicleAssignmentRules::assertAssignable($vehicle);
+                    VehicleAssignmentRules::assertNotAwaitingRenewal($vehicle);
+                    VehicleAssignmentRules::assertAccountOpen($user->driver);
 
                     $vehicleContract = $vehicle->liveVehicleContract;
                     if (! $vehicleContract) {

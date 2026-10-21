@@ -219,8 +219,10 @@ class AdminDriverCreateApiTest extends TestCase
         $pause = VehiclePause::factory()->forContract($vehicleContract)->ongoing()->create([
             'driver_contract_id' => $former->id,
             'start_date' => '2026-10-05',
-            'reason_type' => 'agent_change',
-            'is_auto' => true,
+            // Une pause manuelle d'avant le 2026-10-21 : sur une `agent_change`, un nouvel
+            // agent est refusé (VEHICLE_AWAITS_RENEWAL) — seule la reconduction la ferme.
+            'reason_type' => 'technical',
+            'is_auto' => false,
         ]);
 
         return [$owner, $vehicle, $pause];

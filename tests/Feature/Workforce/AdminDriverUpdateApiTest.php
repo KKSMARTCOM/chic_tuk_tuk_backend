@@ -167,7 +167,8 @@ class AdminDriverUpdateApiTest extends TestCase
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id, 'is_active' => false]);
         $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create();
         $pause = VehiclePause::factory()->forContract($vehicleContract)->ongoing()->create([
-            'start_date' => '2026-09-02', 'reason_type' => 'agent_change', 'is_auto' => true,
+            // Une pause manuelle d'avant le 2026-10-21 : une `agent_change` exige une reconduction.
+            'start_date' => '2026-09-02', 'reason_type' => 'technical', 'is_auto' => false,
         ]);
 
         [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
@@ -217,6 +218,116 @@ class AdminDriverUpdateApiTest extends TestCase
 
         $response->assertJsonPath('active_contract.vehicle_number', 'T-RECOND2');
         $response->assertJsonPath('active_contract.contract_months', 14);
+    }
+
+    // ----- Les gardes du 2026-10-21 (spec état véhicule/agent, §3.5 et §4.4) -------
+
+    /** Un véhicule dont l'agent est parti : pause `agent_change` en cours. */
+    private function vehicleAwaitingRenewal(User $owner): Vehicle
+    {
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id, 'is_active' => false]);
+        $vehicleContract = VehicleContract::factory()->forVehicle($vehicle)->create([
+            'contract_months' => 24,
+            'start_date' => now()->subMonths(10)->startOfMonth(),
+        ]);
+        $ended = DriverContract::factory()->forVehicleContract($vehicleContract)->create([
+            'status' => 'ended',
+            'start_date' => now()->subMonths(10)->startOfMonth(),
+            'end_date' => now()->subDays(3)->toDateString(),
+        ]);
+        VehiclePause::factory()->forContract($vehicleContract)->ongoing()->create([
+            'driver_contract_id' => $ended->id,
+            'start_date' => now()->subDays(2)->toDateString(),
+            'reason_type' => 'agent_change',
+            'is_auto' => true,
+        ]);
+
+        return $vehicle;
+    }
+
+    private function renewalPayload(User $owner, Vehicle $vehicle): array
+    {
+        return $this->payload([
+            'is_active' => null,
+            'is_available' => null,
+            'owner_mode' => 'renewal',
+            'renewal_owner_id' => $owner->id,
+            'renewal_vehicle_id' => $vehicle->id,
+            'renewal_contract_months' => 24,
+            'renewal_start_date' => now()->toDateString(),
+        ]);
+    }
+
+    public function test_un_nouveau_contrat_sur_un_vehicule_quitte_est_refuse(): void
+    {
+        $driver = Driver::factory()->create();
+        $owner = $this->owner();
+        $vehicle = $this->vehicleAwaitingRenewal($owner);
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload([
+                'is_active' => null,
+                'is_available' => null,
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'existing_contract_months' => 24,
+                'existing_start_date' => now()->toDateString(),
+            ]))
+            // Le formulaire enveloppe ses refus en 422, message intact (convention d'`UpdateDriver`).
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Ce véhicule attend la reconduction du contrat de son ancien agent.');
+    }
+
+    public function test_la_reconduction_dun_compte_ferme_est_refusee(): void
+    {
+        $driver = Driver::factory()->create();
+        $driver->user->update(['is_active' => false]);
+        $owner = $this->owner();
+        $vehicle = $this->vehicleAwaitingRenewal($owner);
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->renewalPayload($owner, $vehicle))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Le compte de cet agent est désactivé : seul un administrateur peut le rouvrir.');
+    }
+
+    public function test_un_nouveau_contrat_pour_un_compte_ferme_est_refuse(): void
+    {
+        $driver = Driver::factory()->create();
+        $driver->user->update(['is_active' => false]);
+        $owner = $this->owner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->forVehicle($vehicle)->create();
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->payload([
+                'is_active' => null,
+                'is_available' => null,
+                'owner_id' => $owner->id,
+                'vehicle_id' => $vehicle->id,
+                'existing_contract_months' => 24,
+                'existing_start_date' => now()->toDateString(),
+            ]))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Le compte de cet agent est désactivé : seul un administrateur peut le rouvrir.');
+    }
+
+    public function test_la_reconduction_rend_lagent_disponible_et_ferme_la_pause(): void
+    {
+        $driver = Driver::factory()->create(['is_available' => false]);
+        $owner = $this->owner();
+        $vehicle = $this->vehicleAwaitingRenewal($owner);
+        [, $token] = $this->connecter(Profil::Admin, ['edit-drivers']);
+
+        $this->entete($token)
+            ->putJson("/api/v1/admin/drivers/{$driver->id}", $this->renewalPayload($owner, $vehicle))
+            ->assertOk();
+
+        $this->assertTrue($driver->refresh()->is_available);
+        $this->assertNull($vehicle->refresh()->activePause);
     }
 
     // ----- Unicité, en s'excluant soi-même ---------------------------------------

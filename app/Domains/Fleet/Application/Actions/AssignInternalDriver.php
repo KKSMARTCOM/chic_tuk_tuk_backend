@@ -4,6 +4,7 @@ namespace App\Domains\Fleet\Application\Actions;
 
 use App\Domains\Fleet\Domain\InternalAssignmentRules;
 use App\Domains\Workforce\Application\Actions\SyncDriverAvailability;
+use App\Domains\Workforce\Domain\VehicleAssignmentRules;
 use App\Models\Driver;
 use App\Models\InternalAssignment;
 use App\Models\User;
@@ -25,6 +26,7 @@ final class AssignInternalDriver
             InternalAssignmentRules::assertContractOpen($contract);
             InternalAssignmentRules::assertVehicleFree($contract);
             InternalAssignmentRules::assertDriverFree($driver);
+            VehicleAssignmentRules::assertAccountOpen($driver);
 
             $start = Carbon::parse($startDate)->startOfDay();
             if ($contract->start_date !== null && $start->lt($contract->start_date->copy()->startOfDay())) {
