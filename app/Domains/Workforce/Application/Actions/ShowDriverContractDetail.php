@@ -17,6 +17,8 @@ use App\Domains\Workforce\Application\Data\AdminDriverContractListItemData;
  */
 final class ShowDriverContractDetail
 {
+    public function __construct(private readonly ReopenDriverContract $reopen) {}
+
     public function __invoke(string $contractId): AdminDriverContractDetailData
     {
         $contract = ListDriverContracts::query()
@@ -54,6 +56,8 @@ final class ShowDriverContractDetail
             vehicleContractStatus: $vehicleContract?->status,
             vehicleContractMonths: $vehicleContract?->contract_months,
             vehicleContractNotes: $vehicleContract?->notes,
+            isReopenable: $this->reopen->refusal($contract) === null,
+            daysToGenerate: $this->reopen->daysToGenerate($contract),
         );
     }
 }

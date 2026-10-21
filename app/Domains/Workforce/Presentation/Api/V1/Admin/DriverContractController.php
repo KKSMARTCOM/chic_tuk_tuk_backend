@@ -3,10 +3,12 @@
 namespace App\Domains\Workforce\Presentation\Api\V1\Admin;
 
 use App\Domains\Audit\Application\ActivityJournal;
+use App\Domains\Notification\Application\Notifier;
 use App\Domains\Workforce\Application\Actions\DeleteDriverContract;
 use App\Domains\Workforce\Application\Actions\EndDriverContract;
 use App\Domains\Workforce\Application\Actions\ListAssignableVehicles;
 use App\Domains\Workforce\Application\Actions\ListDriverContracts;
+use App\Domains\Workforce\Application\Actions\ReopenDriverContract;
 use App\Domains\Workforce\Application\Actions\ShowDriverContractDetail;
 use App\Domains\Workforce\Application\Actions\UpdateDriverContract;
 use App\Domains\Workforce\Application\Data\EndDriverContractData;
@@ -106,6 +108,30 @@ final class DriverContractController
         } catch (\Throwable $e) {
             return $this->failure($e, $request, 'la clôture du contrat agent',
                 'Ce contrat n\'a pas pu être terminé.', 'DRIVER_CONTRACT_END_FAILED');
+        }
+    }
+
+    public function reopen(
+        Request $request,
+        string $contractId,
+        ReopenDriverContract $reopen,
+        ShowDriverContractDetail $show,
+        Notifier $notifier,
+    ): JsonResponse {
+        try {
+            $contract = $reopen(DriverContract::findOrFail($contractId));
+            $this->journal->driverContractReopened($contract->load('driver.user'));
+            // Après la transaction : le propriétaire voyait son véhicule immobilisé.
+            if ($contract->vehicle) {
+                $notifier->vehicleBackAfterReopen($contract->vehicle);
+            }
+
+            return response()->json($show($contractId));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'la réouverture du contrat agent',
+                'La fin de ce contrat n\'a pas pu être annulée.', 'DRIVER_CONTRACT_REOPEN_FAILED');
         }
     }
 

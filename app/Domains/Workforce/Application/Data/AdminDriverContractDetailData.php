@@ -34,5 +34,9 @@ final class AdminDriverContractDetailData extends BaseData
         public ?string $vehicleContractStatus,
         public ?int $vehicleContractMonths,
         public ?string $vehicleContractNotes,
+        /** « Annuler la fin du contrat » est-il possible ? (spec 2026-10-21, §5) */
+        public bool $isReopenable,
+        /** Jours ouvrés à générer après une réouverture : du lendemain de la fin à aujourd'hui. */
+        public int $daysToGenerate,
     ) {}
 }

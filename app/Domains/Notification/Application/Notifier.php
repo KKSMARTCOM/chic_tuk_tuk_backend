@@ -10,6 +10,7 @@ use App\Models\RemunerationStatement;
 use App\Models\SubscriptionEnrollment;
 use App\Models\User;
 use App\Models\VehicleContract;
+use App\Models\Vehicle;
 use App\Models\VehicleContractPreparationStep;
 use App\Models\VehiclePause;
 use Carbon\Carbon;
@@ -254,6 +255,21 @@ final class Notifier
                 .($pause->reason_notes ? " ({$pause->reason_notes})" : ''),
             'warning',
             $vehicule ? "/owner/vehicles/{$vehicule->id}/pauses" : null,
+        );
+    }
+
+    /**
+     * Le départ d'un agent était une erreur, l'administrateur l'a annulé (2026-10-21) : le
+     * véhicule, que le propriétaire voyait immobilisé, est de nouveau en service.
+     */
+    public function vehicleBackAfterReopen(Vehicle $vehicle): void
+    {
+        $this->vers(
+            $vehicle->owner,
+            'Reprise du véhicule',
+            $this->immatriculation($vehicle).' est de nouveau en service : le départ de son agent a été annulé.',
+            'success',
+            "/owner/vehicles/{$vehicle->id}",
         );
     }
 

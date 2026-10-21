@@ -378,6 +378,15 @@ final class ActivityJournal
         );
     }
 
+    public function driverContractReopened(DriverContract $contract): void
+    {
+        $this->record(
+            ActivityEvent::DriverContractReopened,
+            $contract,
+            "a annulé la fin du contrat de {$this->driverName($contract->driver)}",
+        );
+    }
+
     public function driverContractDeleted(string $contractId, ?Driver $driver): void
     {
         $this->record(

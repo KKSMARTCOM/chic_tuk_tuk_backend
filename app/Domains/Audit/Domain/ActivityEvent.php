@@ -56,6 +56,7 @@ enum ActivityEvent: string
     case DriverContractUpdated = 'driver.contract_updated';
     case DriverContractEnded = 'driver.contract_ended';
     case DriverContractDeleted = 'driver.contract_deleted';
+    case DriverContractReopened = 'driver.contract_reopened';
 
     // Pauses des agents
     case LeaveRequested = 'leave.requested';
@@ -166,6 +167,7 @@ enum ActivityEvent: string
             self::DriverContractUpdated => 'Contrat agent modifié',
             self::DriverContractEnded => 'Contrat agent terminé',
             self::DriverContractDeleted => 'Contrat agent supprimé',
+            self::DriverContractReopened => 'Fin de contrat agent annulée',
             self::LeaveRequested => 'Pause demandée',
             self::LeaveApproved => 'Pause validée',
             self::LeaveRejected => 'Pause refusée',

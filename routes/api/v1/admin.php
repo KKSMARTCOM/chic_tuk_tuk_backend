@@ -301,6 +301,10 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             Route::post('/driver-contracts/{contract}/end', [DriverContractController::class, 'end'])->name('driver-contracts.end');
         });
 
+        // L'administrateur seul défait une fin de contrat saisie par erreur (spec 2026-10-21, §5).
+        Route::post('/driver-contracts/{contract}/reopen', [DriverContractController::class, 'reopen'])
+            ->middleware('permission:reopen-driver-contracts')->name('driver-contracts.reopen');
+
         Route::delete('/driver-contracts/{contract}', [DriverContractController::class, 'destroy'])
             ->middleware('permission:delete-contracts')->name('driver-contracts.destroy');
 
