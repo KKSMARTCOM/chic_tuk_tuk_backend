@@ -88,8 +88,9 @@ class AdminRemunerationStatementsApiTest extends TestCase
 
     public function test_editing_needs_edit_and_validating_needs_validate(): void
     {
+        // Sans paiement ni montant journalier : aucun écart ne bloque la validation.
         $statement = RemunerationStatement::factory()
-            ->for(VehicleContract::factory()->create(['start_date' => '2026-10-01']), 'contract')
+            ->for(VehicleContract::factory()->create(['start_date' => '2026-10-01', 'daily_amount' => 0, 'daily_tax' => 0]), 'contract')
             ->create(['month' => '2026-10-01']);
         $editor = $this->login(['view-remuneration-statements', 'edit-remuneration-statements']);
 
@@ -157,7 +158,8 @@ class AdminRemunerationStatementsApiTest extends TestCase
 
     public function test_generate_then_cancel(): void
     {
-        VehicleContract::factory()->create(['start_date' => '2026-10-01']);
+        // Sans paiement ni montant journalier : aucun écart ne bloque la validation.
+        VehicleContract::factory()->create(['start_date' => '2026-10-01', 'daily_amount' => 0, 'daily_tax' => 0]);
         $token = $this->login(['edit-remuneration-statements', 'validate-remuneration-statements', 'cancel-remuneration-statements']);
 
         $this->asBearer($token)->postJson('/api/v1/admin/remuneration-statements/generate', ['month' => '2026-10'])

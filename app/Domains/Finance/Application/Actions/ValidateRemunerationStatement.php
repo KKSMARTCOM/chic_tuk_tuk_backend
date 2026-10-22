@@ -219,6 +219,16 @@ final class ValidateRemunerationStatement
     /** @return array<string, string> */
     private function violations(StatementFigures $figures): array
     {
-        return ChargeLedger::violationsFor($figures);
+        $violations = ChargeLedger::violationsFor($figures);
+
+        // Un jour comptabilisé est un jour payé : un écart entre les jours et l'argent reçu se
+        // corrige avant la validation, jamais après (spec 2026-10-22, §3.4).
+        if (abs($figures->gap) >= 0.01) {
+            $fcfa = fn (float $amount) => number_format($amount, 0, ',', ' ').' F';
+            $violations['gap'] = "Les jours comptabilisés ({$figures->countedDays} × {$fcfa($figures->dailyAmount)} = {$fcfa($figures->totalRevenue)})"
+                ." ne correspondent pas à l'argent reçu ({$fcfa($figures->receivedAmount)}) : ".implode(' ; ', $figures->gapCauses);
+        }
+
+        return $violations;
     }
 }

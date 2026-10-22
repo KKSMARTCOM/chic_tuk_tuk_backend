@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\VehicleContract;
+use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,9 +46,16 @@ class ContractTargetsReachedTest extends TestCase
         $contract = VehicleContract::factory()->create([
             'contract_months' => 2, 'total_amount' => 200_000, 'start_date' => '2026-07-01',
             'unlimited_internet' => 5_000, 'spotify_premium' => 2_500, 'manager_remuneration' => 20_000,
+            'daily_amount' => 50_000, 'daily_tax' => 0,
         ]);
-        Payment::factory()->onDay('2026-07-01')->status('completed')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 150_000]);
-        Payment::factory()->onDay('2026-08-03')->status('completed')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 100_000]);
+        // Un jour comptabilisé est un jour payé (spec 2026-10-22) : 150 000 en juillet, ce sont
+        // trois jours à 50 000, et 100 000 en août, deux jours ; le reste du mois immobilisé.
+        foreach ([['2026-07-01', '2026-07-03', '2026-07-06', '2026-07-31'], ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-31']] as [$from, $to, $stop, $end]) {
+            foreach (Carbon::parse($from)->toPeriod($to) as $day) {
+                Payment::factory()->onDay($day->toDateString())->status('completed')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 50_000]);
+            }
+            VehiclePause::factory()->forContract($contract)->create(['start_date' => $stop, 'end_date' => $end, 'reason_type' => 'agent_change']);
+        }
 
         return $contract;
     }

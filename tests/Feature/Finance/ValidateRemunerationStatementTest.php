@@ -33,7 +33,9 @@ class ValidateRemunerationStatementTest extends TestCase
         Carbon::setTestNow('2026-11-02 09:00:00');
         config(['remuneration.first_month' => '2026-10']);
         Queue::fake();
-        $this->contract = VehicleContract::factory()->create(['start_date' => '2026-10-01']);
+        // Sans montant journalier, un mois sans paiement n'a pas d'écart : les tests qui ne
+        // portent pas sur l'argent valident sans le payer (spec 2026-10-22, §3.4).
+        $this->contract = VehicleContract::factory()->create(['start_date' => '2026-10-01', 'daily_amount' => 0, 'daily_tax' => 0]);
     }
 
     protected function tearDown(): void
@@ -96,7 +98,7 @@ class ValidateRemunerationStatementTest extends TestCase
     {
         $this->validate($this->draft());
         $other = RemunerationStatement::factory()
-            ->for(VehicleContract::factory()->create(['start_date' => '2026-10-01']), 'contract')
+            ->for(VehicleContract::factory()->create(['daily_amount' => 0, 'daily_tax' => 0, 'start_date' => '2026-10-01']), 'contract')
             ->create(['month' => '2026-10-01']);
 
         $this->assertSame('FR-2026-10-002', $this->validate($other)->number);
@@ -125,7 +127,7 @@ class ValidateRemunerationStatementTest extends TestCase
 
     public function test_lines_may_be_split_freely_within_the_total_outstanding(): void
     {
-        Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 100_000]);
+        $this->oneDayEarning(100_000);
 
         $statement = $this->update($this->draft(), ['deducted_internet' => 15_000, 'deducted_spotify' => 2_500, 'deducted_manager' => 10_000]);
 
@@ -134,7 +136,7 @@ class ValidateRemunerationStatementTest extends TestCase
 
     public function test_deducting_beyond_the_total_outstanding_is_a_field_error(): void
     {
-        Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 100_000]);
+        $this->oneDayEarning(100_000);
 
         try {
             $this->update($this->draft(), ['deducted_internet' => 15_000, 'deducted_spotify' => 2_500, 'deducted_manager' => 20_000]);
@@ -154,7 +156,7 @@ class ValidateRemunerationStatementTest extends TestCase
 
     public function test_an_attached_payment_can_no_longer_be_cancelled(): void
     {
-        $payment = Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id]);
+        $payment = $this->oneDayEarning(100_000);
         $this->validate($this->draft());
 
         $this->assertSame('PAYMENT_IN_VALIDATED_STATEMENT', $this->refusalCode(fn () => app(CancelPayment::class)($payment->fresh())));
@@ -174,7 +176,7 @@ class ValidateRemunerationStatementTest extends TestCase
 
     public function test_a_reconstituted_statement_takes_its_issue_date_and_is_not_sent(): void
     {
-        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        $contract = VehicleContract::factory()->create(['daily_amount' => 0, 'daily_tax' => 0, 'start_date' => '2026-03-02']);
         $draft = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
 
         $validated = app(ValidateRemunerationStatement::class)($draft, User::factory()->create(), Carbon::parse('2026-04-03'), send: false);
@@ -192,7 +194,7 @@ class ValidateRemunerationStatementTest extends TestCase
 
     public function test_issue_date_rules(): void
     {
-        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        $contract = VehicleContract::factory()->create(['daily_amount' => 0, 'daily_tax' => 0, 'start_date' => '2026-03-02']);
         $april = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-04-01']);
         $validate = app(ValidateRemunerationStatement::class);
 
@@ -230,7 +232,7 @@ class ValidateRemunerationStatementTest extends TestCase
 
     public function test_a_number_is_never_reused_after_a_purge(): void
     {
-        $contract = VehicleContract::factory()->create(['start_date' => '2026-03-02']);
+        $contract = VehicleContract::factory()->create(['daily_amount' => 0, 'daily_tax' => 0, 'start_date' => '2026-03-02']);
         $first = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
         app(ValidateRemunerationStatement::class)($first, User::factory()->create(), Carbon::parse('2026-04-03'), send: false);
         RemunerationStatement::whereKey($first->id)->delete();
@@ -268,7 +270,7 @@ class ValidateRemunerationStatementTest extends TestCase
 
     public function test_an_issue_date_that_became_invalid_blocks_before_the_click(): void
     {
-        $contract = VehicleContract::factory()->create(['start_date' => '2026-09-01']);
+        $contract = VehicleContract::factory()->create(['daily_amount' => 0, 'daily_tax' => 0, 'start_date' => '2026-09-01']);
         $september = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-09-01', 'issued_on' => '2026-10-05']);
         // La fiche d'août, revalidée après coup, est arrêtée plus tard que la date saisie.
         RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2026-08-01', 'issued_on' => '2026-10-20']);
@@ -297,5 +299,49 @@ class ValidateRemunerationStatementTest extends TestCase
         $validated = app(ValidateRemunerationStatement::class)($statement, $by, null, false);
         $this->assertSame('validated', $validated->status);
         $this->assertSame('none', $validated->delivery);
+    }
+
+    /** Octobre 2026 : 22 jours ouvrés, payés au net journalier de la fabrique (5 871), sauf `$skip`. */
+    private function octoberPaid(int $skip = 0): void
+    {
+        $this->contract->update(['daily_amount' => 6112, 'daily_tax' => 241]);
+        $days = collect(Carbon::parse('2026-10-01')->toPeriod('2026-10-31'))->reject->isWeekend()->map->toDateString()->values();
+        foreach ($days->slice($skip) as $day) {
+            Payment::factory()->onDay($day)->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 5871]);
+        }
+    }
+
+    private const GAP_MESSAGE = 'Les jours comptabilisés (22 × 5 871 F = 129 162 F) ne correspondent pas à l\'argent reçu (123 291 F) : 1 jour(s) comptabilisé(s) sans paiement';
+
+    public function test_a_statement_with_a_gap_cannot_be_validated(): void
+    {
+        $this->octoberPaid(skip: 1);
+
+        try {
+            $this->validate($this->draft());
+            $this->fail('La validation aurait dû être refusée.');
+        } catch (ValidationException $e) {
+            $this->assertSame(self::GAP_MESSAGE, $e->errors()['gap'][0]);
+        }
+    }
+
+    public function test_blockers_announce_the_gap_before_validation(): void
+    {
+        $this->octoberPaid(skip: 1);
+        $draft = $this->draft();
+
+        $blockers = app(ValidateRemunerationStatement::class)->blockers($draft, app(BuildStatementFigures::class)($this->contract, '2026-10', $draft));
+
+        $this->assertContains(self::GAP_MESSAGE, $blockers);
+    }
+
+    public function test_a_statement_without_gap_validates(): void
+    {
+        $this->octoberPaid();
+
+        $statement = $this->validate($this->draft());
+
+        $this->assertEquals(22 * 5871, $statement->figures['total_revenue']);
+        $this->assertEquals(0, $statement->figures['gap']);
     }
 }
