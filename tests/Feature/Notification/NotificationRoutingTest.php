@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\LeaveRequest;
 use App\Models\Notification;
+use App\Models\OwnerDisbursement;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -391,5 +392,68 @@ class NotificationRoutingTest extends TestCase
     {
         Mockery::close();
         parent::tearDown();
+    }
+
+    // ----- Versements au propriétaire (2026-10-22) ---------------------------
+
+    private function versement(string $paidOn = '2026-10-22', ?User $owner = null): OwnerDisbursement
+    {
+        $vehicle = Vehicle::factory()->create(['owner_id' => $this->proprietaire->id, 'vehicle_number' => '2EV2338 RB']);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['owner_id' => ($owner ?? $this->proprietaire)->id]);
+
+        return OwnerDisbursement::create([
+            'vehicle_contract_id' => $contract->id, 'paid_on' => $paidOn, 'amount' => 50_000, 'method' => 'mobile_money', 'status' => 'recorded',
+        ]);
+    }
+
+    public function test_un_versement_previent_le_proprietaire_du_contrat_et_lui_seul(): void
+    {
+        config(['remuneration.disbursement_notify_from' => '2026-10-22']);
+        $versement = $this->versement();
+
+        $this->notifier()->disbursementRecorded($versement);
+
+        $this->assertSame(['Propriétaire'], $this->destinataires());
+        $notification = Notification::first();
+        $this->assertSame('Versement de votre revenu', $notification->title);
+        $this->assertSame('2EV2338 RB : 50 000 F versés le 22/10/2026.', $notification->message);
+        $this->assertNotNull($versement->fresh()->owner_notified_at);
+    }
+
+    public function test_un_versement_date_d_avant_la_livraison_ne_previent_personne(): void
+    {
+        config(['remuneration.disbursement_notify_from' => '2026-10-22']);
+
+        $this->notifier()->disbursementRecorded($this->versement('2026-10-21'));
+
+        $this->assertSame([], $this->destinataires());
+    }
+
+    public function test_sans_reglage_aucun_versement_ne_previent(): void
+    {
+        config(['remuneration.disbursement_notify_from' => null]);
+
+        $this->notifier()->disbursementRecorded($this->versement());
+
+        $this->assertSame([], $this->destinataires());
+    }
+
+    public function test_fiches_masquees_aucun_versement_ne_previent(): void
+    {
+        config(['remuneration.disbursement_notify_from' => '2026-10-22', 'remuneration.owner_visible' => false]);
+
+        $this->notifier()->disbursementRecorded($this->versement());
+
+        $this->assertSame([], $this->destinataires());
+    }
+
+    public function test_l_ancien_proprietaire_d_un_vehicule_revendu_n_est_pas_prevenu(): void
+    {
+        config(['remuneration.disbursement_notify_from' => '2026-10-22']);
+        $ancien = User::factory()->profil(Profil::Owner)->create(['name' => 'Ancien']);
+
+        $this->notifier()->disbursementRecorded($this->versement(owner: $ancien));
+
+        $this->assertSame([], $this->destinataires());
     }
 }

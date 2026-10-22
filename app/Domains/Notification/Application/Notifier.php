@@ -2,6 +2,7 @@
 
 namespace App\Domains\Notification\Application;
 
+use App\Models\OwnerDisbursement;
 use App\Models\Announcement;
 use App\Models\Booking;
 use App\Models\LeaveRequest;
@@ -338,6 +339,34 @@ final class Notifier
     }
 
     /** Une étape de préparation cochée : le propriétaire suit son véhicule (spec 2026-10-20, §4.4). */
+    /**
+     * Un versement fait au propriétaire (spec 2026-10-22-versement-proprietaire, §4.4). Trois
+     * conditions, sans quoi il ne part pas : daté au plus tôt du jour de la livraison (le
+     * réglage absent, rien ne part — la régularisation de l'historique reste silencieuse),
+     * fiches visibles aux propriétaires, et le propriétaire du contrat l'est encore du
+     * véhicule — sinon le lien mènerait à un 404.
+     */
+    public function disbursementRecorded(OwnerDisbursement $disbursement): void
+    {
+        $from = config('remuneration.disbursement_notify_from');
+        $contract = $disbursement->contract()->with('vehicle')->first();
+        $vehicle = $contract?->vehicle;
+        if (! $from || $disbursement->paid_on->toDateString() < (string) $from
+            || ! RemunerationStatement::visibleToOwners()
+            || ! $vehicle || $vehicle->owner_id !== $contract->owner_id) {
+            return;
+        }
+
+        $this->vers(
+            $vehicle->owner,
+            'Versement de votre revenu',
+            $vehicle->vehicle_number.' : '.number_format((float) $disbursement->amount, 0, ',', ' ').' F versés le '.$disbursement->paid_on->format('d/m/Y').'.',
+            'success',
+            "/owner/vehicles/{$vehicle->id}/payments?view=disbursements",
+        );
+        $disbursement->forceFill(['owner_notified_at' => now()])->save();
+    }
+
     public function preparationStepDone(VehicleContractPreparationStep $step): void
     {
         $vehicle = $step->vehicleContract?->vehicle;

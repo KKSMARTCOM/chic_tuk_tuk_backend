@@ -8,6 +8,7 @@ use App\Domains\Finance\Application\Actions\RecordDisbursement;
 use App\Domains\Finance\Application\Actions\UpdateDisbursement;
 use App\Domains\Finance\Application\Data\AdminDisbursementsData;
 use App\Domains\Fleet\Application\Actions\AttachPreparationProof;
+use App\Domains\Notification\Application\Notifier;
 use App\Models\OwnerDisbursement;
 use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
@@ -27,7 +28,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class DisbursementController
 {
-    public function __construct(private readonly ActivityJournal $journal) {}
+    public function __construct(
+        private readonly ActivityJournal $journal,
+        private readonly Notifier $notifier,
+    ) {}
 
     public function index(Request $request, string $contractId): JsonResponse
     {
@@ -41,6 +45,8 @@ final class DisbursementController
             $data = Validator::make($request->all(), $this->rules($contract), self::MESSAGES)->validate();
             $disbursement = $record($contract, $data, $request->file('proof'), $request->user());
             $this->journal->disbursementRecorded($disbursement);
+            // Après la transaction de l'action : une notification ne fait jamais échouer l'écriture.
+            $this->notifier->disbursementRecorded($disbursement);
 
             return AdminDisbursementsData::forContract($contract);
         });

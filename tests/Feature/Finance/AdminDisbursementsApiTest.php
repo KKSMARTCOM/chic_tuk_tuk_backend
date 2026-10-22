@@ -3,6 +3,7 @@
 namespace Tests\Feature\Finance;
 
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Models\Notification;
 use App\Models\OwnerDisbursement;
 use App\Models\RemunerationStatement;
 use App\Models\User;
@@ -244,5 +245,18 @@ class AdminDisbursementsApiTest extends TestCase
         $d = OwnerDisbursement::sole();
 
         $this->as(['view-disbursements', 'create-disbursements'])->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => 'x'])->assertForbidden();
+    }
+
+    public function test_recording_notifies_the_owner_but_correcting_and_cancelling_do_not(): void
+    {
+        config(['remuneration.disbursement_notify_from' => '2026-10-01']);
+
+        $this->record()->assertOk();
+        $this->assertSame(1, Notification::count());
+
+        $d = OwnerDisbursement::sole();
+        $this->correct($d, ['amount' => 40_000])->assertOk();
+        $this->as()->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => 'Erreur'])->assertOk();
+        $this->assertSame(1, Notification::count());
     }
 }

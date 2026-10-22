@@ -1307,6 +1307,7 @@ qu'en relisant le dépôt entier.
 | Pause validée / refusée | l'agent concerné |
 | Véhicule mis en pause / reprise | le propriétaire du véhicule |
 | Paiement **validé** ou **annulé** | l'agent concerné, lui seul |
+| Versement enregistré (2026-10-22) | le propriétaire du contrat, s'il l'est encore du véhicule — seulement si `paid_on ≥ REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (absent : jamais) et fiches visibles ; ni correction ni annulation |
 
 ⚠️ « Les administrateurs sont prévenus de toutes les actions agent » ne veut PAS dire
 qu'ils reçoivent tout : une pause validée ne leur revient pas, puisque c'est l'un d'eux
