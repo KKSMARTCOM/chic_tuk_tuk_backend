@@ -8,6 +8,7 @@ use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
+use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -51,9 +52,19 @@ class StatementTargetsTest extends TestCase
         ]);
     }
 
-    /** Un mois travaillé de recettes `$amount`, en un paiement validé le 1er jour ouvré. */
+    /**
+     * Un mois travaillé de recettes `$amount` : un seul jour comptabilisé, payé au montant
+     * journalier — le reste du mois immobilisé. Un jour comptabilisé est un jour payé
+     * (spec 2026-10-22) : un paiement global ne ferait plus le total du mois.
+     */
     private function earned(VehicleContract $contract, string $date, float $amount): void
     {
+        $contract->update(['daily_amount' => $amount, 'daily_tax' => 0]);
+        VehiclePause::factory()->forContract($contract)->create([
+            'start_date' => Carbon::parse($date)->addDay()->toDateString(),
+            'end_date' => Carbon::parse($date)->endOfMonth()->toDateString(),
+            'reason_type' => 'agent_change',
+        ]);
         Payment::factory()->onDay($date)->status('completed')
             ->create(['vehicle_contract_id' => $contract->id, 'net_amount' => $amount]);
     }

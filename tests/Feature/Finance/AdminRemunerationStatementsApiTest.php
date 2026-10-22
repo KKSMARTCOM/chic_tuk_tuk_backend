@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\VehicleContract;
+use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -70,7 +71,9 @@ class AdminRemunerationStatementsApiTest extends TestCase
 
     public function test_the_list_filters_by_month_and_computes_draft_balances(): void
     {
-        $contract = VehicleContract::factory()->create(['start_date' => '2026-10-01']);
+        // Un seul jour comptabilisé, payé 100 000 : le reste d'octobre immobilisé.
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-10-01', 'daily_amount' => 100_000, 'daily_tax' => 0]);
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => '2026-10-02', 'end_date' => '2026-10-31', 'reason_type' => 'agent_change']);
         Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 100_000]);
         RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-10-01']);
         RemunerationStatement::factory()->create(['month' => '2026-11-01']);

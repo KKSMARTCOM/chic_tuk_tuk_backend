@@ -46,6 +46,19 @@ final class StatementFigures
         public readonly bool $isFirstStatement,
         /** @var list<string> */
         public readonly array $anomalies,
+        /** Jours ouvrés − pause − immobilisation : le calendrier seul (spec 2026-10-22, §2). */
+        public readonly int $calendarDays = 0,
+        public readonly int $recoveredCount = 0,
+        /** Jours comptabilisés × montant journalier : ce sur quoi se calcule le solde dû. */
+        public readonly float $totalRevenue = 0,
+        /** Encaissés du mois + recouvrés : l'argent réellement reçu. */
+        public readonly float $receivedAmount = 0,
+        /** `totalRevenue − receivedAmount` : non nul, il bloque la validation. */
+        public readonly float $gap = 0,
+        /** @var list<string> ce qui explique l'écart */
+        public readonly array $gapCauses = [],
+        /** Fiche ancienne dont le total ne tombe pas juste : l'ancienne présentation (§5). */
+        public readonly bool $legacyLayout = false,
         /** @var list<string> */
         public readonly array $revenuePaymentIds = [],
         /** @var list<string> */

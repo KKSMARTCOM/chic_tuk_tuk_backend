@@ -315,7 +315,9 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->atNovember();
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
-        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-11-01']);
+        // Un seul jour comptabilisé, payé 100 000 : le reste de novembre immobilisé.
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-11-01', 'daily_amount' => 100_000, 'daily_tax' => 0]);
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => '2026-11-03', 'end_date' => '2026-11-30', 'reason_type' => 'agent_change']);
         Payment::factory()->onDay('2026-11-02')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 100_000]);
 
         $this->withHeader('Authorization', "Bearer {$token}")

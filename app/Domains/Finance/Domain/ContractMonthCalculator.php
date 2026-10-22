@@ -121,6 +121,8 @@ final class ContractMonthCalculator
         );
         $live = $monthPayments->where('status', '!=', 'cancelled');
         $paidDates = $live->map(fn ($p) => $p->payment_date->toDateString())->unique();
+        $pendingOnCounted = $monthPayments->where('status', 'pending')
+            ->filter(fn ($p) => in_array($p->payment_date->toDateString(), $days->countedDates, true));
 
         return new ContractMonthFigures(
             month: $monthKey,
@@ -136,6 +138,9 @@ final class ContractMonthCalculator
             cancelledAmount: (float) $monthPayments->where('status', 'cancelled')->sum('net_amount'),
             paymentsOnStoppedDays: $live->filter(fn ($p) => in_array($p->payment_date->toDateString(), $days->stoppedDates, true))->count(),
             countedDaysWithoutPayment: collect($days->countedDates)->diff($paidDates)->count(),
+            countedDates: $days->countedDates,
+            pendingOnCountedDays: $pendingOnCounted->count(),
+            pendingOnCountedAmount: (float) $pendingOnCounted->sum('net_amount'),
         );
     }
 

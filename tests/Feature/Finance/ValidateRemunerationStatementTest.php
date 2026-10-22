@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\User;
 use App\Models\VehicleContract;
+use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,9 +69,18 @@ class ValidateRemunerationStatementTest extends TestCase
         return null;
     }
 
+    /** Un seul jour comptabilisé en octobre, payé `$amount` : le reste du mois immobilisé. */
+    private function oneDayEarning(float $amount): Payment
+    {
+        $this->contract->update(['daily_amount' => $amount, 'daily_tax' => 0]);
+        VehiclePause::factory()->forContract($this->contract)->create(['start_date' => '2026-10-02', 'end_date' => '2026-10-31', 'reason_type' => 'agent_change']);
+
+        return Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => $amount]);
+    }
+
     public function test_validation_freezes_numbers_and_attaches_payments(): void
     {
-        $payment = Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 100_000]);
+        $payment = $this->oneDayEarning(100_000);
 
         $statement = $this->validate($this->draft());
 

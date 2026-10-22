@@ -25,5 +25,10 @@ final class ContractMonthFigures
         public readonly int $paymentsOnStoppedDays,
         /** Jours comptabilisés sans aucun paiement non annulé. */
         public readonly int $countedDaysWithoutPayment,
+        /** @var list<string> les jours du calendrier (ni pause, ni immobilisation), `Y-m-d` */
+        public readonly array $countedDates = [],
+        /** Paiements en attente posés sur un jour du calendrier (spec 2026-10-22, §3.1). */
+        public readonly int $pendingOnCountedDays = 0,
+        public readonly float $pendingOnCountedAmount = 0,
     ) {}
 }

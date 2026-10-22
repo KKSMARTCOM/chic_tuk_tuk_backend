@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Les chiffres d'une fiche de rémunération (spec 2026-09-30, §4).
@@ -32,7 +33,7 @@ use Carbon\Carbon;
  */
 final class BuildStatementFigures
 {
-    public function __invoke(VehicleContract $contract, string $monthKey, ?RemunerationStatement $statement = null): StatementFigures
+    public function __invoke(VehicleContract $contract, string $monthKey, ?RemunerationStatement $statement = null, bool $ownerEstimate = false): StatementFigures
     {
         $contract->loadMissing('vehicle.owner');
         $calculator = ContractMonthCalculator::for($contract);
@@ -45,6 +46,8 @@ final class BuildStatementFigures
             ->whereNull('remuneration_statement_id')
             // Comme `ContractMonthCalculator` : un paiement sans mois n'appartient à aucun.
             ->whereNotNull('payment_month')
+            // Après la fin du contrat, un paiement revient à l'agence (spec 2026-10-22, §3.1).
+            ->when($contract->end_date, fn ($q) => $q->where('payment_date', '<=', $contract->end_date->toDateString()))
             ->get();
         // La date d'établissement fait foi (spec 2026-10-01, §4.3) : aujourd'hui pour un
         // brouillon qui n'en a pas. Un paiement validé sans date d'encaissement — hérité, ou
@@ -67,10 +70,20 @@ final class BuildStatementFigures
             && $p->payment_month->format('Y-m') >= $firstMonth
             && in_array($p->payment_month->format('Y-m'), $validatedMonths, true)
             && $collected($p));
-        // En instance : en attente, OU validés mais encaissés après la date de la fiche.
-        $late = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey && ! $collected($p));
+        // En instance : en attente, OU validés mais encaissés après la date de la fiche — et
+        // seulement sur un jour du calendrier : un jour d'arrêt n'a pas de jour à retirer (§3.1).
+        $late = $unattached->filter(fn ($p) => $p->payment_month->format('Y-m') === $monthKey && ! $collected($p)
+            && in_array($p->payment_date->toDateString(), $month->countedDates, true));
         $revenue = (float) $revenuePayments->sum('net_amount');
         $recovered = (float) $recoveredPayments->sum('net_amount');
+
+        // Un jour comptabilisé est un jour payé (spec 2026-10-22, §3).
+        $dailyAmount = (float) $contract->daily_net_amount;
+        $pendingCount = $month->pendingOnCountedDays + $late->count();
+        $countedDays = max(0, $month->countedDays - $pendingCount + $recoveredPayments->count());
+        $totalRevenue = round($countedDays * $dailyAmount, 2);
+        $receivedAmount = $revenue + $recovered;
+        $gap = round($totalRevenue - $receivedAmount, 2);
 
         $first = $this->firstStatement($contract, $statement);
 
@@ -88,7 +101,7 @@ final class BuildStatementFigures
             ->filter(fn ($key) => $key < $firstMonth && $calculator->month($key)->isWorked)->count();
 
         // Les recettes du mois coupées au revenu total (spec 2026-10-12, §3.2).
-        $monthRevenue = $revenue + $recovered;
+        $monthRevenue = $totalRevenue;
         $priorRevenue = $historyRevenue + $prior->sum(fn ($s) => (float) ($s->figures['revenue'] ?? 0) + (float) ($s->figures['recovered'] ?? 0));
         $within = round(min($monthRevenue, max(0.0, ContractTargets::revenue($contract) - $priorRevenue)), 2);
         $beyond = round($monthRevenue - $within, 2);
@@ -161,12 +174,12 @@ final class BuildStatementFigures
             businessDays: $month->businessDays,
             pauseDays: $month->pauseDays,
             immobilizationDays: $month->immobilizationDays,
-            countedDays: $month->countedDays,
-            dailyAmount: $contract->daily_net_amount,
+            countedDays: $countedDays,
+            dailyAmount: $dailyAmount,
             revenue: $revenue,
             recovered: $recovered,
-            pendingCount: $month->pendingCount + $late->count(),
-            pendingAmount: $month->pendingAmount + (float) $late->sum('net_amount'),
+            pendingCount: $pendingCount,
+            pendingAmount: $month->pendingOnCountedAmount + (float) $late->sum('net_amount'),
             charges: $charges,
             deductedTotal: $deductedTotal,
             balanceDue: $balanceDue,
@@ -181,6 +194,12 @@ final class BuildStatementFigures
             pauseAllowance: 2 * (int) $contract->contract_months,
             isFirstStatement: $statement !== null && $first !== null && $first->is($statement),
             anomalies: $this->anomalies($month),
+            calendarDays: $month->countedDays,
+            recoveredCount: $recoveredPayments->count(),
+            totalRevenue: $totalRevenue,
+            receivedAmount: $receivedAmount,
+            gap: $gap,
+            gapCauses: abs($gap) >= 0.01 ? $this->gapCauses($month, $gap, $revenuePayments->concat($recoveredPayments), $dailyAmount) : [],
             revenuePaymentIds: $revenuePayments->pluck('id')->values()->all(),
             recoveredPaymentIds: $recoveredPayments->pluck('id')->values()->all(),
         );
@@ -210,15 +229,36 @@ final class BuildStatementFigures
     }
 
     /** @return list<string> */
+    /**
+     * Ce qui explique un écart entre les jours et l'argent reçu (spec 2026-10-22, §3.4).
+     *
+     * @param  Collection<int, Payment>  $counted  les paiements comptés (recettes et recouvrés)
+     * @return list<string>
+     */
+    private function gapCauses(ContractMonthFigures $month, float $gap, Collection $counted, float $dailyAmount): array
+    {
+        $causes = [];
+
+        if ($month->countedDaysWithoutPayment > 0) {
+            $causes[] = "{$month->countedDaysWithoutPayment} jour(s) comptabilisé(s) sans paiement";
+        }
+        if ($month->paymentsOnStoppedDays > 0) {
+            $causes[] = "{$month->paymentsOnStoppedDays} paiement(s) sur un jour de pause ou d'immobilisation";
+        }
+        $otherAmounts = $counted->filter(fn ($p) => abs((float) $p->net_amount - $dailyAmount) >= 0.01)->count();
+        if ($otherAmounts > 0) {
+            $causes[] = "Montants différents du montant journalier : {$otherAmounts} paiement(s)";
+        }
+
+        return $causes !== [] ? $causes : ['Écart de '.number_format($gap, 0, ',', ' ').' F entre les jours et l\'argent reçu'];
+    }
+
     private function anomalies(ContractMonthFigures $month): array
     {
         $anomalies = [];
 
         if ($month->paymentsOnStoppedDays > 0) {
             $anomalies[] = "{$month->paymentsOnStoppedDays} paiement(s) tombent sur des jours de pause ou d'immobilisation.";
-        }
-        if ($month->pendingCount > 0) {
-            $anomalies[] = "{$month->pendingCount} paiement(s) du mois encore en attente.";
         }
         if ($month->countedDaysWithoutPayment > 0) {
             $anomalies[] = "{$month->countedDaysWithoutPayment} jour(s) comptabilisé(s) sans paiement.";

@@ -75,11 +75,15 @@ class BuildStatementFiguresTest extends TestCase
         $this->assertEquals(5462, $f->dailyAmount);
         $this->assertEquals(21_848, $f->revenue);
         $this->assertEquals(0, $f->deductedTotal);
-        $this->assertEquals(21_848, $f->balanceDue);
+        // Un jour comptabilisé sans paiement : le total se calcule sur les 5 jours, et l'écart
+        // d'un jour bloquera la validation (spec 2026-10-22, §3).
+        $this->assertEquals(27_310, $f->totalRevenue);
+        $this->assertEquals(5_462, $f->gap);
+        $this->assertEquals(27_310, $f->balanceDue);
         // Les cumuls de la fiche : juin (historique) + juillet.
-        $this->assertEquals(92_854, $f->cumulativeRevenue);
+        $this->assertEquals(98_316, $f->cumulativeRevenue);
         $this->assertEquals(27_500, $f->cumulativeCharges);
-        $this->assertEquals(65_354, $f->cumulativeNet);
+        $this->assertEquals(70_816, $f->cumulativeNet);
         $this->assertSame(2, $f->workedMonths);
         $this->assertSame(60, $f->pauseAllowance);
         $this->assertContains('1 jour(s) comptabilisé(s) sans paiement.', $f->anomalies);
@@ -269,5 +273,136 @@ class BuildStatementFiguresTest extends TestCase
         $march = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-03-01']);
 
         $this->assertEquals(5871, app(BuildStatementFigures::class)($contract, '2026-03', $march)->revenue);
+    }
+
+    /** Juillet 2026 : 23 jours ouvrés. Contrat au 1er juillet, net journalier 5 871. */
+    private function july(array $attributes = []): VehicleContract
+    {
+        return VehicleContract::factory()->create(['start_date' => '2026-07-01'] + $attributes);
+    }
+
+    private function agentLeave(VehicleContract $contract, string $start, string $end): void
+    {
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => $start, 'end_date' => $end, 'reason_type' => 'agent_leave']);
+    }
+
+    public function test_counted_days_subtract_pending_and_add_recovered(): void
+    {
+        config(['remuneration.first_month' => '2026-06']);
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-06-01']);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create(['month' => '2026-06-01']);
+        // Deux paiements de juin validés après sa fiche : recouvrés en juillet.
+        $this->paidOn($contract, ['2026-06-29', '2026-06-30'], 5871);
+        $this->agentLeave($contract, '2026-07-01', '2026-07-02');
+        $days = $this->businessDays('2026-07-03', '2026-07-31'); // 21 jours
+        $this->paidOn($contract, array_slice($days, 0, 20), 5871);
+        $this->paidOn($contract, array_slice($days, 20), 5871, 'pending');
+        $draft = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-07-01']);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07', $draft);
+
+        $this->assertSame([21, 1, 2, 22], [$f->calendarDays, $f->pendingCount, $f->recoveredCount, $f->countedDays]);
+        $this->assertEquals(22 * 5871, $f->totalRevenue);
+        $this->assertEquals(22 * 5871, $f->receivedAmount);
+        $this->assertEquals(0, $f->gap);
+        $this->assertSame([], $f->gapCauses);
+    }
+
+    public function test_a_pending_payment_on_a_pause_day_is_not_subtracted(): void
+    {
+        $contract = $this->july();
+        $this->agentLeave($contract, '2026-07-01', '2026-07-02');
+        $this->paidOn($contract, $this->businessDays('2026-07-03', '2026-07-31'), 5871);
+        $this->paidOn($contract, ['2026-07-01'], 5871, 'pending');
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07');
+
+        $this->assertSame(0, $f->pendingCount);
+        $this->assertSame(21, $f->countedDays);
+        $this->assertContains('1 paiement(s) tombent sur des jours de pause ou d\'immobilisation.', $f->anomalies);
+    }
+
+    public function test_a_payment_collected_after_the_issue_date_is_pending(): void
+    {
+        Carbon::setTestNow('2026-08-10 09:00:00');
+        $contract = $this->july();
+        $days = $this->businessDays('2026-07-01', '2026-07-31');
+        $this->paidOn($contract, array_slice($days, 0, 22), 5871, 'completed', ['collected_on' => '2026-07-31']);
+        $this->paidOn($contract, array_slice($days, 22), 5871, 'completed', ['collected_on' => '2026-08-05']);
+        $draft = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-07-01', 'issued_on' => '2026-08-03']);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07', $draft);
+
+        $this->assertSame([1, 22], [$f->pendingCount, $f->countedDays]);
+        $this->assertEquals(22 * 5871, $f->revenue);
+        $this->assertEquals(0, $f->gap);
+    }
+
+    public function test_payments_after_the_contract_end_are_ignored(): void
+    {
+        $contract = $this->july(['end_date' => '2026-07-15', 'status' => 'completed']);
+        $this->paidOn($contract, $this->businessDays('2026-07-01', '2026-07-15'), 5871); // 11 jours
+        $this->paidOn($contract, ['2026-07-20'], 5871);
+        $this->paidOn($contract, ['2026-07-21'], 5871, 'pending');
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07');
+
+        $this->assertEquals(11 * 5871, $f->revenue);
+        $this->assertSame([0, 11], [$f->pendingCount, $f->countedDays]);
+        $this->assertEquals(0, $f->gap);
+    }
+
+    public function test_balance_due_is_computed_on_total_revenue(): void
+    {
+        $contract = $this->july();
+        $this->paidOn($contract, array_slice($this->businessDays('2026-07-01', '2026-07-31'), 1), 5871);
+        $draft = RemunerationStatement::factory()->for($contract, 'contract')->create([
+            'month' => '2026-07-01', 'deducted_internet' => 0, 'deducted_spotify' => 0, 'deducted_manager' => 0,
+        ]);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07', $draft);
+
+        $this->assertEquals(23 * 5871, $f->totalRevenue);
+        $this->assertEquals(22 * 5871, $f->receivedAmount);
+        $this->assertEquals(5871, $f->gap);
+        $this->assertEquals(23 * 5871, $f->balanceDue);
+        $this->assertSame(['1 jour(s) comptabilisé(s) sans paiement'], $f->gapCauses);
+    }
+
+    public function test_a_payment_with_another_amount_is_a_gap_cause(): void
+    {
+        $contract = $this->july();
+        $days = $this->businessDays('2026-07-01', '2026-07-31');
+        $this->paidOn($contract, array_slice($days, 1), 5871);
+        $this->paidOn($contract, [$days[0]], 3000);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07');
+
+        $this->assertEquals(2871, $f->gap);
+        $this->assertSame(['Montants différents du montant journalier : 1 paiement(s)'], $f->gapCauses);
+    }
+
+    public function test_a_month_with_every_payment_pending_is_still_worked(): void
+    {
+        $contract = $this->july();
+        $this->paidOn($contract, $this->businessDays('2026-07-01', '2026-07-31'), 5871, 'pending');
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07');
+
+        $this->assertSame([23, 0], [$f->calendarDays, $f->countedDays]);
+        $this->assertGreaterThan(0, collect($f->charges)->sum('due'));
+        $this->assertEquals(0, $f->gap);
+    }
+
+    public function test_pending_payments_are_no_longer_an_anomaly(): void
+    {
+        $contract = $this->july();
+        $days = $this->businessDays('2026-07-01', '2026-07-31');
+        $this->paidOn($contract, array_slice($days, 1), 5871);
+        $this->paidOn($contract, [$days[0]], 5871, 'pending');
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07');
+
+        $this->assertSame([], $f->anomalies);
     }
 }
