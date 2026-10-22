@@ -62,7 +62,9 @@ final class DisbursementController
                 'remove_proof' => ['sometimes', 'boolean'],
             ], self::MESSAGES)->validate();
             $changes = $update($disbursement, $data, $request->file('proof'), (bool) ($data['remove_proof'] ?? false), $request->user());
-            $this->journal->disbursementUpdated($disbursement->refresh(), $changes);
+            if ($changes !== []) {
+                $this->journal->disbursementUpdated($disbursement->refresh(), $changes);
+            }
 
             return AdminDisbursementsData::forContract($disbursement->contract);
         });

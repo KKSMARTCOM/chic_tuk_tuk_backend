@@ -37,7 +37,9 @@ final class UpdateDisbursement
 
                 $before = self::snapshot($disbursement);
                 $disbursement->fill(array_intersect_key($data, array_flip(self::FIELDS)));
-                if (array_key_exists('amount', $data)) {
+                // Le plafond ne joue qu'à la hausse : une baisse, ou un montant inchangé, se corrige
+                // toujours — même quand une fiche annulée a rendu le dû négatif (relecture finale).
+                if (array_key_exists('amount', $data) && (float) $data['amount'] > (float) $before['amount']) {
                     $outstanding = ($this->summary)([$disbursement->vehicle_contract_id])->outstanding + (float) $before['amount'];
                     RecordDisbursement::assertWithinOutstanding($outstanding, (float) $data['amount']);
                 }
@@ -94,7 +96,8 @@ final class UpdateDisbursement
             'method' => $d->method,
             'reference' => $d->reference,
             'note' => $d->note,
-            'proof' => $d->proof_original_name,
+            // Le chemin, pas le nom : une preuve remplacée par un fichier de même nom se trace aussi.
+            'proof' => $d->proof_path,
         ];
     }
 }

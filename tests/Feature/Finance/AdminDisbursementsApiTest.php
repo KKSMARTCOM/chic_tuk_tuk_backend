@@ -259,4 +259,83 @@ class AdminDisbursementsApiTest extends TestCase
         $this->as()->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => 'Erreur'])->assertOk();
         $this->assertSame(1, Notification::count());
     }
+
+    public function test_a_negative_outstanding_still_lets_a_correction_that_does_not_raise_the_amount(): void
+    {
+        $this->record(['amount' => 100_000])->assertOk();
+        RemunerationStatement::query()->update(['balance_due' => 50_000]);
+        $d = OwnerDisbursement::sole();
+
+        $this->correct($d, ['amount' => 100_000, 'reference' => 'MM-9'])->assertOk();
+        $this->correct($d, ['amount' => 80_000])->assertOk();
+        $this->correct($d, ['amount' => 90_000])->assertStatus(422)->assertJsonPath('code', 'DISBURSEMENT_EXCEEDS_OUTSTANDING');
+    }
+
+    public function test_a_correction_can_clear_the_reference_and_the_note(): void
+    {
+        $this->record(['reference' => 'MM-1', 'note' => 'À vérifier'])->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->correct($d, ['reference' => '', 'note' => ''])->assertOk();
+
+        $this->assertNull($d->fresh()->reference);
+        $this->assertNull($d->fresh()->note);
+    }
+
+    public function test_a_write_failing_after_the_proof_is_stored_leaves_no_file(): void
+    {
+        OwnerDisbursement::saving(fn () => throw new \RuntimeException('panne'));
+
+        $this->record(['proof' => UploadedFile::fake()->create('a.pdf', 10, 'application/pdf')])->assertStatus(500);
+
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_a_correction_failing_after_the_proof_is_stored_leaves_the_old_file_only(): void
+    {
+        $this->record(['proof' => UploadedFile::fake()->create('a.pdf', 10, 'application/pdf')])->assertOk();
+        $old = OwnerDisbursement::sole()->proof_path;
+        OwnerDisbursement::saving(fn () => throw new \RuntimeException('panne'));
+
+        $this->correct(OwnerDisbursement::sole(), ['proof' => UploadedFile::fake()->create('b.pdf', 10, 'application/pdf')])->assertStatus(500);
+
+        $this->assertSame([$old], Storage::disk('local')->allFiles());
+    }
+
+    public function test_an_empty_correction_is_not_journaled_and_a_same_named_proof_is(): void
+    {
+        $this->record(['proof' => UploadedFile::fake()->create('recu.pdf', 10, 'application/pdf')])->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->correct($d, ['amount' => 50_000])->assertOk();
+        $this->assertSame(0, Activity::query()->where('event', 'payment.disbursement_updated')->count());
+
+        $this->correct($d, ['proof' => UploadedFile::fake()->create('recu.pdf', 10, 'application/pdf')])->assertOk();
+        $this->assertSame(1, Activity::query()->where('event', 'payment.disbursement_updated')->count());
+    }
+
+    public function test_a_contract_without_start_date_accepts_any_past_date(): void
+    {
+        $this->contract->update(['status' => 'pending', 'start_date' => null]);
+
+        $this->record(['paid_on' => '2020-01-01'])->assertOk();
+    }
+
+    public function test_a_failing_notification_does_not_turn_a_recorded_disbursement_into_an_error(): void
+    {
+        config(['remuneration.disbursement_notify_from' => '2026-10-01']);
+        Notification::creating(fn () => throw new \RuntimeException('panne'));
+
+        $this->record()->assertOk();
+        $this->assertSame(1, OwnerDisbursement::count());
+    }
+
+    public function test_the_notify_from_setting_is_read_as_a_date(): void
+    {
+        config(['remuneration.disbursement_notify_from' => '2026-10-20 00:00:00']);
+
+        $this->record(['paid_on' => '2026-10-20'])->assertOk();
+
+        $this->assertSame(1, Notification::count());
+    }
 }
