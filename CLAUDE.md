@@ -895,6 +895,9 @@ enregistre ce que l'agence a versé au propriétaire, par contrat propriétaire,
   REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (à régler sur le jour de la livraison ; absent : jamais),
   fiches visibles et propriétaire du contrat encore propriétaire du véhicule. La régularisation
   de l'historique reste donc silencieuse.
+- **Depuis l'ajout d'un paiement** (essai staging du 2026-10-22) : `GET /admin/disbursements/contracts`
+  (`create-disbursements`, `ListDisbursableContracts`) liste les contrats qui ont au moins une fiche
+  validée, avec propriétaire, immatriculation et dû ; le versement part ensuite par la route du contrat.
 - Avant la régularisation en prod : `docs/runbooks/scripts-2026-10/audit-fiches-avant-versements.php`
   (lecture seule) liste les mois clos sans fiche validée.
 
@@ -1140,6 +1143,9 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
   (`totalRevenue`), sur lequel se calculent la coupe au revenu total, les charges
   (`ChargeLedger::violationsFor` compris) et le solde dû. `isWorked` reste lu sur le
   calendrier. Les paiements datés après `end_date` sont ignorés.
+- ⚠️ **Aujourd'hui n'entre au calendrier qu'une fois son paiement né** (23:30, essai staging du
+  2026-10-22, `ContractMonthCalculator::range`) : avant, le brouillon du mois en cours le comptait sans
+  paiement et montrait un écart d'un jour. Un jour d'arrêt, qui n'attend aucun paiement, compte dès le matin.
 - ⚠️ **Un écart (`gap` = total − encaissés − recouvrés) BLOQUE la validation**, avec ses causes
   (`gapCauses`) : jour sans paiement, paiement un jour d'arrêt, montant différent du journalier.
   Il se corrige avant la validation. Un test qui valide une fiche sans la payer passe par un

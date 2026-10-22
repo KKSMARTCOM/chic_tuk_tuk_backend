@@ -201,6 +201,8 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->middleware('permission:view-disbursements')->name('vehicle-contracts.disbursements.index');
         Route::post('/vehicle-contracts/{contract}/disbursements', [DisbursementController::class, 'store'])
             ->middleware('permission:create-disbursements')->name('vehicle-contracts.disbursements.store');
+        Route::get('/disbursements/contracts', [DisbursementController::class, 'contracts'])
+            ->middleware('permission:create-disbursements')->name('disbursements.contracts');
         Route::get('/disbursements/{disbursement}/proof', [DisbursementController::class, 'proof'])
             ->middleware('permission:view-disbursements')->name('disbursements.proof');
         Route::patch('/disbursements/{disbursement}', [DisbursementController::class, 'update'])

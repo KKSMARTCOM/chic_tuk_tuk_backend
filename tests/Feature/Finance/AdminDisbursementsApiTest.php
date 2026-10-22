@@ -338,4 +338,25 @@ class AdminDisbursementsApiTest extends TestCase
 
         $this->assertSame(1, Notification::count());
     }
+
+    public function test_the_payment_form_lists_contracts_with_a_validated_statement_and_their_outstanding(): void
+    {
+        $this->record(['amount' => 30_000])->assertOk();
+        // Un contrat sans fiche validée n'a rien à recevoir : il n'est pas proposé.
+        $other = VehicleContract::factory()->forVehicle(Vehicle::factory()->create())->create(['start_date' => '2026-07-01']);
+        RemunerationStatement::factory()->for($other, 'contract')->create(['month' => '2026-07-01', 'status' => 'draft', 'figures' => []]);
+
+        $this->as(['create-disbursements'])->getJson('/api/v1/admin/disbursements/contracts')
+            ->assertOk()
+            ->assertJsonCount(1, 'contracts')
+            ->assertJsonPath('contracts.0.id', $this->contract->id)
+            ->assertJsonPath('contracts.0.vehicle_number', '2EV2338 RB')
+            ->assertJsonPath('contracts.0.owner_name', $this->contract->vehicle->owner->name)
+            ->assertJsonPath('contracts.0.outstanding', 70_000);
+    }
+
+    public function test_the_payment_form_list_needs_the_create_permission(): void
+    {
+        $this->as(['view-disbursements'])->getJson('/api/v1/admin/disbursements/contracts')->assertForbidden();
+    }
 }

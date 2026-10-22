@@ -771,6 +771,16 @@ notes: string | null;
 reference_number: string | null;
 driver_contract_id: string | null;
 };
+export type DisbursableContractData = {
+id: string;
+owner_name: string | null;
+vehicle_number: string | null;
+status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
+outstanding: number;
+};
+export type DisbursableContractsData = {
+contracts: Array<App.Domains.Finance.Application.Data.DisbursableContractData>;
+};
 export type DisbursementSummaryData = {
 net_earned: number;
 disbursed: number;

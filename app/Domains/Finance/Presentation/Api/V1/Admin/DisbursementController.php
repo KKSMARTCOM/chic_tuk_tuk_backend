@@ -4,9 +4,11 @@ namespace App\Domains\Finance\Presentation\Api\V1\Admin;
 
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Actions\CancelDisbursement;
+use App\Domains\Finance\Application\Actions\ListDisbursableContracts;
 use App\Domains\Finance\Application\Actions\RecordDisbursement;
 use App\Domains\Finance\Application\Actions\UpdateDisbursement;
 use App\Domains\Finance\Application\Data\AdminDisbursementsData;
+use App\Domains\Finance\Application\Data\DisbursableContractsData;
 use App\Domains\Fleet\Application\Actions\AttachPreparationProof;
 use App\Domains\Notification\Application\Notifier;
 use App\Models\OwnerDisbursement;
@@ -36,6 +38,12 @@ final class DisbursementController
     public function index(Request $request, string $contractId): JsonResponse
     {
         return $this->guard($request, 'la lecture des versements', fn () => AdminDisbursementsData::forContract(VehicleContract::findOrFail($contractId)));
+    }
+
+    /** Les contrats proposés au type « Versement propriétaire » de l'ajout d'un paiement. */
+    public function contracts(Request $request, ListDisbursableContracts $list): JsonResponse
+    {
+        return $this->guard($request, 'la lecture des contrats à verser', fn () => $list());
     }
 
     public function store(Request $request, string $contractId, RecordDisbursement $record): JsonResponse
@@ -133,7 +141,7 @@ final class DisbursementController
         'proof.mimetypes' => 'Le fichier doit être un PDF ou une image (JPG, PNG, WEBP).',
     ];
 
-    /** @param  callable(): AdminDisbursementsData  $run */
+    /** @param  callable(): (AdminDisbursementsData|DisbursableContractsData)  $run */
     private function guard(Request $request, string $what, callable $run): JsonResponse
     {
         try {
