@@ -142,7 +142,8 @@ avec le mainteneur.
 - profil : admin | client | driver | owner
 - Rôles Spatie, recomptés après seeder le 2026-10-06 : admin (73 permissions), utilisateur
   — ex-`lecteur` — (50), driver (7), client (6), proprietaire (5) — 77 permissions au
-  catalogue. Dernier ajout : `override-contract-amount` (2026-10-06), à l'administrateur
+  catalogue (comptes non refaits depuis : le 2026-10-22 ajoute `view-`, `create-` et
+  `edit-disbursements`, à l'utilisateur et à l'admin). Ajout du 2026-10-06 : `override-contract-amount`, à l'administrateur
   seul — le total d'un contrat propriétaire suit le réglage de sa durée, sauf contrat
   négocié (`CheckContractTotal`). Avant : 68 au catalogue après le retrait de la section
   « Tarifs » (2026-09-27), qui a emporté les quatre `*-pricing` — `driver` et `client`
@@ -867,6 +868,35 @@ agent. `OwnerContractSummaryData` porte les cumuls des historiques (payé, en at
 charges prélevées par les fiches validées, progression vers le revenu cible, solde de
 pauses) ; `OwnerContractDetailData::latestStatement`, les chiffres figés de la dernière
 fiche validée — l'aperçu n'en recalcule aucun.
+
+## Le versement au propriétaire (2026-10-22)
+
+Spec : `docs/specs/2026-10-22-versement-proprietaire-design.md`. Le comptable (rôle Utilisateur)
+enregistre ce que l'agence a versé au propriétaire, par contrat propriétaire, sans le rattacher
+à un mois : `owner_disbursements` (`OwnerDisbursement`, `DisbursementMethod`).
+
+- **Trois chiffres, un seul calcul** (`BuildDisbursementSummary`) : cumul revenu net = somme SQL
+  des `balance_due` des fiches VALIDÉES (un mois sans fiche ajoute 0 — le « Cumul Revenu net
+  mensuel » de la fiche, qui reprend l'historique d'avant `first_month`, n'est PAS ce chiffre) ;
+  revenu versé = versements `recorded` ; dû = la différence, brute chez l'admin (négative si une
+  fiche est annulée après des versements), ramenée à 0 chez le propriétaire.
+- ⚠️ **Plafond sous verrou du contrat propriétaire** : enregistrer au plus le dû, corriger au plus
+  le dû + l'ancien montant — `422 DISBURSEMENT_EXCEEDS_OUTSTANDING` avec `outstanding`.
+- Corriger (`PATCH /admin/disbursements/{id}`, multipart : le client envoie un POST
+  `_method=PATCH`) et annuler (motif obligatoire) ; un annulé ne se corrige plus
+  (`409 DISBURSEMENT_CANCELLED`) et ne se supprime jamais. Un contrat qui a des versements ne se
+  supprime pas. Preuve sous `disbursements/{contrat}/` (disque privé).
+- Permissions `view-`, `create-`, `edit-disbursements` au rôle `utilisateur`. **Rejouer le seeder
+  après déploiement.**
+- **Propriétaire** : `GET /owner/vehicles/{id}/disbursements` — `summary` et, par versement, la
+  date, le montant et `has_proof` SEULEMENT (ni moyen, ni référence, ni note, décidé avec
+  l'utilisateur) ; ses seuls contrats du véhicule ; `null` tant que les fiches sont masquées.
+- **Notification** (`Notifier::disbursementRecorded`) seulement si `paid_on ≥
+  REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (à régler sur le jour de la livraison ; absent : jamais),
+  fiches visibles et propriétaire du contrat encore propriétaire du véhicule. La régularisation
+  de l'historique reste donc silencieuse.
+- Avant la régularisation en prod : `docs/runbooks/scripts-2026-10/audit-fiches-avant-versements.php`
+  (lecture seule) liste les mois clos sans fiche validée.
 
 ## L'inscription d'un abonnement (2026-10-14)
 
