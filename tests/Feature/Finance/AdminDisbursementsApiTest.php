@@ -156,4 +156,93 @@ class AdminDisbursementsApiTest extends TestCase
         $this->assertStringContainsString('2EV2338 RB', $entry->description);
         $this->assertStringContainsString('50 000', $entry->description);
     }
+
+    private function correct(OwnerDisbursement $d, array $fields)
+    {
+        return $this->as()->post("/api/v1/admin/disbursements/{$d->id}", $fields + ['_method' => 'PATCH'], ['Accept' => 'application/json']);
+    }
+
+    public function test_a_correction_counts_the_previous_amount(): void
+    {
+        $this->record(['amount' => 60_000])->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->correct($d, ['amount' => 100_000])->assertOk()->assertJsonPath('summary.outstanding', 0);
+        $this->correct($d, ['amount' => 100_000.01])->assertStatus(422)->assertJsonPath('code', 'DISBURSEMENT_EXCEEDS_OUTSTANDING');
+    }
+
+    public function test_replacing_the_proof_deletes_the_old_file(): void
+    {
+        $this->record(['proof' => UploadedFile::fake()->create('a.pdf', 10, 'application/pdf')])->assertOk();
+        $d = OwnerDisbursement::sole();
+        $old = $d->proof_path;
+
+        $this->correct($d, ['proof' => UploadedFile::fake()->create('b.pdf', 10, 'application/pdf')])->assertOk();
+
+        Storage::disk('local')->assertMissing($old);
+        Storage::disk('local')->assertExists($d->fresh()->proof_path);
+    }
+
+    public function test_remove_proof_deletes_the_file(): void
+    {
+        $this->record(['proof' => UploadedFile::fake()->create('a.pdf', 10, 'application/pdf')])->assertOk();
+        $d = OwnerDisbursement::sole();
+        $old = $d->proof_path;
+
+        $this->correct($d, ['remove_proof' => '1'])->assertOk()->assertJsonPath('disbursements.0.has_proof', false);
+
+        Storage::disk('local')->assertMissing($old);
+    }
+
+    public function test_a_failed_write_leaves_no_file(): void
+    {
+        $this->record(['amount' => 60_000])->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->correct($d, ['amount' => 200_000, 'proof' => UploadedFile::fake()->create('b.pdf', 10, 'application/pdf')])->assertStatus(422);
+
+        $this->assertSame([], Storage::disk('local')->allFiles());
+        $this->assertNull($d->fresh()->proof_path);
+    }
+
+    public function test_cancel_needs_a_reason_and_happens_once(): void
+    {
+        $this->record()->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->as()->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => ''])->assertStatus(422);
+        $this->as()->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => 'Doublon'])->assertOk()->assertJsonPath('summary.disbursed', 0);
+        $this->as()->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => 'Doublon'])->assertStatus(409)->assertJsonPath('code', 'DISBURSEMENT_CANCELLED');
+        $this->correct($d, ['amount' => 10_000])->assertStatus(409)->assertJsonPath('code', 'DISBURSEMENT_CANCELLED');
+    }
+
+    public function test_a_cancelled_disbursement_stays_listed_with_its_reason(): void
+    {
+        $this->record()->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->as()->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => 'Doublon'])
+            ->assertOk()
+            ->assertJsonPath('disbursements.0.status', 'cancelled')
+            ->assertJsonPath('disbursements.0.cancellation_reason', 'Doublon');
+    }
+
+    public function test_the_journal_traces_only_changed_fields(): void
+    {
+        $this->record(['amount' => 50_000, 'reference' => 'MM-1'])->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->correct($d, ['amount' => 60_000, 'reference' => 'MM-1'])->assertOk();
+
+        $changes = Activity::query()->where('event', 'payment.disbursement_updated')->sole()->properties['changes'];
+        $this->assertSame(['amount'], array_keys($changes));
+    }
+
+    public function test_correcting_and_cancelling_need_the_edit_permission(): void
+    {
+        $this->record()->assertOk();
+        $d = OwnerDisbursement::sole();
+
+        $this->as(['view-disbursements', 'create-disbursements'])->postJson("/api/v1/admin/disbursements/{$d->id}/cancel", ['reason' => 'x'])->assertForbidden();
+    }
 }

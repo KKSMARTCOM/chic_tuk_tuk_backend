@@ -3,7 +3,9 @@
 namespace App\Domains\Finance\Presentation\Api\V1\Admin;
 
 use App\Domains\Audit\Application\ActivityJournal;
+use App\Domains\Finance\Application\Actions\CancelDisbursement;
 use App\Domains\Finance\Application\Actions\RecordDisbursement;
+use App\Domains\Finance\Application\Actions\UpdateDisbursement;
 use App\Domains\Finance\Application\Data\AdminDisbursementsData;
 use App\Domains\Fleet\Application\Actions\AttachPreparationProof;
 use App\Models\OwnerDisbursement;
@@ -41,6 +43,36 @@ final class DisbursementController
             $this->journal->disbursementRecorded($disbursement);
 
             return AdminDisbursementsData::forContract($contract);
+        });
+    }
+
+    public function update(Request $request, string $id, UpdateDisbursement $update): JsonResponse
+    {
+        return $this->guard($request, 'la correction d\'un versement', function () use ($request, $id, $update) {
+            $disbursement = OwnerDisbursement::with('contract')->findOrFail($id);
+            UpdateDisbursement::assertRecorded($disbursement);
+            $data = Validator::make($request->all(), [
+                ...$this->rules($disbursement->contract, partial: true),
+                'remove_proof' => ['sometimes', 'boolean'],
+            ], self::MESSAGES)->validate();
+            $changes = $update($disbursement, $data, $request->file('proof'), (bool) ($data['remove_proof'] ?? false), $request->user());
+            $this->journal->disbursementUpdated($disbursement->refresh(), $changes);
+
+            return AdminDisbursementsData::forContract($disbursement->contract);
+        });
+    }
+
+    public function cancel(Request $request, string $id, CancelDisbursement $cancel): JsonResponse
+    {
+        return $this->guard($request, 'l\'annulation d\'un versement', function () use ($request, $id, $cancel) {
+            $disbursement = OwnerDisbursement::with('contract')->findOrFail($id);
+            $data = Validator::make($request->all(), ['reason' => ['required', 'string', 'max:1000']], [
+                'reason.required' => 'Le motif de l\'annulation est obligatoire.',
+                'reason.max' => 'Le motif ne dépasse pas 1 000 caractères.',
+            ])->validate();
+            $this->journal->disbursementCancelled($cancel($disbursement, $data['reason'], $request->user()));
+
+            return AdminDisbursementsData::forContract($disbursement->contract);
         });
     }
 

@@ -202,6 +202,10 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             ->middleware('permission:create-disbursements')->name('vehicle-contracts.disbursements.store');
         Route::get('/disbursements/{disbursement}/proof', [DisbursementController::class, 'proof'])
             ->middleware('permission:view-disbursements')->name('disbursements.proof');
+        Route::patch('/disbursements/{disbursement}', [DisbursementController::class, 'update'])
+            ->middleware('permission:edit-disbursements')->name('disbursements.update');
+        Route::post('/disbursements/{disbursement}/cancel', [DisbursementController::class, 'cancel'])
+            ->middleware('permission:edit-disbursements')->name('disbursements.cancel');
 
         // La préparation du véhicule (2026-10-20) : lecture de la preuve sous `view-contracts`,
         // tout le reste sous `edit-contracts`.
