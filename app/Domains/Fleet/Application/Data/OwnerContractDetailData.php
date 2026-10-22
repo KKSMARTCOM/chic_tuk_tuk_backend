@@ -2,9 +2,9 @@
 
 namespace App\Domains\Fleet\Application\Data;
 
+use App\Domains\Finance\Application\Actions\PresentStatementFigures;
 use App\Domains\Finance\Application\Data\StatementFiguresData;
 use App\Domains\Finance\Domain\ContractMonthCalculator;
-use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\RemunerationStatement;
 use App\Models\VehicleContract;
 use App\Shared\Data\BaseData;
@@ -76,7 +76,7 @@ final class OwnerContractDetailData extends BaseData
             totalDays: $months * 22,
             investedAmount: $invested !== null ? (float) $invested : null,
             pauses: OwnerContractPauseSummaryData::fromContract($contract, $calculator),
-            latestStatement: $latest ? StatementFiguresData::fromFigures(StatementFigures::fromArray($latest->figures ?? [])) : null,
+            latestStatement: $latest ? StatementFiguresData::fromFigures(app(PresentStatementFigures::class)($latest)) : null,
         );
     }
 }

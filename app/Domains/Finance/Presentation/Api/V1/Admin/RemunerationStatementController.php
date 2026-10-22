@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Presentation\Api\V1\Admin;
 
+use App\Domains\Finance\Application\Actions\PresentStatementFigures;
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Actions\BuildStatementFigures;
 use App\Domains\Finance\Application\Actions\CancelRemunerationStatement;
@@ -17,7 +18,6 @@ use App\Domains\Finance\Application\Data\RemunerationStatementDetailData;
 use App\Domains\Finance\Application\Data\UpdateRemunerationStatementData;
 use App\Domains\Finance\Application\Data\ValidateRemunerationStatementData;
 use App\Domains\Finance\Application\RemunerationStatementPdf;
-use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\RemunerationStatement;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
@@ -179,7 +179,7 @@ final class RemunerationStatementController
         $bytes = match (true) {
             $statement->status === 'draft' => $pdf->render(($this->build)($statement->contract, $statement->monthKey(), $statement), null, true, null),
             $statement->pdf_path !== null && Storage::disk('local')->exists($statement->pdf_path) => Storage::disk('local')->get($statement->pdf_path),
-            default => $pdf->render(StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->issued_on ?? $statement->validated_at),
+            default => $pdf->render(app(PresentStatementFigures::class)($statement), $statement->number, false, $statement->issued_on ?? $statement->validated_at),
         };
 
         return response($bytes, 200, [
@@ -198,7 +198,7 @@ final class RemunerationStatementController
             }
             $path = sprintf('statements/%s/%s.pdf', $statement->month->format('Y'), $statement->number);
             Storage::disk('local')->put($path, $pdf->render(
-                StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
+                app(PresentStatementFigures::class)($statement), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
             ));
             // Le compteur du propriétaire ne bouge pas : la régénération sert l'archive.
             $statement->update(['pdf_path' => $path, 'pdf_generated_at' => now(), 'pdf_purged_at' => null]);
@@ -220,7 +220,7 @@ final class RemunerationStatementController
     private function detail(RemunerationStatement $statement): RemunerationStatementDetailData
     {
         if ($statement->status !== 'draft') {
-            return RemunerationStatementDetailData::fromStatement($statement, StatementFigures::fromArray($statement->figures ?? []), []);
+            return RemunerationStatementDetailData::fromStatement($statement, app(PresentStatementFigures::class)($statement), []);
         }
 
         $figures = ($this->build)($statement->contract, $statement->monthKey(), $statement);

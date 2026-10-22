@@ -2,10 +2,10 @@
 
 namespace App\Domains\Finance\Application\Jobs;
 
+use App\Domains\Finance\Application\Actions\PresentStatementFigures;
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Mail\RemunerationStatementMail;
 use App\Domains\Finance\Application\RemunerationStatementPdf;
-use App\Domains\Finance\Domain\StatementFigures;
 use App\Domains\Notification\Application\Notifier;
 use App\Models\RemunerationStatement;
 use Illuminate\Bus\Queueable;
@@ -44,7 +44,7 @@ final class IssueRemunerationStatement implements ShouldQueue
         if ($statement->pdf_path === null && $statement->pdf_purged_at === null) {
             $path = sprintf('statements/%s/%s.pdf', $statement->month->format('Y'), $statement->number);
             Storage::disk('local')->put($path, $pdf->render(
-                StatementFigures::fromArray($statement->figures), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
+                app(PresentStatementFigures::class)($statement), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
             ));
             $statement->update(['pdf_path' => $path, 'pdf_generated_at' => now()]);
         }

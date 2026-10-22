@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Domains\Finance\Application\Actions\PresentStatementFigures;
 use App\Domains\Finance\Application\RemunerationStatementPdf;
-use App\Domains\Finance\Domain\StatementFigures;
 use App\Models\RemunerationStatement;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
@@ -37,7 +37,7 @@ class RegenerateRemunerationPdfs extends Command
                 $this->line("{$statement->number} → {$statement->pdf_path}");
                 if (! $dryRun) {
                     Storage::disk('local')->put($statement->pdf_path, $pdf->render(
-                        StatementFigures::fromArray($statement->figures ?? []), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
+                        app(PresentStatementFigures::class)($statement), $statement->number, false, $statement->issued_on ?? $statement->validated_at,
                     ));
                 }
                 $count++;
