@@ -1087,6 +1087,24 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
   passer d'un mois à l'autre sans revenir à la liste. Sans les annulées, sauf la fiche
   ouverte ; dans un mois, l'annulée précède celle qui la remplace.
 - Le document s'appelle « Fiche de rémunération », jamais « facture ».
+- **Un jour comptabilisé est un jour payé** (2026-10-22, spec
+  `docs/specs/2026-10-22-formule-fiche-design.md`) : jours comptabilisés = jours du calendrier
+  (ouvrés − pause − immobilisation, `calendarDays`) − paiements en instance posés sur un jour du
+  calendrier + paiements recouvrés ; **total recettes = jours × montant journalier**
+  (`totalRevenue`), sur lequel se calculent la coupe au revenu total, les charges
+  (`ChargeLedger::violationsFor` compris) et le solde dû. `isWorked` reste lu sur le
+  calendrier. Les paiements datés après `end_date` sont ignorés.
+- ⚠️ **Un écart (`gap` = total − encaissés − recouvrés) BLOQUE la validation**, avec ses causes
+  (`gapCauses`) : jour sans paiement, paiement un jour d'arrêt, montant différent du journalier.
+  Il se corrige avant la validation. Un test qui valide une fiche sans la payer passe par un
+  contrat à `daily_amount` 0, ou par des paiements journaliers : un paiement global unique
+  fait un écart.
+- **Une fiche validée se relit par `PresentStatementFigures`**, jamais par
+  `StatementFigures::fromArray` directement : une fiche d'avant la formule est recomposée
+  (recouvrés = ses paiements rattachés d'un mois antérieur) si son total tombe juste, et garde
+  sinon l'ancienne présentation (`legacyLayout`). L'estimation du mois en cours chez le
+  propriétaire (`ownerEstimate`) retranche aussi les jours sans paiement : elle n'annonce
+  jamais d'argent non reçu.
 
 ## La reconstitution des fiches (2026-10-01)
 
