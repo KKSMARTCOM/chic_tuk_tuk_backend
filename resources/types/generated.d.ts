@@ -787,6 +787,16 @@ pdf_state: 'ready' | 'preparing' | 'expired' | null;
 downloads_left: number | null;
 sent_by_email: boolean | null;
 };
+export type OwnerDisbursementData = {
+id: string;
+paid_on: string;
+amount: number;
+has_proof: boolean;
+};
+export type OwnerDisbursementsData = {
+summary: App.Domains.Finance.Application.Data.DisbursementSummaryData | null;
+disbursements: Array<App.Domains.Finance.Application.Data.OwnerDisbursementData> | null;
+};
 export type OwnerPaymentListItemData = {
 id: string;
 payment_date: string;
@@ -1053,6 +1063,7 @@ current_internal_assignment: App.Domains.Fleet.Application.Data.AdminInternalAss
 internal_assignments: Array<App.Domains.Fleet.Application.Data.AdminInternalAssignmentData>;
 preparation_steps: Array<App.Domains.Fleet.Application.Data.AdminPreparationStepData>;
 preparation_editable: boolean;
+disbursement_summary: App.Domains.Finance.Application.Data.DisbursementSummaryData;
 };
 export type AdminVehicleContractDriverData = {
 id: string;

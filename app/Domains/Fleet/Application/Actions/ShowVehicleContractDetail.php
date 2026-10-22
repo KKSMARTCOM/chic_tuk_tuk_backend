@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Application\Actions;
 
+use App\Domains\Finance\Application\Actions\BuildDisbursementSummary;
 use App\Domains\Fleet\Application\Data\AdminInternalAssignmentData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractDetailData;
 use App\Domains\Fleet\Application\Data\AdminVehicleContractDriverData;
@@ -74,6 +75,7 @@ final class ShowVehicleContractDetail
                 ->all(),
             preparationSteps: AdminPreparationData::forContract($contract)->preparationSteps,
             preparationEditable: PreparationSteps::isEditable($contract),
+            disbursementSummary: app(BuildDisbursementSummary::class)([$contract->id]),
         );
     }
 }

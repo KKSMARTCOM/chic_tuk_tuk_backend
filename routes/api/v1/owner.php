@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Finance\Presentation\Api\V1\Owner\DisbursementController;
 use App\Domains\Finance\Presentation\Api\V1\Owner\StatementController;
 use App\Domains\Fleet\Presentation\Api\V1\Owner\VehicleController;
 use Illuminate\Support\Facades\Route;
@@ -64,4 +65,13 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:owner'])
         Route::get('/statements/{id}/pdf', [StatementController::class, 'pdf'])
             ->middleware('permission:view-own-payments')
             ->name('statements.pdf');
+
+        // Les versements (2026-10-22) : les trois cadres et la vue Versements de l'onglet Paiements.
+        Route::get('/vehicles/{id}/disbursements', [DisbursementController::class, 'index'])
+            ->middleware('permission:view-own-payments')
+            ->name('vehicles.disbursements');
+
+        Route::get('/disbursements/{id}/proof', [DisbursementController::class, 'proof'])
+            ->middleware('permission:view-own-payments')
+            ->name('disbursements.proof');
     });

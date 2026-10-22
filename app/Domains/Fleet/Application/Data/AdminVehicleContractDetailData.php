@@ -2,6 +2,7 @@
 
 namespace App\Domains\Fleet\Application\Data;
 
+use App\Domains\Finance\Application\Data\DisbursementSummaryData;
 use App\Shared\Data\BaseData;
 
 /**
@@ -33,5 +34,7 @@ final class AdminVehicleContractDetailData extends BaseData
         public array $preparationSteps,
         /** Le contrat est en attente : ses étapes se modifient encore. */
         public bool $preparationEditable,
+        /** Les trois chiffres du versement au propriétaire (2026-10-22). */
+        public DisbursementSummaryData $disbursementSummary,
     ) {}
 }
