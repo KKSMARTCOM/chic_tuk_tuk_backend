@@ -566,6 +566,15 @@ id: string;
 title: string;
 entries: Array<App.Domains.Content.Application.Data.AdminFaqEntryData>;
 };
+export type OwnerFaqEntryData = {
+id: string;
+question: string;
+answer_html: string;
+};
+export type OwnerFaqSectionData = {
+title: string;
+entries: Array<App.Domains.Content.Application.Data.OwnerFaqEntryData>;
+};
 }
 declare namespace App.Domains.Finance.Application.Data {
 export type AdminCommissionBookingData = {

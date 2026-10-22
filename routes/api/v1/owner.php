@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Content\Presentation\Api\V1\Owner\FaqController;
 use App\Domains\Finance\Presentation\Api\V1\Owner\DisbursementController;
 use App\Domains\Finance\Presentation\Api\V1\Owner\StatementController;
 use App\Domains\Fleet\Presentation\Api\V1\Owner\VehicleController;
@@ -74,4 +75,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:owner'])
         Route::get('/disbursements/{id}/proof', [DisbursementController::class, 'proof'])
             ->middleware('permission:view-own-payments')
             ->name('disbursements.proof');
+
+        // La FAQ (2026-10-22) : les questions visibles, écrites par l'administrateur.
+        Route::get('/faq', [FaqController::class, 'index'])
+            ->middleware('permission:view-own-contracts')
+            ->name('faq');
     });

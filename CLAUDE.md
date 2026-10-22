@@ -898,6 +898,22 @@ enregistre ce que l'agence a versé au propriétaire, par contrat propriétaire,
 - Avant la régularisation en prod : `docs/runbooks/scripts-2026-10/audit-fiches-avant-versements.php`
   (lecture seule) liste les mois clos sans fiche validée.
 
+## La FAQ propriétaire (2026-10-22)
+
+Spec : `docs/specs/2026-10-22-faq-proprietaire-design.md`. Domaine `Content`. Rubriques
+(`faq_sections`) et questions (`faq_entries`, réponse en Markdown, `is_visible`), écrites par
+l'administrateur seul (`manage-business-settings`, `/admin/faq*`, chaque écriture rend la FAQ
+entière) ; lues par le propriétaire (`GET /owner/faq`, `view-own-contracts`) : les seules
+questions visibles, les seules rubriques non vides, `answer_html` seulement.
+
+- Le Markdown se rend par `AnnouncementBody::toHtml()` (balises HTML retirées, liens dangereux
+  neutralisés), jamais côté client.
+- L'ordre passe par `FaqPositions` : positions de 0 à n−1 sans trou, échange avec la voisine.
+- Le glossaire de départ (annexe A de la spec) vient d'une MIGRATION de données
+  (`2026_10_22_200100_seed_owner_faq`), tout masqué, qui ne fait rien si la FAQ a déjà une
+  rubrique : l'onglet du propriétaire reste caché tant que l'admin n'a rien montré.
+- Journal `settings.faq_*`, sans jamais recopier une réponse. Aucune permission nouvelle.
+
 ## L'inscription d'un abonnement (2026-10-14)
 
 Spec : `docs/specs/2026-10-14-inscription-abonnement-design.md`. Tout parent d'abonnement
