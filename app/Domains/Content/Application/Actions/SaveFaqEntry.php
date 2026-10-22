@@ -30,6 +30,10 @@ final class SaveFaqEntry
 
             $previousSection = $entry->faq_section_id;
             $wasVisible = $entry->is_visible;
+            if (isset($data['faq_section_id'])) {
+                // Un uuid se compare sans tenir compte de la casse : le même, en capitales, ne déplace rien.
+                $data['faq_section_id'] = strtolower($data['faq_section_id']);
+            }
             $entry->fill($data);
             $moved = $entry->faq_section_id !== $previousSection;
             if ($moved) {

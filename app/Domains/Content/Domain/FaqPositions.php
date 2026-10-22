@@ -24,6 +24,12 @@ final class FaqPositions
     /** Échange avec la voisine ; aux bornes, rien ne bouge. Rend vrai si l'ordre a changé. */
     public static function move(Model $item, Builder $siblings, string $direction): bool
     {
+        // Les voisines sous verrou, puis sans trou : deux déplacements simultanés ne laissent
+        // jamais deux positions égales (relecture finale). À appeler dans une transaction.
+        (clone $siblings)->lockForUpdate()->get();
+        self::compact(clone $siblings);
+        $item->refresh();
+
         $neighbour = $direction === 'up'
             ? (clone $siblings)->where('position', '<', $item->position)->orderByDesc('position')->first()
             : (clone $siblings)->where('position', '>', $item->position)->orderBy('position')->first();

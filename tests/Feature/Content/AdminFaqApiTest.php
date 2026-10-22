@@ -145,4 +145,30 @@ class AdminFaqApiTest extends TestCase
             $this->assertStringNotContainsString('secrète', json_encode([$event->description, $event->properties]));
         }
     }
+
+    public function test_the_same_section_in_capitals_is_not_a_move(): void
+    {
+        $section = $this->section('A', 0, 3);
+        $first = $section->entries()->where('position', 0)->sole();
+
+        $this->as()->patchJson("/api/v1/admin/faq/entries/{$first->id}", ['faq_section_id' => strtoupper($section->id), 'question' => 'Nouvelle ?'])->assertOk();
+
+        $this->assertSame(0, $first->fresh()->position);
+    }
+
+    public function test_moving_locks_the_siblings(): void
+    {
+        $a = $this->section('A', 0);
+        $this->section('B', 1);
+        $locked = false;
+        \Illuminate\Support\Facades\DB::listen(function ($query) use (&$locked) {
+            if (str_contains($query->sql, '"faq_sections"') && str_contains(strtolower($query->sql), 'for update')) {
+                $locked = true;
+            }
+        });
+
+        $this->as()->postJson("/api/v1/admin/faq/sections/{$a->id}/move", ['direction' => 'down'])->assertOk();
+
+        $this->assertTrue($locked);
+    }
 }
