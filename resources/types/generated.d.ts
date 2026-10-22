@@ -750,6 +750,8 @@ pending_count: number;
 pending_amount: number;
 revenue: number | null;
 recovered: number | null;
+total_revenue: number | null;
+recovered_count: number | null;
 charges_deducted: number | null;
 balance_due: number | null;
 is_estimate: boolean;

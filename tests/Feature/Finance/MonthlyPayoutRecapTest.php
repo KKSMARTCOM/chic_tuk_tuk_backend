@@ -145,19 +145,20 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->assertNotContains(now()->addMonth()->format('Y-m'), $mois);
     }
 
-    public function test_counted_days_come_from_the_calendar_not_from_payments(): void
+    public function test_the_current_month_counts_only_paid_days(): void
     {
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
         $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-07-01']);
-        // Un seul paiement : le calendrier compte quand même les 11 jours ouvrés du 1er au 15.
+        // Un seul paiement : le calendrier compte 11 jours ouvrés du 1er au 15, mais
+        // l'estimation du mois en cours ne compte que les jours payés (spec 2026-10-22, §4.3).
         Payment::factory()->onDay('2026-07-01')->create(['vehicle_contract_id' => $contract->id]);
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
             ->assertOk()
             ->assertJsonPath('0.business_days', 11)
-            ->assertJsonPath('0.counted_days', 11)
+            ->assertJsonPath('0.counted_days', 1)
             ->assertJsonMissingPath('0.worked_days');
     }
 
@@ -326,5 +327,73 @@ class MonthlyPayoutRecapTest extends TestCase
             ->assertJsonPath('0.status', 'current')
             ->assertJsonPath('0.is_estimate', true)
             ->assertJsonPath('0.balance_due', 72_500);
+    }
+
+    public function test_the_current_month_estimate_never_exceeds_the_money_received(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-11-02']);
+        // Du 2 au 13 novembre, 10 jours ouvrés : 9 payés, le 13 pas encore généré.
+        foreach (collect(Carbon::parse('2026-11-02')->toPeriod('2026-11-12'))->reject->isWeekend() as $day) {
+            Payment::factory()->onDay($day->toDateString())->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5_871]);
+        }
+
+        $november = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json('0');
+
+        $this->assertSame('current', $november['status']);
+        $this->assertSame(9, $november['counted_days']);
+        $this->assertEquals(9 * 5_871, $november['total_revenue']);
+    }
+
+    public function test_a_validated_month_shows_the_new_formula(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-10-01']);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-10-01',
+            'figures' => ['counted_days' => 21, 'recovered_count' => 2, 'total_revenue' => 123_291, 'balance_due' => 95_791],
+        ]);
+
+        $october = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json())
+            ->firstWhere('month', '2026-10');
+
+        $this->assertSame(21, $october['counted_days']);
+        $this->assertSame(2, $october['recovered_count']);
+        $this->assertEquals(123_291, $october['total_revenue']);
+    }
+
+    public function test_old_validated_months_are_recomposed_with_one_query(): void
+    {
+        Carbon::setTestNow('2027-01-15 09:00:00');
+        config(['remuneration.first_month' => '2026-10']);
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-10-01']);
+        foreach (['2026-10', '2026-11', '2026-12'] as $month) {
+            RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+                'month' => $month.'-01',
+                'figures' => ['counted_days' => 20, 'pending_count' => 0, 'daily_amount' => 5_000, 'revenue' => 100_000, 'recovered' => 0],
+            ]);
+        }
+        $queries = 0;
+        \DB::listen(function ($query) use (&$queries) {
+            // Les recouvrés des fiches : le compte groupé, ou un compte par fiche s'il manquait.
+            if (str_contains($query->sql, 'from "payments"') && str_contains($query->sql, 'count(*)') && str_contains($query->sql, 'remuneration_statement_id')) {
+                $queries++;
+            }
+        });
+
+        $months = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json());
+
+        $this->assertSame(1, $queries);
+        $this->assertEquals(100_000, $months->firstWhere('month', '2026-11')['total_revenue']);
+        $this->assertSame(0, $months->firstWhere('month', '2026-11')['recovered_count']);
     }
 }

@@ -81,6 +81,11 @@ final class BuildStatementFigures
         $dailyAmount = (float) $contract->daily_net_amount;
         $pendingCount = $month->pendingOnCountedDays + $late->count();
         $countedDays = max(0, $month->countedDays - $pendingCount + $recoveredPayments->count());
+        if ($ownerEstimate) {
+            // L'estimation du propriétaire n'annonce jamais d'argent non reçu : un jour sans
+            // paiement (celui du jour naît à 23:30) ne compte pas encore (§4.3).
+            $countedDays = max(0, $countedDays - $month->countedDaysWithoutPayment);
+        }
         $totalRevenue = round($countedDays * $dailyAmount, 2);
         $receivedAmount = $revenue + $recovered;
         $gap = round($totalRevenue - $receivedAmount, 2);

@@ -40,6 +40,9 @@ final class MonthlyPayoutData extends BaseData
         public float $pendingAmount,
         public ?float $revenue,
         public ?float $recovered,
+        /** Jours comptabilisés × montant journalier (spec 2026-10-22) ; null sans fiche ni estimation. */
+        public ?float $totalRevenue,
+        public ?int $recoveredCount,
         public ?float $chargesDeducted,
         public ?float $balanceDue,
         public bool $isEstimate,
