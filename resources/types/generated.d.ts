@@ -861,6 +861,13 @@ pause_days_taken: number;
 pause_allowance: number;
 is_first_statement: boolean;
 anomalies: Array<string>;
+calendar_days: number;
+recovered_count: number;
+total_revenue: number;
+received_amount: number;
+gap: number;
+gap_causes: Array<string>;
+legacy_layout: boolean;
 };
 export type UpdatePaymentData = {
 amount: number;

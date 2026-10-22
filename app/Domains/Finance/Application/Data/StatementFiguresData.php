@@ -44,6 +44,14 @@ final class StatementFiguresData extends BaseData
         public bool $isFirstStatement,
         /** @var string[] */
         public array $anomalies,
+        public int $calendarDays,
+        public int $recoveredCount,
+        public float $totalRevenue,
+        public float $receivedAmount,
+        public float $gap,
+        /** @var string[] */
+        public array $gapCauses,
+        public bool $legacyLayout,
     ) {}
 
     public static function fromFigures(StatementFigures $f): self
@@ -77,6 +85,13 @@ final class StatementFiguresData extends BaseData
             pauseAllowance: $f->pauseAllowance,
             isFirstStatement: $f->isFirstStatement,
             anomalies: $f->anomalies,
+            calendarDays: $f->calendarDays,
+            recoveredCount: $f->recoveredCount,
+            totalRevenue: $f->totalRevenue,
+            receivedAmount: $f->receivedAmount,
+            gap: $f->gap,
+            gapCauses: $f->gapCauses,
+            legacyLayout: $f->legacyLayout,
         );
     }
 }

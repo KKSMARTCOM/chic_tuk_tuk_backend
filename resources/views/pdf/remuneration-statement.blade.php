@@ -51,13 +51,27 @@
     <tr><td>Statut jours de pause</td><td>{{ $two($f->pauseDaysTaken) }}/{{ $f->pauseAllowance }}</td></tr>
     <tr><td>Jours ouvrés (Total)</td><td>{{ $two($f->businessDays) }}</td></tr>
     <tr><td>Jours de pause</td><td>({{ $two($f->pauseDays) }})</td></tr>
-    <tr><td class="small">Paiements en instance</td><td>({{ $two($f->pendingCount) }})</td></tr>
-    <tr><td class="small">Jours d'immobilisation</td><td>({{ $two($f->immobilizationDays) }})</td></tr>
-    <tr><td>Jours comptabilisés</td><td>{{ $two($f->countedDays) }}</td></tr>
-    <tr><td>Montant journalier généré (F CFA)</td><td>{{ $fcfa($f->dailyAmount) }}</td></tr>
-    <tr class="strong"><td>Total recettes (F CFA)</td><td>{{ $fcfa($f->revenue) }}</td></tr>
-    @if ($f->recovered > 0)
-      <tr><td>Paiements recouvrés (F CFA)</td><td>{{ $fcfa($f->recovered) }}</td></tr>
+    @if ($f->legacyLayout)
+      {{-- Fiche validée avec un écart, avant la formule des jours payés : son total ne tomberait
+           pas sur son solde dû, elle garde sa présentation d'origine (spec 2026-10-22, §5). --}}
+      <tr><td class="small">Paiements en instance</td><td>({{ $two($f->pendingCount) }})</td></tr>
+      <tr><td class="small">Jours d'immobilisation</td><td>({{ $two($f->immobilizationDays) }})</td></tr>
+      <tr><td>Jours comptabilisés</td><td>{{ $two($f->countedDays) }}</td></tr>
+      <tr><td>Montant journalier généré (F CFA)</td><td>{{ $fcfa($f->dailyAmount) }}</td></tr>
+      <tr class="strong"><td>Total recettes (F CFA)</td><td>{{ $fcfa($f->revenue) }}</td></tr>
+      @if ($f->recovered > 0)
+        <tr><td>Paiements recouvrés (F CFA)</td><td>{{ $fcfa($f->recovered) }}</td></tr>
+      @endif
+    @else
+      {{-- Un jour comptabilisé est un jour payé : le bloc se lit comme une soustraction. --}}
+      <tr><td class="small">Jours d'immobilisation</td><td>({{ $two($f->immobilizationDays) }})</td></tr>
+      <tr><td class="small">Paiements en instance</td><td>({{ $two($f->pendingCount) }})</td></tr>
+      @if ($f->recoveredCount > 0)
+        <tr><td class="small">Paiements recouvrés</td><td>+{{ $two($f->recoveredCount) }}</td></tr>
+      @endif
+      <tr><td>Jours comptabilisés</td><td>{{ $two($f->countedDays) }}</td></tr>
+      <tr><td>Montant journalier généré (F CFA)</td><td>{{ $fcfa($f->dailyAmount) }}</td></tr>
+      <tr class="strong"><td>Total recettes (F CFA)</td><td>{{ $fcfa($f->totalRevenue) }}</td></tr>
     @endif
     @foreach ($f->charges as $charge)
       <tr><td>{{ $charge['label'] }}</td><td>{{ $charge['deducted'] > 0 ? '('.$fcfa($charge['deducted']).')' : '-' }}</td></tr>
