@@ -154,8 +154,38 @@ class ContractMonthCalculatorTest extends TestCase
         $july = ContractMonthCalculator::for($contract)->month('2026-07');
 
         $this->assertTrue($july->isCurrent);
-        // Du mercredi 1er au mercredi 15 : 11 jours ouvrés.
+        // Du mercredi 1er au mardi 14 : 10 jours ouvrés. Le 15 n'est pas fini — son paiement
+        // ne naît qu'à 23:30 — et ne compte pas encore.
+        $this->assertSame(10, $july->businessDays);
+        $this->assertSame(10, $july->countedDays);
+        $this->assertSame(10, $july->countedDaysWithoutPayment);
+    }
+
+    public function test_today_counts_once_its_payment_is_generated(): void
+    {
+        Carbon::setTestNow('2026-07-15 23:45:00');
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-07-01']);
+        $this->paidOn($contract, $this->businessDays('2026-07-01', '2026-07-15'), 5871, 'pending');
+
+        $july = ContractMonthCalculator::for($contract)->month('2026-07');
+
         $this->assertSame(11, $july->businessDays);
+        $this->assertSame(11, $july->countedDays);
+        $this->assertSame(0, $july->countedDaysWithoutPayment);
+    }
+
+    public function test_a_stopped_today_counts_as_stopped_without_payment(): void
+    {
+        Carbon::setTestNow('2026-07-15 09:00:00');
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-07-01']);
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => '2026-07-15', 'end_date' => null, 'reason_type' => 'agent_leave']);
+
+        $july = ContractMonthCalculator::for($contract)->month('2026-07');
+
+        // Un jour d'arrêt n'attend aucun paiement : il compte dès le matin.
+        $this->assertSame(11, $july->businessDays);
+        $this->assertSame(1, $july->pauseDays);
+        $this->assertSame(10, $july->countedDays);
     }
 
     public function test_an_ended_contract_stops_at_its_end_date(): void

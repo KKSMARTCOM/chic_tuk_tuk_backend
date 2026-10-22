@@ -154,12 +154,26 @@ final class ContractMonthCalculator
         $monthEnd = $monthStart->copy()->endOfMonth()->startOfDay();
         $contractStart = $this->contract->start_date->copy()->startOfDay();
         $bound = $this->bound();
+        $end = $bound->lt($monthEnd) ? $bound : $monthEnd;
+        // Aujourd'hui n'est pas fini : un jour à comptabiliser n'entre qu'une fois son paiement
+        // né (23:30), sinon l'estimation et le brouillon du mois en cours montrent un écart
+        // qui n'en est pas un (essai staging du 2026-10-22). Un jour d'arrêt compte dès le matin.
+        if ($end->eq($this->today) && ! $this->paidToday()
+            && ContractMonthCalendar::classifyDay($end, $this->pauses) === 'counted') {
+            $end = $end->copy()->subDay();
+        }
 
         // Comparaisons explicites : `max()` et `min()` de PHP ne comparent pas des
         // instances Carbon de façon fiable.
         return [
             $contractStart->gt($monthStart) ? $contractStart : $monthStart,
-            $bound->lt($monthEnd) ? $bound : $monthEnd,
+            $end,
         ];
+    }
+
+    /** Un paiement, quel que soit son statut, existe-t-il pour aujourd'hui ? */
+    private function paidToday(): bool
+    {
+        return $this->payments->contains(fn ($p) => $p->payment_date?->isSameDay($this->today));
     }
 }

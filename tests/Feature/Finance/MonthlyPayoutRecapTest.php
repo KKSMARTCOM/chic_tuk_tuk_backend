@@ -150,14 +150,15 @@ class MonthlyPayoutRecapTest extends TestCase
         [$owner, $token] = $this->loginOwner();
         $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
         $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-07-01']);
-        // Un seul paiement : le calendrier compte 11 jours ouvrés du 1er au 15, mais
-        // l'estimation du mois en cours ne compte que les jours payés (spec 2026-10-22, §4.3).
+        // Un seul paiement : le calendrier compte 10 jours ouvrés du 1er au 14 — le 15 attend
+        // son paiement de 23:30 —, mais l'estimation du mois en cours ne compte que les jours
+        // payés (spec 2026-10-22, §4.3).
         Payment::factory()->onDay('2026-07-01')->create(['vehicle_contract_id' => $contract->id]);
 
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
             ->assertOk()
-            ->assertJsonPath('0.business_days', 11)
+            ->assertJsonPath('0.business_days', 10)
             ->assertJsonPath('0.counted_days', 1)
             ->assertJsonMissingPath('0.worked_days');
     }

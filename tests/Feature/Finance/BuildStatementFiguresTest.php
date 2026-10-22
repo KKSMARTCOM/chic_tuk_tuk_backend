@@ -60,6 +60,25 @@ class BuildStatementFiguresTest extends TestCase
         return $contract;
     }
 
+    public function test_the_current_month_draft_has_no_gap_before_the_evening_payment(): void
+    {
+        // Essai staging du 2026-10-22 : le jour même, avant la génération de 23:30, le brouillon
+        // comptait aujourd'hui sans son paiement et montrait un écart d'un jour.
+        Carbon::setTestNow('2026-10-22 10:00:00');
+        $contract = VehicleContract::factory()->create([
+            'contract_months' => 30, 'start_date' => '2026-10-01', 'daily_amount' => 5691, 'daily_tax' => 229,
+        ]);
+        $this->paidOn($contract, $this->businessDays('2026-10-01', '2026-10-21'), 5462);
+        $draft = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-10-01']);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-10', $draft);
+
+        $this->assertSame(15, $f->countedDays);
+        $this->assertEquals(15 * 5462, $f->totalRevenue);
+        $this->assertEquals(0, $f->gap);
+        $this->assertSame([], $f->anomalies);
+    }
+
     public function test_the_assogba_july_sheet_with_charges_waived(): void
     {
         $contract = $this->assogba();
