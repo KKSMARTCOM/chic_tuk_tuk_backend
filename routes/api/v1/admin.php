@@ -1,5 +1,6 @@
 <?php
 
+use App\Domains\Content\Presentation\Api\V1\Admin\FaqController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\EnrollmentController as BookingEnrollmentController;
 use App\Domains\Announcement\Presentation\Api\V1\Admin\AnnouncementController;
 use App\Domains\Audit\Presentation\Api\V1\Admin\ActivityLogController;
@@ -284,6 +285,19 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
          * Les réglages (2026-09-29) : le prix des courses, et les durées et montants des
          * contrats véhicule. Une seule permission, à l'administrateur seul.
          */
+        // La FAQ des propriétaires (2026-10-22) : l'administrateur seul, comme les réglages.
+        Route::middleware('permission:manage-business-settings')->prefix('faq')->name('faq.')->group(function () {
+            Route::get('/', [FaqController::class, 'show'])->name('show');
+            Route::post('/sections', [FaqController::class, 'storeSection'])->name('sections.store');
+            Route::patch('/sections/{section}', [FaqController::class, 'updateSection'])->whereUuid('section')->name('sections.update');
+            Route::delete('/sections/{section}', [FaqController::class, 'destroySection'])->whereUuid('section')->name('sections.destroy');
+            Route::post('/sections/{section}/move', [FaqController::class, 'moveSection'])->whereUuid('section')->name('sections.move');
+            Route::post('/entries', [FaqController::class, 'storeEntry'])->name('entries.store');
+            Route::patch('/entries/{entry}', [FaqController::class, 'updateEntry'])->whereUuid('entry')->name('entries.update');
+            Route::delete('/entries/{entry}', [FaqController::class, 'destroyEntry'])->whereUuid('entry')->name('entries.destroy');
+            Route::post('/entries/{entry}/move', [FaqController::class, 'moveEntry'])->whereUuid('entry')->name('entries.move');
+        });
+
         Route::middleware('permission:manage-business-settings')->prefix('settings')->name('settings.')->group(function () {
             Route::get('/pricing', [PricingSettingsController::class, 'show'])->name('pricing.show');
             Route::put('/pricing', [PricingSettingsController::class, 'update'])->name('pricing.update');

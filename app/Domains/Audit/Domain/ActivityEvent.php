@@ -128,6 +128,16 @@ enum ActivityEvent: string
     case PricingUpdated = 'settings.pricing_updated';
     case ContractTermsUpdated = 'settings.contract_terms_updated';
     case PreparationStepsUpdated = 'settings.preparation_steps_updated';
+    case FaqSectionCreated = 'settings.faq_section_created';
+    case FaqSectionRenamed = 'settings.faq_section_renamed';
+    case FaqSectionMoved = 'settings.faq_section_moved';
+    case FaqSectionDeleted = 'settings.faq_section_deleted';
+    case FaqEntryCreated = 'settings.faq_entry_created';
+    case FaqEntryUpdated = 'settings.faq_entry_updated';
+    case FaqEntryShown = 'settings.faq_entry_shown';
+    case FaqEntryHidden = 'settings.faq_entry_hidden';
+    case FaqEntryMoved = 'settings.faq_entry_moved';
+    case FaqEntryDeleted = 'settings.faq_entry_deleted';
 
     public function label(): string
     {
@@ -230,6 +240,16 @@ enum ActivityEvent: string
             self::PricingUpdated => 'Tarifs modifiés',
             self::ContractTermsUpdated => 'Réglages des contrats modifiés',
             self::PreparationStepsUpdated => 'Étapes de préparation modifiées',
+            self::FaqSectionCreated => 'Rubrique de FAQ ajoutée',
+            self::FaqSectionRenamed => 'Rubrique de FAQ renommée',
+            self::FaqSectionMoved => 'Rubrique de FAQ déplacée',
+            self::FaqSectionDeleted => 'Rubrique de FAQ supprimée',
+            self::FaqEntryCreated => 'Question de FAQ ajoutée',
+            self::FaqEntryUpdated => 'Question de FAQ modifiée',
+            self::FaqEntryShown => 'Question de FAQ montrée',
+            self::FaqEntryHidden => 'Question de FAQ masquée',
+            self::FaqEntryMoved => 'Question de FAQ déplacée',
+            self::FaqEntryDeleted => 'Question de FAQ supprimée',
         };
     }
 

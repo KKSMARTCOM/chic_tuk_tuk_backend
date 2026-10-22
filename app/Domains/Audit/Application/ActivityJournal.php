@@ -13,6 +13,8 @@ use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\InternalAssignment;
 use App\Models\LeaveRequest;
+use App\Models\FaqEntry;
+use App\Models\FaqSection;
 use App\Models\OwnerDisbursement;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
@@ -684,6 +686,54 @@ final class ActivityJournal
     }
 
     // ----- Paiements et commissions ------------------------------------------------------
+
+    // ----- La FAQ des propriétaires (2026-10-22) : jamais le texte d'une réponse -----------
+
+    public function faqSectionCreated(FaqSection $section): void
+    {
+        $this->record(ActivityEvent::FaqSectionCreated, $section, "a ajouté la rubrique « {$section->title} » à la FAQ");
+    }
+
+    public function faqSectionRenamed(FaqSection $section, string $previous): void
+    {
+        $this->record(ActivityEvent::FaqSectionRenamed, $section, "a renommé la rubrique « {$previous} » de la FAQ en « {$section->title} »");
+    }
+
+    public function faqSectionMoved(FaqSection $section): void
+    {
+        $this->record(ActivityEvent::FaqSectionMoved, $section, "a déplacé la rubrique « {$section->title} » de la FAQ");
+    }
+
+    public function faqSectionDeleted(string $title, int $entries): void
+    {
+        $this->record(ActivityEvent::FaqSectionDeleted, null, "a supprimé la rubrique « {$title} » de la FAQ, et ses {$entries} question(s)");
+    }
+
+    public function faqEntryCreated(FaqEntry $entry): void
+    {
+        $this->record(ActivityEvent::FaqEntryCreated, $entry, "a ajouté la question « {$entry->question} » à la FAQ");
+    }
+
+    public function faqEntryUpdated(FaqEntry $entry, bool $answerChanged): void
+    {
+        $this->record(ActivityEvent::FaqEntryUpdated, $entry, "a modifié la question « {$entry->question} » de la FAQ".($answerChanged ? ' (réponse modifiée)' : ''));
+    }
+
+    public function faqEntryVisibility(FaqEntry $entry, bool $visible): void
+    {
+        $this->record($visible ? ActivityEvent::FaqEntryShown : ActivityEvent::FaqEntryHidden, $entry,
+            ($visible ? 'a montré' : 'a masqué')." la question « {$entry->question} » aux propriétaires");
+    }
+
+    public function faqEntryMoved(FaqEntry $entry): void
+    {
+        $this->record(ActivityEvent::FaqEntryMoved, $entry, "a déplacé la question « {$entry->question} » de la FAQ");
+    }
+
+    public function faqEntryDeleted(string $question): void
+    {
+        $this->record(ActivityEvent::FaqEntryDeleted, null, "a supprimé la question « {$question} » de la FAQ");
+    }
 
     public function disbursementRecorded(OwnerDisbursement $d): void
     {
