@@ -344,4 +344,35 @@ class ValidateRemunerationStatementTest extends TestCase
         $this->assertEquals(22 * 5871, $statement->figures['total_revenue']);
         $this->assertEquals(0, $statement->figures['gap']);
     }
+
+    public function test_a_pending_payment_on_a_pause_day_blocks_validation(): void
+    {
+        $this->octoberPaid(skip: 1);
+        VehiclePause::factory()->forContract($this->contract)->create(['start_date' => '2026-10-01', 'end_date' => '2026-10-01', 'reason_type' => 'agent_leave']);
+        Payment::factory()->onDay('2026-10-01')->status('pending')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 5871]);
+        $draft = $this->draft();
+
+        $blockers = app(ValidateRemunerationStatement::class)->blockers($draft, app(BuildStatementFigures::class)($this->contract, '2026-10', $draft));
+
+        $this->assertContains('1 paiement(s) tombent sur des jours de pause ou d\'immobilisation : à annuler avant la validation.', $blockers);
+    }
+
+    public function test_a_recovered_payment_from_a_pause_day_blocks_validation(): void
+    {
+        Carbon::setTestNow('2026-12-02 09:00:00');
+        $this->octoberPaid(skip: 1);
+        RemunerationStatement::factory()->for($this->contract, 'contract')->validated()->create(['month' => '2026-10-01']);
+        Payment::query()->update(['remuneration_statement_id' => RemunerationStatement::first()->id]);
+        VehiclePause::factory()->forContract($this->contract)->create(['start_date' => '2026-10-01', 'end_date' => '2026-10-01', 'reason_type' => 'agent_leave']);
+        // Validé après la fiche d'octobre : recouvré en novembre, alors que c'était un jour de pause.
+        Payment::factory()->onDay('2026-10-01')->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 5871]);
+        foreach (collect(Carbon::parse('2026-11-02')->toPeriod('2026-11-30'))->reject->isWeekend() as $day) {
+            Payment::factory()->onDay($day->toDateString())->create(['vehicle_contract_id' => $this->contract->id, 'net_amount' => 5871]);
+        }
+        $november = $this->draft('2026-11-01');
+
+        $blockers = app(ValidateRemunerationStatement::class)->blockers($november, app(BuildStatementFigures::class)($this->contract, '2026-11', $november));
+
+        $this->assertContains('1 paiement(s) tombent sur des jours de pause ou d\'immobilisation : à annuler avant la validation.', $blockers);
+    }
 }

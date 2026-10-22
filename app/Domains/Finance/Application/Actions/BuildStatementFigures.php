@@ -88,6 +88,10 @@ final class BuildStatementFigures
         }
         $totalRevenue = round($countedDays * $dailyAmount, 2);
         $receivedAmount = $revenue + $recovered;
+        if ($ownerEstimate) {
+            // Un paiement partiel ne fait pas annoncer plus que l'argent reçu (relecture finale).
+            $totalRevenue = min($totalRevenue, $receivedAmount);
+        }
         $gap = round($totalRevenue - $receivedAmount, 2);
 
         $first = $this->firstStatement($contract, $statement);
@@ -205,6 +209,11 @@ final class BuildStatementFigures
             receivedAmount: $receivedAmount,
             gap: $gap,
             gapCauses: abs($gap) >= 0.01 ? $this->gapCauses($month, $gap, $revenuePayments->concat($recoveredPayments), $dailyAmount) : [],
+            // Un paiement sur un jour d'arrêt n'entre ni dans les jours ni dans l'argent : sans
+            // ce compte, il ne bloquerait pas, puis serait payé comme recouvré (relecture finale).
+            stoppedDayPayments: $month->paymentsOnStoppedDays + $recoveredPayments
+                ->filter(fn ($p) => in_array($p->payment_date->toDateString(), $calculator->stoppedDates($p->payment_month->format('Y-m')), true))
+                ->count(),
             revenuePaymentIds: $revenuePayments->pluck('id')->values()->all(),
             recoveredPaymentIds: $recoveredPayments->pluck('id')->values()->all(),
         );

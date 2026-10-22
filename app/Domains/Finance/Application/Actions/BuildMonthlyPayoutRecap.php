@@ -73,7 +73,8 @@ final class BuildMonthlyPayoutRecap
                     pendingAmount: $money?->pendingAmount ?? $month->pendingAmount,
                     revenue: $money?->revenue ?? ($money === null && $status !== 'review_pending' ? $month->validatedAmount : null),
                     recovered: $money?->recovered,
-                    totalRevenue: $money?->totalRevenue,
+                    // Ancienne présentation : la carte garde ses anciennes lignes, recouvrés en francs.
+                    totalRevenue: $money?->legacyLayout ? null : $money?->totalRevenue,
                     recoveredCount: $money?->recoveredCount,
                     chargesDeducted: $money?->deductedTotal,
                     balanceDue: $money?->balanceDue,

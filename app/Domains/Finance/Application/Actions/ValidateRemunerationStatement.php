@@ -229,6 +229,10 @@ final class ValidateRemunerationStatement
                 ." ne correspondent pas à l'argent reçu ({$fcfa($figures->receivedAmount)}) : ".implode(' ; ', $figures->gapCauses);
         }
 
+        if ($figures->stoppedDayPayments > 0) {
+            $violations['stopped_days'] = "{$figures->stoppedDayPayments} paiement(s) tombent sur des jours de pause ou d'immobilisation : à annuler avant la validation.";
+        }
+
         return $violations;
     }
 }

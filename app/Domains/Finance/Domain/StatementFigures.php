@@ -59,6 +59,8 @@ final class StatementFigures
         public readonly array $gapCauses = [],
         /** Fiche ancienne dont le total ne tombe pas juste : l'ancienne présentation (§5). */
         public readonly bool $legacyLayout = false,
+        /** Paiements comptés ou en attente sur un jour de pause ou d'immobilisation, recouvrés compris : ils bloquent. */
+        public readonly int $stoppedDayPayments = 0,
         /** @var list<string> */
         public readonly array $revenuePaymentIds = [],
         /** @var list<string> */

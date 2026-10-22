@@ -396,4 +396,40 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->assertEquals(100_000, $months->firstWhere('month', '2026-11')['total_revenue']);
         $this->assertSame(0, $months->firstWhere('month', '2026-11')['recovered_count']);
     }
+
+    public function test_a_partial_payment_never_lifts_the_estimate_above_the_money_received(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-11-02']);
+        foreach (collect(Carbon::parse('2026-11-02')->toPeriod('2026-11-12'))->reject->isWeekend() as $i => $day) {
+            Payment::factory()->onDay($day->toDateString())->create(['vehicle_contract_id' => $contract->id, 'net_amount' => $i === 0 ? 3_000 : 5_871]);
+        }
+
+        $november = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json('0');
+
+        $this->assertEquals(3_000 + 8 * 5_871, $november['total_revenue']);
+    }
+
+    public function test_a_legacy_validated_month_keeps_the_old_card(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-10-01']);
+        // Validée avant la formule, avec un écart : 20 jours à 5 000 n'ont rapporté que 90 000.
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-10-01',
+            'figures' => ['counted_days' => 20, 'pending_count' => 0, 'daily_amount' => 5_000, 'revenue' => 90_000, 'recovered' => 0],
+        ]);
+
+        $october = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json())
+            ->firstWhere('month', '2026-10');
+
+        $this->assertNull($october['total_revenue']);
+        $this->assertEquals(90_000, $october['revenue']);
+    }
 }
