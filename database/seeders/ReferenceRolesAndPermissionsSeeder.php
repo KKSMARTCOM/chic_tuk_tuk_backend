@@ -183,6 +183,10 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         'delete-payments' => ['Supprimer un paiement', 'Supprimer un paiement en attente'],
         'purge-payments' => ['Vider les paiements annulés', 'Supprimer définitivement les paiements de contrat annulés'],
         'edit-payments' => ['Modifier un paiement', 'Modifier, valider ou annuler un paiement'],
+        // Les versements au propriétaire (2026-10-22) : le comptable, rôle Utilisateur.
+        'view-disbursements' => ['Voir les versements', 'Voir les versements faits aux propriétaires'],
+        'create-disbursements' => ['Enregistrer un versement', 'Enregistrer un versement à un propriétaire'],
+        'edit-disbursements' => ['Corriger ou annuler un versement', 'Corriger ou annuler un versement à un propriétaire'],
         'view-payments' => ['Voir les paiements', 'Voir les paiements'],
 
         // Permissions
@@ -287,6 +291,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
                 // Paiements ouverts le 2026-09-26 comme les contrats : voir, créer, modifier,
                 // valider et annuler — la suppression reste à l'administrateur.
                 'edit-payments',
+                'view-disbursements',
+                'create-disbursements',
+                'edit-disbursements',
                 'manage-settings',
                 'manage-zones',
                 'moderate-testimonials',

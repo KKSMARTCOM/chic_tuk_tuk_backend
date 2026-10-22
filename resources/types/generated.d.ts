@@ -902,6 +902,7 @@ send: boolean;
 }
 declare namespace App.Domains.Finance.Domain.Enums {
 export type CommissionStatus = 'active' | 'cancelled';
+export type DisbursementMethod = 'mobile_money' | 'bank_transfer';
 export type PaymentStatus = 'pending' | 'completed' | 'cancelled' | 'failed';
 export type PaymentType = 'commission' | 'contract' | 'bonus' | 'other' | 'subscription_revenue';
 export type RemunerationStatementStatus = 'draft' | 'validated' | 'cancelled';

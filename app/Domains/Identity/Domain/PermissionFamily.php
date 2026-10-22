@@ -28,6 +28,7 @@ final class PermissionFamily
         'driver-contracts' => 'Contrats',
         'commissions' => 'Commissions',
         'payments' => 'Paiements',
+        'disbursements' => 'Paiements',
         'users' => 'Administrateurs',
         'roles' => 'Rôles',
         'permissions' => 'Permissions',

@@ -19,6 +19,11 @@ return [
     // `RemunerationStatement::visibleToOwners()`, jamais directement.
     'owner_visible' => env('REMUNERATION_OWNER_VISIBLE', true),
 
+    // Le jour de la livraison des versements (spec 2026-10-22-versement-proprietaire, §3.2) :
+    // un versement daté d'avant ne notifie pas — c'est la régularisation de l'historique.
+    // ⚠️ Absent, AUCUN versement ne notifie.
+    'disbursement_notify_from' => env('REMUNERATION_DISBURSEMENT_NOTIFY_FROM'),
+
     'city' => 'Cotonou',
 
     // Les mentions légales du pied de page, reprises de la fiche d'origine.
