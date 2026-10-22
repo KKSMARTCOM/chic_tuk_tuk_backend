@@ -7,6 +7,7 @@ use App\Domains\Booking\Presentation\Api\V1\Admin\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\DashboardController;
 use App\Domains\Booking\Presentation\Api\V1\Admin\PricingSettingsController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\CommissionController;
+use App\Domains\Finance\Presentation\Api\V1\Admin\DisbursementController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\ContractPaymentGenerationController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\PaymentController;
 use App\Domains\Finance\Presentation\Api\V1\Admin\RemunerationStatementController;
@@ -193,6 +194,14 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         // Le montant investi se corrige même avec un agent actif : affichage seul (2026-10-14).
         Route::patch('/vehicle-contracts/{contract}/invested-amount', [VehicleContractController::class, 'updateInvestedAmount'])
             ->middleware('permission:edit-contracts')->name('vehicle-contracts.invested-amount');
+
+        // Les versements au propriétaire (2026-10-22) : le comptable, rôle Utilisateur.
+        Route::get('/vehicle-contracts/{contract}/disbursements', [DisbursementController::class, 'index'])
+            ->middleware('permission:view-disbursements')->name('vehicle-contracts.disbursements.index');
+        Route::post('/vehicle-contracts/{contract}/disbursements', [DisbursementController::class, 'store'])
+            ->middleware('permission:create-disbursements')->name('vehicle-contracts.disbursements.store');
+        Route::get('/disbursements/{disbursement}/proof', [DisbursementController::class, 'proof'])
+            ->middleware('permission:view-disbursements')->name('disbursements.proof');
 
         // La préparation du véhicule (2026-10-20) : lecture de la preuve sous `view-contracts`,
         // tout le reste sous `edit-contracts`.

@@ -100,6 +100,9 @@ enum ActivityEvent: string
     case PaymentValidated = 'payment.validated';
     case PaymentCancelled = 'payment.cancelled';
     case PaymentDeleted = 'payment.deleted';
+    case DisbursementRecorded = 'payment.disbursement_recorded';
+    case DisbursementUpdated = 'payment.disbursement_updated';
+    case DisbursementCancelled = 'payment.disbursement_cancelled';
     case DailyPaymentsGenerated = 'payment.daily_generated';
     case ContractPaymentsGenerated = 'payment.period_generated';
     case PaymentsBatchValidated = 'payment.batch_validated';
@@ -205,6 +208,9 @@ enum ActivityEvent: string
             self::PaymentValidated => 'Paiement validé',
             self::PaymentCancelled => 'Paiement annulé',
             self::PaymentDeleted => 'Paiement supprimé',
+            self::DisbursementRecorded => 'Versement enregistré',
+            self::DisbursementUpdated => 'Versement corrigé',
+            self::DisbursementCancelled => 'Versement annulé',
             self::DailyPaymentsGenerated => 'Paiements journaliers générés',
             self::ContractPaymentsGenerated => 'Paiements générés sur une période',
             self::PaymentsBatchValidated => 'Paiements validés en groupe',

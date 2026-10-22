@@ -35,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
         'fcm_token'        => \App\Models\FcmToken::class,
         'leave_request'    => \App\Models\LeaveRequest::class,
         'notification'     => \App\Models\Notification::class,
+        'owner_disbursement' => \App\Models\OwnerDisbursement::class,
         'payment'          => \App\Models\Payment::class,
         'permission'       => \App\Models\Permission::class,
         'promo_code'       => \App\Models\PromoCode::class,

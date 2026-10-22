@@ -13,6 +13,7 @@ use App\Models\Driver;
 use App\Models\DriverContract;
 use App\Models\InternalAssignment;
 use App\Models\LeaveRequest;
+use App\Models\OwnerDisbursement;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use App\Models\Role;
@@ -683,6 +684,29 @@ final class ActivityJournal
     }
 
     // ----- Paiements et commissions ------------------------------------------------------
+
+    public function disbursementRecorded(OwnerDisbursement $d): void
+    {
+        $this->record(ActivityEvent::DisbursementRecorded, $d, "a enregistré {$this->disbursementLabel($d)}");
+    }
+
+    /** @param  array<string, array{from: mixed, to: mixed}>  $changes  les seuls champs changés */
+    public function disbursementUpdated(OwnerDisbursement $d, array $changes): void
+    {
+        $this->record(ActivityEvent::DisbursementUpdated, $d, "a corrigé {$this->disbursementLabel($d)}", $changes ? ['changes' => $changes] : []);
+    }
+
+    public function disbursementCancelled(OwnerDisbursement $d): void
+    {
+        $this->record(ActivityEvent::DisbursementCancelled, $d, "a annulé {$this->disbursementLabel($d)}", ['reason' => $d->cancellation_reason]);
+    }
+
+    private function disbursementLabel(OwnerDisbursement $d): string
+    {
+        $d->loadMissing('contract.vehicle');
+
+        return "le versement de {$this->money($d->amount)} à {$d->contract?->vehicle?->vehicle_number} du {$d->paid_on->format('d/m/Y')}";
+    }
 
     public function paymentCreated(Payment $payment): void
     {
