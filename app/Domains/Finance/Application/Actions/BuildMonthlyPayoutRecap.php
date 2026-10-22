@@ -69,13 +69,16 @@ final class BuildMonthlyPayoutRecap
                     countedDays: $money?->countedDays ?? $month->countedDays,
                     agentLeaveDays: $money?->pauseDays ?? $month->pauseDays,
                     immobilizationDays: $money?->immobilizationDays ?? $month->immobilizationDays,
-                    pendingCount: $money?->pendingCount ?? $month->pendingCount,
-                    pendingAmount: $money?->pendingAmount ?? $month->pendingAmount,
+                    // Comme la fiche : seules les attentes posées sur un jour du calendrier.
+                    pendingCount: $money?->pendingCount ?? $month->pendingOnCountedDays,
+                    pendingAmount: $money?->pendingAmount ?? $month->pendingOnCountedAmount,
                     revenue: $money?->revenue ?? ($money === null && $status !== 'review_pending' ? $month->validatedAmount : null),
                     recovered: $money?->recovered,
                     // Ancienne présentation : la carte garde ses anciennes lignes, recouvrés en francs.
                     totalRevenue: $money?->legacyLayout ? null : $money?->totalRevenue,
                     recoveredCount: $money?->recoveredCount,
+                    // Les jours que l'estimation retranche faute de paiement : la soustraction se refait.
+                    unpaidDays: $status === 'current' && $money !== null ? $month->countedDaysWithoutPayment : null,
                     chargesDeducted: $money?->deductedTotal,
                     balanceDue: $money?->balanceDue,
                     isEstimate: $estimate,

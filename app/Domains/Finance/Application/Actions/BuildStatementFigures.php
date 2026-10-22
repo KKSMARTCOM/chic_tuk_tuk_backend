@@ -242,7 +242,6 @@ final class BuildStatementFigures
         return (float) (collect($statement->figures['charges'] ?? [])->firstWhere('key', $line)[$field] ?? 0);
     }
 
-    /** @return list<string> */
     /**
      * Ce qui explique un écart entre les jours et l'argent reçu (spec 2026-10-22, §3.4).
      *
@@ -259,6 +258,12 @@ final class BuildStatementFigures
         if ($month->paymentsOnStoppedDays > 0) {
             $causes[] = "{$month->paymentsOnStoppedDays} paiement(s) sur un jour de pause ou d'immobilisation";
         }
+        if ($month->duplicatePayments > 0) {
+            $causes[] = "{$month->duplicatePayments} paiement(s) en double sur un même jour";
+        }
+        if ($month->failedPayments > 0) {
+            $causes[] = "{$month->failedPayments} paiement(s) échoué(s)";
+        }
         $otherAmounts = $counted->filter(fn ($p) => abs((float) $p->net_amount - $dailyAmount) >= 0.01)->count();
         if ($otherAmounts > 0) {
             $causes[] = "Montants différents du montant journalier : {$otherAmounts} paiement(s)";
@@ -267,6 +272,7 @@ final class BuildStatementFigures
         return $causes !== [] ? $causes : ['Écart de '.number_format($gap, 0, ',', ' ').' F entre les jours et l\'argent reçu'];
     }
 
+    /** @return list<string> */
     private function anomalies(ContractMonthFigures $month): array
     {
         $anomalies = [];

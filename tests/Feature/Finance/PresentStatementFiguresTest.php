@@ -80,4 +80,14 @@ class PresentStatementFiguresTest extends TestCase
         $this->assertEquals(90_000, $f->totalRevenue);
         $this->assertEquals(77_500, $f->balanceDue);
     }
+
+    public function test_a_recomposed_statement_drops_the_old_pending_anomaly(): void
+    {
+        $statement = $this->oldStatement(95_000, 10_000, 2);
+        $statement->update(['figures' => [...$statement->figures, 'anomalies' => ['1 paiement(s) du mois encore en attente.', '1 jour(s) comptabilisé(s) sans paiement.']]]);
+
+        $f = app(PresentStatementFigures::class)($statement->fresh());
+
+        $this->assertSame(['1 jour(s) comptabilisé(s) sans paiement.'], $f->anomalies);
+    }
 }

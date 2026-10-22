@@ -141,6 +141,9 @@ final class ContractMonthCalculator
             countedDates: $days->countedDates,
             pendingOnCountedDays: $pendingOnCounted->count(),
             pendingOnCountedAmount: (float) $pendingOnCounted->sum('net_amount'),
+            duplicatePayments: ($onCounted = $live->filter(fn ($p) => in_array($p->payment_date->toDateString(), $days->countedDates, true)))->count()
+                - $onCounted->map(fn ($p) => $p->payment_date->toDateString())->unique()->count(),
+            failedPayments: $monthPayments->where('status', 'failed')->count(),
         );
     }
 

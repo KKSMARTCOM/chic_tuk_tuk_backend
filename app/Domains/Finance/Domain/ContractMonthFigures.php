@@ -30,5 +30,9 @@ final class ContractMonthFigures
         /** Paiements en attente posés sur un jour du calendrier (spec 2026-10-22, §3.1). */
         public readonly int $pendingOnCountedDays = 0,
         public readonly float $pendingOnCountedAmount = 0,
+        /** Paiements non annulés en trop sur un même jour du calendrier (le premier ne compte pas). */
+        public readonly int $duplicatePayments = 0,
+        /** Paiements échoués : ils occupent un jour sans apporter d'argent. */
+        public readonly int $failedPayments = 0,
     ) {}
 }

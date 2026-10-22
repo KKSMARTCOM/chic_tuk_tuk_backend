@@ -47,6 +47,8 @@ final class PresentStatementFigures
 
         return StatementFigures::fromArray([
             ...$figures,
+            // Le paiement en attente est maintenant retranché des jours : ce n'est plus une anomalie.
+            'anomalies' => array_values(array_filter($figures['anomalies'] ?? [], fn ($a) => ! str_ends_with($a, 'paiement(s) du mois encore en attente.'))),
             'calendar_days' => $calendarDays,
             'counted_days' => $countedDays,
             'recovered_count' => $recoveredCount,

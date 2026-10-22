@@ -405,4 +405,30 @@ class BuildStatementFiguresTest extends TestCase
 
         $this->assertSame([], $f->anomalies);
     }
+
+    public function test_duplicate_payments_are_a_gap_cause(): void
+    {
+        $contract = $this->july();
+        $days = $this->businessDays('2026-07-01', '2026-07-31');
+        $this->paidOn($contract, $days, 5871);
+        $this->paidOn($contract, [$days[0]], 5871);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07');
+
+        $this->assertEquals(-5871, $f->gap);
+        $this->assertSame(['1 paiement(s) en double sur un même jour'], $f->gapCauses);
+    }
+
+    public function test_failed_payments_are_a_gap_cause(): void
+    {
+        $contract = $this->july();
+        $days = $this->businessDays('2026-07-01', '2026-07-31');
+        $this->paidOn($contract, array_slice($days, 1), 5871);
+        $this->paidOn($contract, [$days[0]], 5871, 'failed');
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-07');
+
+        $this->assertEquals(5871, $f->gap);
+        $this->assertSame(['1 paiement(s) échoué(s)'], $f->gapCauses);
+    }
 }

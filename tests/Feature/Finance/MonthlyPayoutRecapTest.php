@@ -432,4 +432,40 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->assertNull($october['total_revenue']);
         $this->assertEquals(90_000, $october['revenue']);
     }
+
+    public function test_a_month_awaiting_review_counts_pending_only_on_calendar_days(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-10-01']);
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => '2026-10-01', 'end_date' => '2026-10-01', 'reason_type' => 'agent_leave']);
+        Payment::factory()->onDay('2026-10-01')->status('pending')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5_871]);
+        Payment::factory()->onDay('2026-10-02')->status('pending')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5_871]);
+
+        $october = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json())
+            ->firstWhere('month', '2026-10');
+
+        $this->assertSame('review_pending', $october['status']);
+        $this->assertSame(1, $october['pending_count']);
+        $this->assertEquals(5_871, $october['pending_amount']);
+    }
+
+    public function test_the_current_month_shows_its_unpaid_days(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-11-02']);
+        // Du 2 au 13 novembre, 10 jours ouvrés : 9 payés.
+        foreach (collect(Carbon::parse('2026-11-02')->toPeriod('2026-11-12'))->reject->isWeekend() as $day) {
+            Payment::factory()->onDay($day->toDateString())->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 5_871]);
+        }
+
+        $months = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json());
+
+        $this->assertSame(1, $months->firstWhere('month', '2026-11')['unpaid_days']);
+    }
 }
