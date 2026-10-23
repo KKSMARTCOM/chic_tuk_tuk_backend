@@ -1043,6 +1043,10 @@ fuseau du Bénin (2026-10-07) : à 23:30 UTC, il partait à 00:30 le lendemain a
 y passer les tâches de 01:00 : `next_recurring_date` est enregistrée à 01:00 UTC, et
 `app:process-recurring-bookings` lancée à 00:00 UTC ne générerait plus rien.
 
+⚠️ **Une date « pas dans le futur » se borne sur la date du Bénin** (`App\Shared\Support\BeninDate::today()`,
+2026-10-23), jamais par `before_or_equal:today` : entre minuit et 1 h au Bénin, `today` en UTC est
+encore la veille, et la date du jour serait refusée. Étapes de préparation et versements l'utilisent.
+
 Sortie ajoutée à `storage/logs/commands.log`. En conteneur, `schedule:run` est lancé chaque
 minute par une boucle supervisord (`docker/supervisord.conf`), pas par un cron système.
 
