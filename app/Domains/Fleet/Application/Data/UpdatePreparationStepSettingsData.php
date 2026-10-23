@@ -23,7 +23,7 @@ final class UpdatePreparationStepSettingsData extends BaseData
     {
         return [
             'steps' => ['required', 'array', 'min:1', 'max:30'],
-            'steps.*.id' => ['nullable', 'uuid', Rule::exists('preparation_step_templates', 'id')],
+            'steps.*.id' => ['nullable', 'uuid', 'distinct', Rule::exists('preparation_step_templates', 'id')],
             'steps.*.label' => ['required', 'string', 'max:120', function (string $attribute, mixed $value, \Closure $fail) {
                 // Deux libellés identiques à la casse et aux espaces près : le second est refusé.
                 $index = (int) explode('.', $attribute)[1];
@@ -47,6 +47,7 @@ final class UpdatePreparationStepSettingsData extends BaseData
             'steps.min' => 'Gardez au moins une étape.',
             'steps.max' => 'Trente étapes au plus.',
             'steps.*.id.exists' => 'Cette étape n\'existe plus : rechargez la page.',
+            'steps.*.id.distinct' => 'Cette étape figure deux fois dans la liste : rechargez la page.',
             'steps.*.label.required' => 'Le libellé de l\'étape est obligatoire.',
             'steps.*.label.max' => 'Le libellé ne dépasse pas 120 caractères.',
         ];

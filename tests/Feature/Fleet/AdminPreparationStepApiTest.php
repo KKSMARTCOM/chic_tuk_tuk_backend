@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use App\Models\VehicleContractPreparationStep;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -84,6 +85,11 @@ class AdminPreparationStepApiTest extends TestCase
             ->assertJsonPath('preparation_steps.9.is_agent_arrival', true);
     }
 
+    /**
+     * Deux coches successives, pas simultanées : le test est séquentiel. C'est le passage « à faire »
+     * → « faite », lu sous le verrou du contrat puis de l'étape, qui garantit une seule notification
+     * quand deux admins cochent en même temps.
+     */
     public function test_ticking_notifies_the_owner_once(): void
     {
         $admin = $this->asAdmin();
@@ -275,5 +281,40 @@ class AdminPreparationStepApiTest extends TestCase
         DB::rollBack();
 
         Storage::disk('local')->assertExists($old);
+    }
+
+    public function test_today_is_the_benin_date_between_midnight_and_one(): void
+    {
+        // 23:30 UTC = 00:30 le 23 au Bénin : le 23 est aujourd'hui, le 24 est futur (mineur M-1).
+        Carbon::setTestNow('2026-10-22 23:30:00');
+        $admin = $this->asAdmin();
+
+        $admin->patchJson($this->url($this->step()), ['done_on' => '2026-10-23'])->assertOk();
+        $admin->patchJson($this->url($this->step()), ['done_on' => '2026-10-24'])->assertStatus(422)->assertJsonValidationErrors('done_on');
+        Carbon::setTestNow();
+    }
+
+    public function test_removing_a_missing_proof_is_not_journaled(): void
+    {
+        $this->asAdmin()->deleteJson($this->url($this->step(), '/proof'))->assertOk();
+
+        $this->assertSame(0, Activity::where('event', 'vehicle.preparation_proof_removed')->count());
+    }
+
+    public function test_the_notification_keeps_an_acronym_capitalised(): void
+    {
+        $this->step()->update(['label' => 'GPS posé']);
+
+        $this->asAdmin()->patchJson($this->url($this->step('GPS posé')), ['done_on' => '2026-10-08'])->assertOk();
+
+        $this->assertSame('2EV2338 RB : GPS posé, faite le 08/10/2026.', $this->ownerNotifications()->value('message'));
+    }
+
+    public function test_a_malformed_identifier_is_404_not_500(): void
+    {
+        $admin = $this->asAdmin();
+
+        $admin->patchJson("/api/v1/admin/vehicle-contracts/{$this->contract->id}/preparation-steps/abc", ['done_on' => '2026-10-08'])->assertNotFound();
+        $admin->getJson("/api/v1/admin/vehicle-contracts/abc/preparation-steps/abc/proof")->assertNotFound();
     }
 }

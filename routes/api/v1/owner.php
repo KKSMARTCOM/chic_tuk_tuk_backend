@@ -41,7 +41,7 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:owner'])
             ->middleware('permission:view-own-contracts')
             ->name('vehicles.show');
 
-        Route::get('/vehicles/{id}/preparation-steps/{step}/proof', [VehicleController::class, 'preparationProof'])
+        Route::get('/vehicles/{id}/preparation-steps/{step}/proof', [VehicleController::class, 'preparationProof'])->whereUuid(['id', 'step'])
             ->middleware('permission:view-own-contracts')
             ->name('vehicles.preparation-proof');
 

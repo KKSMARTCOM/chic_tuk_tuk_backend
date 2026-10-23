@@ -50,18 +50,19 @@ class PreparationStepsTest extends TestCase
         $this->assertSame(3, $contract->preparationSteps()->count());
     }
 
-    public function test_backfill_reaches_only_pending_contracts_without_steps(): void
+    public function test_the_migration_gives_the_defaults_to_pending_contracts_only(): void
     {
-        $this->templates('A');
+        $migration = require database_path('migrations/2026_10_20_100000_create_preparation_steps_tables.php');
+        $migration->down();
         $target = $this->pending();
-        $provided = $this->pending();
-        PreparationSteps::seedFor($provided);
         $others = collect(['active', 'completed', 'cancelled'])->map(fn ($status) => VehicleContract::factory()->create(['status' => $status]));
 
-        $this->assertSame(1, PreparationSteps::backfillPending());
+        $migration->up();
 
-        $this->assertSame(2, $target->preparationSteps()->count());
-        $this->assertSame(2, $provided->preparationSteps()->count());
+        $steps = $target->preparationSteps()->orderBy('position')->get();
+        $this->assertCount(10, $steps);
+        $this->assertSame(PreparationSteps::AGENT_ARRIVAL_LABEL, $steps->last()->label);
+        $this->assertSame([false, true], [$steps->first()->is_agent_arrival, $steps->last()->is_agent_arrival]);
         $others->each(fn ($contract) => $this->assertSame(0, $contract->preparationSteps()->count()));
     }
 

@@ -38,18 +38,6 @@ final class PreparationSteps
         ]);
     }
 
-    /** Les contrats déjà en attente, sans étape (spec §3.3). Rend le nombre traité. */
-    public static function backfillPending(): int
-    {
-        $contracts = VehicleContract::query()->where('status', 'pending')
-            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('vehicle_contract_preparation_steps as s')
-                ->whereColumn('s.vehicle_contract_id', 'vehicle_contracts.id'))
-            ->get();
-        $contracts->each(fn (VehicleContract $contract) => self::seedFor($contract));
-
-        return $contracts->count();
-    }
-
     /** Le contrat est mis en service : l'arrivée du premier agent est cochée à cette date (§4.3, §4.3 bis). Sans notification. */
     public static function markAgentArrival(VehicleContract $contract, string $date): void
     {

@@ -13,6 +13,7 @@ use App\Domains\Notification\Application\Notifier;
 use App\Models\VehicleContract;
 use App\Models\VehicleContractPreparationStep;
 use App\Shared\Http\ApiException;
+use App\Shared\Support\BeninDate;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,7 +52,7 @@ final class PreparationStepController
             [$contract, $step] = $this->resolve($contractId, $stepId);
             $data = Validator::make($request->all(), [
                 'label' => ['sometimes', 'required', 'string', 'max:120'],
-                'done_on' => ['sometimes', 'nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
+                'done_on' => ['sometimes', 'nullable', 'date_format:Y-m-d', 'before_or_equal:'.BeninDate::today()],
             ], self::MESSAGES)->validate();
             $changes = $update($contract, $step, $data, $request->user());
 
@@ -103,8 +104,9 @@ final class PreparationStepController
     {
         return $this->guard($request, 'le retrait de la preuve d\'une étape', function () use ($contractId, $stepId, $remove) {
             [$contract, $step] = $this->resolve($contractId, $stepId);
-            $remove($contract, $step);
-            $this->journal->preparationProofRemoved($step->refresh());
+            if ($remove($contract, $step)) {
+                $this->journal->preparationProofRemoved($step->refresh());
+            }
 
             return AdminPreparationData::forContract($contract);
         });

@@ -389,7 +389,11 @@ final class Notifier
     public function preparationStepDone(VehicleContractPreparationStep $step): void
     {
         $vehicle = $step->vehicleContract?->vehicle;
-        $label = mb_strtolower(mb_substr($step->label, 0, 1)).mb_substr($step->label, 1);
+        // « Installation… » devient « installation… », mais un sigle garde sa capitale : « GPS… » (M-8).
+        $second = mb_substr($step->label, 1, 1);
+        $label = $second !== '' && $second === mb_strtoupper($second) && $second !== mb_strtolower($second)
+            ? $step->label
+            : mb_strtolower(mb_substr($step->label, 0, 1)).mb_substr($step->label, 1);
 
         $this->vers(
             $vehicle?->owner,

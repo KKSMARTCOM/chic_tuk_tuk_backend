@@ -14,6 +14,7 @@ use App\Domains\Notification\Application\Notifier;
 use App\Models\OwnerDisbursement;
 use App\Models\VehicleContract;
 use App\Shared\Http\ApiException;
+use App\Shared\Support\BeninDate;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -114,7 +115,7 @@ final class DisbursementController
         $required = $partial ? ['sometimes', 'required'] : ['required'];
 
         return [
-            'paid_on' => [...$required, 'date_format:Y-m-d', 'before_or_equal:today',
+            'paid_on' => [...$required, 'date_format:Y-m-d', 'before_or_equal:'.BeninDate::today(),
                 ...($contract->start_date ? ['after_or_equal:'.$contract->start_date->toDateString()] : [])],
             'amount' => [...$required, 'numeric', 'gt:0', 'decimal:0,2'],
             'method' => [...$required, Rule::in(['mobile_money', 'bank_transfer'])],

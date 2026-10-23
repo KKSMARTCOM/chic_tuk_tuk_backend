@@ -36,10 +36,10 @@ final class PreparationStepSettingsController
         ActivityJournal $journal,
     ): JsonResponse {
         try {
-            $labels = fn ($settings) => ['steps' => collect($settings->steps)->pluck('label')->all()];
-            $before = $labels($show());
+            $steps = fn ($settings) => collect($settings->steps)->map(fn ($s) => ['id' => $s->id, 'label' => $s->label])->all();
+            $before = $steps($show());
             $after = $update($data);
-            $journal->preparationStepsUpdated($before, $labels($after));
+            $journal->preparationStepsUpdated($before, $steps($after));
 
             return response()->json($after);
         } catch (ValidationException|ApiException|ModelNotFoundException $e) {

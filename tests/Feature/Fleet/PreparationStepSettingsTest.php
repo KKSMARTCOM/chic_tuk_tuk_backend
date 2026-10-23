@@ -110,4 +110,37 @@ class PreparationStepSettingsTest extends TestCase
 
         $this->assertSame(1, Activity::where('event', 'settings.preparation_steps_updated')->count());
     }
+
+    public function test_the_journal_keeps_only_the_changed_steps(): void
+    {
+        [$a, $b, $c] = $this->templates('A', 'B', 'C');
+
+        // A renommée, B gardée, C retirée, D ajoutée : trois lignes, ni B ni l'ordre (M-7).
+        $this->asAdmin()->putJson(self::URL, ['steps' => [
+            ['id' => $a->id, 'label' => 'A bis'], ['id' => $b->id, 'label' => 'B'], ['id' => null, 'label' => 'D'],
+        ]])->assertOk();
+
+        $changes = collect(Activity::where('event', 'settings.preparation_steps_updated')->value('properties')['changes']);
+        $this->assertEqualsCanonicalizing([
+            ['from' => 'A', 'to' => 'A bis'], ['from' => 'C', 'to' => null], ['from' => null, 'to' => 'D'],
+        ], $changes->values()->all());
+    }
+
+    public function test_a_reorder_alone_is_journaled_as_the_order(): void
+    {
+        [$a, $b] = $this->templates('A', 'B');
+
+        $this->asAdmin()->putJson(self::URL, ['steps' => [['id' => $b->id, 'label' => 'B'], ['id' => $a->id, 'label' => 'A']]])->assertOk();
+
+        $this->assertSame(['order' => ['from' => ['A', 'B'], 'to' => ['B', 'A']]],
+            Activity::where('event', 'settings.preparation_steps_updated')->value('properties')['changes']);
+    }
+
+    public function test_the_same_id_twice_is_refused(): void
+    {
+        [$a] = $this->templates('A', 'B');
+
+        $this->asAdmin()->putJson(self::URL, ['steps' => [['id' => $a->id, 'label' => 'A'], ['id' => $a->id, 'label' => 'A2']]])
+            ->assertStatus(422)->assertJsonValidationErrors('steps.1.id');
+    }
 }

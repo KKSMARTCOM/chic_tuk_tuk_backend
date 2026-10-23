@@ -930,9 +930,35 @@ final class ActivityJournal
         $this->record(ActivityEvent::ContractTermsUpdated, null, 'a modifié les réglages des contrats propriétaires', $this->changes($before, $after));
     }
 
+    /**
+     * Les seules étapes changées (spec 2026-10-20, §4.4 ; mineur M-7) : une ligne `step:{id}` par
+     * étape ajoutée (de null), retirée (vers null) ou renommée, et `order` quand les étapes gardées
+     * ont changé de place.
+     *
+     * @param  list<array{id: string, label: string}>  $before
+     * @param  list<array{id: string, label: string}>  $after
+     */
     public function preparationStepsUpdated(array $before, array $after): void
     {
-        $this->record(ActivityEvent::PreparationStepsUpdated, null, 'a modifié les étapes de préparation par défaut', $this->changes($before, $after));
+        $old = collect($before)->pluck('label', 'id');
+        $new = collect($after)->pluck('label', 'id');
+        $changes = [];
+        foreach ($new as $id => $label) {
+            if (($old[$id] ?? null) !== $label) {
+                $changes["step:{$id}"] = ['from' => $old[$id] ?? null, 'to' => $label];
+            }
+        }
+        foreach ($old as $id => $label) {
+            if (! $new->has($id)) {
+                $changes["step:{$id}"] = ['from' => $label, 'to' => null];
+            }
+        }
+        $kept = fn ($steps, $other) => $steps->keys()->filter(fn ($id) => $other->has($id))->values()->all();
+        if ($kept($old, $new) !== $kept($new, $old)) {
+            $changes['order'] = ['from' => $old->values()->all(), 'to' => $new->values()->all()];
+        }
+
+        $this->record(ActivityEvent::PreparationStepsUpdated, null, 'a modifié les étapes de préparation par défaut', $changes ? ['changes' => $changes] : []);
     }
 
     // ----- Fiches de rémunération --------------------------------------------------------

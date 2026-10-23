@@ -359,4 +359,13 @@ class AdminDisbursementsApiTest extends TestCase
     {
         $this->as(['view-disbursements'])->getJson('/api/v1/admin/disbursements/contracts')->assertForbidden();
     }
+
+    public function test_today_is_the_benin_date_between_midnight_and_one(): void
+    {
+        // 23:30 UTC = 00:30 le 23 au Bénin : un versement du 23 n'est pas dans le futur.
+        Carbon::setTestNow('2026-10-22 23:30:00');
+
+        $this->record(['paid_on' => '2026-10-23'])->assertOk();
+        $this->record(['paid_on' => '2026-10-24'])->assertStatus(422)->assertJsonValidationErrors('paid_on');
+    }
 }

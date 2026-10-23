@@ -1,6 +1,5 @@
 <?php
 
-use App\Domains\Fleet\Domain\PreparationSteps;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -58,7 +57,21 @@ return new class extends Migration
             ]);
         }
 
-        PreparationSteps::backfillPending();
+        // Les contrats déjà en attente (§3.3). Figé ici plutôt que `PreparationSteps::backfillPending()` :
+        // une migration qui appelle le code casserait le jour où ses modèles évoluent (mineur M-2).
+        $templates = DB::table('preparation_step_templates')->orderBy('position')->pluck('label')->all();
+        $pending = DB::table('vehicle_contracts')->where('status', 'pending')->pluck('id');
+        foreach ($pending as $contractId) {
+            $rows = [];
+            foreach ([...$templates, 'Arrivée du premier agent'] as $i => $label) {
+                $rows[] = [
+                    'id' => (string) Str::uuid(), 'vehicle_contract_id' => $contractId, 'label' => $label,
+                    'position' => $i + 1, 'is_agent_arrival' => $i === count($templates),
+                    'created_at' => $now, 'updated_at' => $now,
+                ];
+            }
+            DB::table('vehicle_contract_preparation_steps')->insert($rows);
+        }
     }
 
     public function down(): void
