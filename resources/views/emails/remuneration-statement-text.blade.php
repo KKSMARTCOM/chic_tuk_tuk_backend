@@ -1,9 +1,14 @@
 {{-- La version texte de l'e-mail de la fiche de rémunération, pour les messageries sans HTML.
      ⚠️ `{!! !!}` : un texte brut n'a pas d'entités HTML — `{{ }}` y écrirait « d&#039;octobre ». --}}
-Bonjour,
+Bonjour{!! $ownerName !== '' ? ' '.$ownerName : '' !!},
 
-Vous trouverez ci-joint votre fiche de rémunération {!! $monthPhrase !!} (n° {!! $number !!}).
+Veuillez trouver en pièce jointe votre fiche de rémunération propriétaire Chic Tuk Tuk relative au mois {!! $monthPhrase !!} (n° {!! $number !!}).
 
 Elle est aussi disponible dans votre espace propriétaire, onglet Paiements du véhicule.
 
-L'équipe Chic Tuk Tuk — transport en tricycle à Cotonou.
+Nous vous remercions pour votre confiance et restons à votre disposition pour toute information complémentaire.
+
+Cordialement,
+
+Service Comptabilité
+Chic Tuk Tuk

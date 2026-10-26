@@ -2,6 +2,7 @@
 
 namespace App\Domains\Notification\Application;
 
+use App\Domains\Finance\Application\Mail\DisbursementMail;
 use App\Models\Announcement;
 use App\Models\Booking;
 use App\Models\LeaveRequest;
@@ -18,6 +19,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Qui est prévenu de quoi — la table de routage des notifications.
@@ -365,6 +367,11 @@ final class Notifier
                 'success',
                 "/owner/vehicles/{$vehicle->id}/payments?view=disbursements",
             );
+            // L'e-mail du Service Comptabilité, preuve jointe s'il y en a une (2026-10-26) : mêmes
+            // conditions que la notification, donc jamais pour un versement d'avant la livraison.
+            if ($vehicle->owner?->email) {
+                Mail::to($vehicle->owner->email)->queue(new DisbursementMail($disbursement));
+            }
             $disbursement->forceFill(['owner_notified_at' => now()])->save();
         });
     }

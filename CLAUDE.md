@@ -895,6 +895,10 @@ enregistre ce que l'agence a versé au propriétaire, par contrat propriétaire,
   REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (à régler sur le jour de la livraison ; absent : jamais),
   fiches visibles et propriétaire du contrat encore propriétaire du véhicule. La régularisation
   de l'historique reste donc silencieuse.
+- **E-mail du Service Comptabilité** (2026-10-26) : `DisbursementMail` part en file avec la
+  notification, aux mêmes conditions, si le propriétaire a une adresse — preuve en pièce jointe si
+  elle existe encore à l'envoi, sinon « Nous vous informons du versement… ». L'e-mail de la fiche
+  (`RemunerationStatementMail`) a pris le même ton : « Bonjour {nom} », signature « Service Comptabilité ».
 - **Depuis l'ajout d'un paiement** (essai staging du 2026-10-22) : `GET /admin/disbursements/contracts`
   (`create-disbursements`, `ListDisbursableContracts`) liste les contrats qui ont au moins une fiche
   validée, avec propriétaire, immatriculation et dû ; le versement part ensuite par la route du contrat.
@@ -1367,7 +1371,7 @@ qu'en relisant le dépôt entier.
 | Pause validée / refusée | l'agent concerné |
 | Véhicule mis en pause / reprise | le propriétaire du véhicule |
 | Paiement **validé** ou **annulé** | l'agent concerné, lui seul |
-| Versement enregistré (2026-10-22) | le propriétaire du contrat, s'il l'est encore du véhicule — seulement si `paid_on ≥ REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (absent : jamais) et fiches visibles ; ni correction ni annulation |
+| Versement enregistré (2026-10-22) | le propriétaire du contrat, s'il l'est encore du véhicule — seulement si `paid_on ≥ REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (absent : jamais) et fiches visibles ; ni correction ni annulation. Dans les mêmes conditions, l'e-mail `DisbursementMail` (2026-10-26), preuve jointe s'il y en a une |
 
 ⚠️ « Les administrateurs sont prévenus de toutes les actions agent » ne veut PAS dire
 qu'ils reçoivent tout : une pause validée ne leur revient pas, puisque c'est l'un d'eux

@@ -10,7 +10,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/** La fiche de rémunération, en pièce jointe, au propriétaire. */
+/** La fiche de rémunération, en pièce jointe, au propriétaire — ton du Service Comptabilité (2026-10-26). */
 class RemunerationStatementMail extends Mailable
 {
     use Queueable, SerializesModels;
@@ -27,7 +27,12 @@ class RemunerationStatementMail extends Mailable
         return new Content(
             view: 'emails.remuneration-statement',
             text: 'emails.remuneration-statement-text',
-            with: ['monthPhrase' => $this->monthPhrase(), 'monthLabel' => $this->monthLabel(), 'number' => $this->statement->number],
+            with: [
+                'ownerName' => (string) $this->statement->contract?->vehicle?->owner?->name,
+                'monthPhrase' => $this->monthPhrase(),
+                'monthLabel' => $this->monthLabel(),
+                'number' => $this->statement->number,
+            ],
         );
     }
 

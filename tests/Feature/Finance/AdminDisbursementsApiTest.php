@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Finance;
 
+use App\Domains\Finance\Application\Mail\DisbursementMail;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Notification;
 use App\Models\OwnerDisbursement;
@@ -15,6 +16,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Kreait\Firebase\Contract\Messaging;
 use Mockery;
@@ -367,5 +369,54 @@ class AdminDisbursementsApiTest extends TestCase
 
         $this->record(['paid_on' => '2026-10-23'])->assertOk();
         $this->record(['paid_on' => '2026-10-24'])->assertStatus(422)->assertJsonValidationErrors('paid_on');
+    }
+
+    public function test_recording_mails_the_owner_with_the_proof(): void
+    {
+        Mail::fake();
+        config(['remuneration.disbursement_notify_from' => '2026-10-01']);
+        $this->contract->vehicle->owner->update(['name' => 'Ange BITI', 'email' => 'ange@example.com']);
+
+        $this->record(['amount' => 50_000, 'proof' => UploadedFile::fake()->create('recu.pdf', 20, 'application/pdf')])->assertOk();
+
+        Mail::assertQueued(DisbursementMail::class, function (DisbursementMail $mail) {
+            $mail->assertSeeInText('Bonjour Ange BITI,');
+            $mail->assertSeeInText('Veuillez trouver en pièce jointe la preuve du versement de 50 000 F effectué le 20/10/2026');
+            $mail->assertSeeInText('2EV2338 RB');
+            $mail->assertSeeInText('Service Comptabilité');
+
+            return $mail->hasTo('ange@example.com') && count($mail->attachments()) === 1;
+        });
+    }
+
+    public function test_without_proof_the_mail_only_announces_the_disbursement(): void
+    {
+        Mail::fake();
+        config(['remuneration.disbursement_notify_from' => '2026-10-01']);
+
+        $this->record()->assertOk();
+
+        Mail::assertQueued(DisbursementMail::class, function (DisbursementMail $mail) {
+            $mail->assertSeeInText('Nous vous informons du versement de 50 000 F effectué le 20/10/2026');
+            $mail->assertDontSeeInText('pièce jointe');
+
+            return $mail->attachments() === [];
+        });
+    }
+
+    public function test_old_disbursements_corrections_and_owners_without_email_send_no_mail(): void
+    {
+        Mail::fake();
+        config(['remuneration.disbursement_notify_from' => '2026-10-21']);
+
+        // Daté d'avant la livraison : la régularisation reste silencieuse.
+        $this->record(['paid_on' => '2026-10-20'])->assertOk();
+        $this->correct(OwnerDisbursement::sole(), ['amount' => 40_000])->assertOk();
+        // Sans adresse : la notification seule.
+        $this->contract->vehicle->owner->update(['email' => null]);
+        $this->record(['paid_on' => '2026-10-22', 'amount' => 10_000])->assertOk();
+
+        Mail::assertNothingQueued();
+        $this->assertSame(1, Notification::count());
     }
 }

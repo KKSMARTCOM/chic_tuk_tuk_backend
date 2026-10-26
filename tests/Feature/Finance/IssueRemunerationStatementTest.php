@@ -36,7 +36,7 @@ class IssueRemunerationStatementTest extends TestCase
 
     private function validated(): RemunerationStatement
     {
-        $owner = User::factory()->create(['email' => 'proprio@example.com']);
+        $owner = User::factory()->create(['email' => 'proprio@example.com', 'name' => 'Ange BITI']);
         $contract = VehicleContract::factory()
             ->forVehicle(Vehicle::factory()->create(['owner_id' => $owner->id]))
             ->create(['start_date' => '2026-10-01']);
@@ -81,7 +81,19 @@ class IssueRemunerationStatementTest extends TestCase
     {
         $mail = new RemunerationStatementMail($this->validated());
 
-        $mail->assertSeeInText('fiche de rémunération d\'octobre 2026');
+        $mail->assertSeeInText('relative au mois d\'octobre 2026');
+    }
+
+    /** Le ton du comptable (2026-10-26) : le nom, la phrase d'usage, la signature du service. */
+    public function test_the_mail_speaks_like_the_accounting_service(): void
+    {
+        $mail = new RemunerationStatementMail($this->validated());
+
+        $mail->assertSeeInText('Bonjour Ange BITI,');
+        $mail->assertSeeInText('votre fiche de rémunération propriétaire Chic Tuk Tuk relative au mois d\'octobre 2026');
+        $mail->assertSeeInText('Nous vous remercions pour votre confiance');
+        $mail->assertSeeInText('Service Comptabilité');
+        $mail->assertSeeInHtml('Service Comptabilité');
     }
 
     public function test_the_notification_names_the_vehicle_mid_sentence(): void

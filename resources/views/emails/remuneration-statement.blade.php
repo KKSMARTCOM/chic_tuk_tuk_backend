@@ -1,5 +1,6 @@
 {{--
-    L'e-mail qui porte la fiche de rémunération validée, en pièce jointe (spec 2026-09-30, §5.4).
+    L'e-mail qui porte la fiche de rémunération validée, en pièce jointe (spec 2026-09-30, §5.4),
+    dans le ton du Service Comptabilité (2026-10-26).
 
     Même gabarit que `password-reset-links.blade.php` : tableaux et styles en ligne, sans
     image. La version texte est `remuneration-statement-text.blade.php`.
@@ -32,14 +33,23 @@
                             <h1 style="margin:0 0 16px; font-size:22px; line-height:1.3; font-weight:700; color:#111827;">
                                 Votre fiche de rémunération
                             </h1>
-                            <p style="margin:0 0 12px; font-size:15px; line-height:1.6;">Bonjour,</p>
+                            <p style="margin:0 0 12px; font-size:15px; line-height:1.6;">Bonjour{{ $ownerName !== '' ? ' '.$ownerName : '' }},</p>
                             <p style="margin:0 0 12px; font-size:15px; line-height:1.6;">
-                                Vous trouverez ci-joint votre fiche de rémunération
-                                <strong>{{ $monthPhrase }}</strong> (n° {{ $number }}).
+                                Veuillez trouver en pièce jointe votre fiche de rémunération propriétaire Chic Tuk Tuk
+                                relative au mois <strong>{{ $monthPhrase }}</strong> (n° {{ $number }}).
                             </p>
+                            <p style="margin:0 0 12px; font-size:15px; line-height:1.6;">
+                                Elle est aussi disponible dans votre espace propriétaire, onglet Paiements du véhicule.
+                            </p>
+
+                            <p style="margin:0 0 12px; font-size:15px; line-height:1.6;">
+                                Nous vous remercions pour votre confiance et restons à votre disposition pour toute
+                                information complémentaire.
+                            </p>
+                            <p style="margin:0 0 4px; font-size:15px; line-height:1.6;">Cordialement,</p>
                             <p style="margin:0; font-size:15px; line-height:1.6;">
-                                Elle est aussi disponible dans votre espace propriétaire, onglet
-                                Paiements du véhicule.
+                                <strong>Service Comptabilité</strong><br>
+                                Chic Tuk Tuk
                             </p>
                         </td>
                     </tr>
