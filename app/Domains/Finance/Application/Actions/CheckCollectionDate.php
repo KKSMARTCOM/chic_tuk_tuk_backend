@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Shared\Support\BeninDate;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
 use Carbon\Carbon;
@@ -18,7 +19,7 @@ final class CheckCollectionDate
 {
     public function __invoke(Payment $payment, Carbon $collectedOn): void
     {
-        if ($collectedOn->copy()->startOfDay()->gt(Carbon::today())) {
+        if ($collectedOn->copy()->startOfDay()->gt(BeninDate::startOfToday())) {
             throw ValidationException::withMessages(['collected_on' => 'La date d\'encaissement ne peut pas être dans le futur.']);
         }
         if ($payment->vehicle_contract_id === null || $payment->payment_month === null) {

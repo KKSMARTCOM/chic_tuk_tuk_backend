@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Shared\Support\BeninDate;
 use App\Domains\Notification\Application\Notifier;
 use App\Models\Payment;
 use App\Models\VehicleContract;
@@ -26,7 +27,7 @@ final class ValidatePayment
      */
     public function __invoke(Payment $payment, ?Carbon $collectedOn = null, bool $notify = true): Payment
     {
-        $collectedOn ??= Carbon::today();
+        $collectedOn ??= BeninDate::startOfToday();
 
         // Le contrat véhicule verrouillé, comme à la validation d'une fiche : sinon un paiement
         // validé pendant qu'une fiche du même contrat se valide passerait le garde-fou et

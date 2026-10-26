@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Workforce;
 
+use Carbon\Carbon;
 use App\Domains\Workforce\Application\Actions\EndDriverContract;
 use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
@@ -160,5 +161,15 @@ class DriverDepartureTest extends TestCase
         $request->refresh();
         $this->assertSame('rejected', $request->status);
         $this->assertSame('Départ de l\'agent.', $request->rejection_reason);
+    }
+
+    public function test_a_departure_on_the_benin_day_is_accepted_between_midnight_and_one(): void
+    {
+        $contract = $this->activeContract();
+        // 23:30 UTC le 22/10 = 00:30 le 23/10 au Bénin (2026-10-26).
+        Carbon::setTestNow('2026-10-22 23:30:00');
+        $this->beforeApplicationDestroyed(fn () => Carbon::setTestNow());
+
+        $this->assertSame('ended', $this->end($contract, '2026-10-23')->status);
     }
 }

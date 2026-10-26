@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Shared\Support\BeninDate;
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Domains\Finance\Application\Jobs\IssueRemunerationStatement;
 use App\Domains\Finance\Domain\ChargeLedger;
@@ -63,7 +64,7 @@ final class ValidateRemunerationStatement
                 throw new ApiException(409, 'STATEMENT_MONTH_NOT_OVER', 'Le mois n\'est pas terminé : ses chiffres ne sont que partiels.');
             }
 
-            $issuedOn ??= $statement->issued_on ?? Carbon::today();
+            $issuedOn ??= $statement->issued_on ?? BeninDate::startOfToday();
             $issueViolations = $this->issueDateViolations($statement, $issuedOn);
             if ($issueViolations !== []) {
                 throw ValidationException::withMessages($issueViolations);
@@ -190,7 +191,7 @@ final class ValidateRemunerationStatement
         if ($issuedOn->lte($statement->month->copy()->endOfMonth())) {
             return ['issued_on' => 'La date d\'établissement doit suivre la fin du mois de la fiche.'];
         }
-        if ($issuedOn->gt(Carbon::today())) {
+        if ($issuedOn->gt(BeninDate::startOfToday())) {
             return ['issued_on' => 'La date d\'établissement ne peut pas être dans le futur.'];
         }
         $previous = RemunerationStatement::query()

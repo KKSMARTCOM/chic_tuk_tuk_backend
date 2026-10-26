@@ -1045,7 +1045,11 @@ y passer les tâches de 01:00 : `next_recurring_date` est enregistrée à 01:00 
 
 ⚠️ **Une date « pas dans le futur » se borne sur la date du Bénin** (`App\Shared\Support\BeninDate::today()`,
 2026-10-23), jamais par `before_or_equal:today` : entre minuit et 1 h au Bénin, `today` en UTC est
-encore la veille, et la date du jour serait refusée. Étapes de préparation et versements l'utilisent.
+encore la veille, et la date du jour serait refusée. Tous les refus de date future d'un formulaire
+l'utilisent depuis le 2026-10-26 : étapes, versements, encaissement et établissement (et leurs valeurs
+par défaut), période de génération, fin d'un contrat agent, clôture et saisie de pauses passées,
+« au moins demain » d'une demande de pause (`BeninDate::tomorrow()`). Les calculs métier (calendrier,
+génération, tableaux de bord) restent en UTC.
 
 Sortie ajoutée à `storage/logs/commands.log`. En conteneur, `schedule:run` est lancé chaque
 minute par une boucle supervisord (`docker/supervisord.conf`), pas par un cron système.

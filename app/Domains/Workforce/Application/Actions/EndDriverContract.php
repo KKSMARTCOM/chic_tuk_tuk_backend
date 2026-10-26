@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Shared\Support\BeninDate;
 use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
@@ -46,7 +47,7 @@ final class EndDriverContract
 
         // ⚠️ Corrigé le 2026-10-06 : deux contrats de production se sont terminés avant
         // d'avoir commencé, ce qui sortait tous leurs jours du contrat.
-        $endDate = Carbon::parse($data['end_date'] ?? now()->toDateString())->startOfDay();
+        $endDate = Carbon::parse($data['end_date'] ?? BeninDate::today())->startOfDay();
         if ($endDate->lt($contract->start_date->copy()->startOfDay())) {
             throw new ApiException(
                 422,
@@ -58,7 +59,7 @@ final class EndDriverContract
         // ⚠️ Terminer, c'est constater un départ ARRIVÉ (2026-10-21), comme pour la clôture d'une
         // pause (`LEAVE_END_IN_FUTURE`) : une fin future fermait le compte d'office, et les pauses
         // de l'agent ne pouvaient pas être réglées à une date qui n'est pas encore venue.
-        if ($endDate->gt(now()->startOfDay())) {
+        if ($endDate->gt(BeninDate::startOfToday())) {
             throw new ApiException(
                 422,
                 'DRIVER_CONTRACT_END_IN_FUTURE',
@@ -75,7 +76,7 @@ final class EndDriverContract
 
             $contract->update([
                 'status' => 'ended',
-                'end_date' => $data['end_date'] ?? now()->toDateString(),
+                'end_date' => $data['end_date'] ?? BeninDate::today(),
                 'end_reason' => $data['end_reason'],
                 'end_notes' => $data['end_notes'] ?? null,
             ]);

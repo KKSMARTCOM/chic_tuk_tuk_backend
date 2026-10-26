@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Data;
 
+use App\Shared\Support\BeninDate;
 use App\Shared\Data\BaseData;
 use Spatie\LaravelData\Support\Validation\ValidationContext;
 
@@ -23,7 +24,7 @@ final class RequestLeaveData extends BaseData
     public static function rules(ValidationContext $context): array
     {
         return [
-            'start_date' => ['required', 'date', 'after_or_equal:tomorrow'],
+            'start_date' => ['required', 'date', 'after_or_equal:'.BeninDate::tomorrow()],
             'requested_days' => ['required', 'integer', 'min:1'],
         ];
     }

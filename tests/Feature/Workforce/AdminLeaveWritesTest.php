@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Workforce;
 
+use Carbon\Carbon;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Driver;
 use App\Models\DriverContract;
@@ -602,5 +603,25 @@ class AdminLeaveWritesTest extends TestCase
     {
         Mockery::close();
         parent::tearDown();
+    }
+
+    public function test_les_bornes_suivent_le_jour_du_benin_entre_minuit_et_une_heure(): void
+    {
+        $agent = $this->agent();
+        $pause = LeaveRequest::factory()->ongoing()->create([
+            'driver_id' => $agent->id,
+            'driver_contract_id' => $agent->activeDriverContract->id,
+            'start_date' => '2026-10-19',
+        ]);
+        // 23:30 UTC le 22/10 = 00:30 le 23/10 au Bénin (2026-10-26).
+        Carbon::setTestNow('2026-10-22 23:30:00');
+        $this->beforeApplicationDestroyed(fn () => Carbon::setTestNow());
+        $token = $this->admin();
+
+        // Clôturer le jour même du Bénin, et saisir une pause passée qui finit la veille.
+        $this->entete($token)->patchJson("/api/v1/admin/leaves/{$pause->id}/end", ['end_date' => '2026-10-23'])->assertOk();
+        $this->entete($token)->postJson("/api/v1/admin/drivers/{$agent->id}/leaves/historical", [
+            'start_date' => '2026-10-22', 'requested_days' => 1,
+        ])->assertCreated();
     }
 }

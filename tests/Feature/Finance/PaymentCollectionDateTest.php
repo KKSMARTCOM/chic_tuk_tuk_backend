@@ -236,4 +236,16 @@ class PaymentCollectionDateTest extends TestCase
 
         $this->assertContains('vc', $order);
     }
+
+    public function test_the_collection_date_follows_the_benin_day_between_midnight_and_one(): void
+    {
+        Carbon::setTestNow('2026-10-01 23:30:00');
+        $a = $this->pending('2026-03-02');
+        $b = $this->pending('2026-03-03');
+
+        $this->api()->postJson("/api/v1/admin/payments/{$a->id}/validate", ['collected_on' => '2026-10-02'])->assertOk();
+        $this->api()->postJson("/api/v1/admin/payments/{$b->id}/validate")->assertOk();
+
+        $this->assertSame('2026-10-02', $b->refresh()->collected_on->toDateString());
+    }
 }

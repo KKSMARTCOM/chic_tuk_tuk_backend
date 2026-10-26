@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Workforce;
 
+use Carbon\Carbon;
 use App\Domains\Identity\Domain\Enums\Profil;
 use App\Models\Driver;
 use App\Models\DriverContract;
@@ -278,5 +279,17 @@ class DriverLeavesApiTest extends TestCase
             'start_date' => now()->addDays(3)->toDateString(),
             'requested_days' => 2,
         ])->assertStatus(409);
+    }
+
+    public function test_demain_se_lit_au_benin_entre_minuit_et_une_heure(): void
+    {
+        [, $token] = $this->loginDriver();
+        // 23:30 UTC le 22/10 = 00:30 le 23/10 au Bénin (2026-10-26).
+        Carbon::setTestNow('2026-10-22 23:30:00');
+        $this->beforeApplicationDestroyed(fn () => Carbon::setTestNow());
+
+        // Le 23 est déjà « aujourd'hui » au Bénin : moins de 24 heures d'avance.
+        $this->entete($token)->postJson('/api/v1/driver/leaves', ['start_date' => '2026-10-23', 'requested_days' => 1])
+            ->assertStatus(422)->assertJsonStructure(['errors' => ['start_date']]);
     }
 }

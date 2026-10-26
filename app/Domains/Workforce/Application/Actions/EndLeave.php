@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Shared\Support\BeninDate;
 use App\Domains\Fleet\Application\Actions\ClosePause;
 use App\Models\LeaveRequest;
 use App\Shared\Http\ApiException;
@@ -46,7 +47,7 @@ final class EndLeave
         // ⚠️ Clôturer, c'est constater une fin ARRIVÉE. Le 2026-10-01, une pause d'un jour
         // a été clôturée au 16 octobre, sa date de retour prévue : 22 jours comptés, et
         // les jours de l'agent suivant classés en pause jusqu'à cette date.
-        if ($fin->gt(now()->startOfDay())) {
+        if ($fin->gt(BeninDate::startOfToday())) {
             throw new ApiException(
                 422,
                 'LEAVE_END_IN_FUTURE',

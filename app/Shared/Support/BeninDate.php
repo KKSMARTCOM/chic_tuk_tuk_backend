@@ -2,6 +2,8 @@
 
 namespace App\Shared\Support;
 
+use Carbon\Carbon;
+
 /**
  * La date du jour au Bénin. L'application tourne en UTC, le Bénin est à UTC+1 : entre minuit et
  * 1 h, `today` en UTC est encore la veille, et une date du jour saisie serait refusée comme future
@@ -15,5 +17,20 @@ final class BeninDate
     public static function today(): string
     {
         return now(self::TIMEZONE)->toDateString();
+    }
+
+    /** `Y-m-d` du lendemain, pour une demande qui exige un jour d'avance. */
+    public static function tomorrow(): string
+    {
+        return now(self::TIMEZONE)->addDay()->toDateString();
+    }
+
+    /**
+     * Minuit du jour du Bénin, dans le fuseau de l'application : comparable aux dates saisies,
+     * lues par `Carbon::parse('Y-m-d')`.
+     */
+    public static function startOfToday(): Carbon
+    {
+        return Carbon::parse(self::today());
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Workforce\Application\Actions;
 
+use App\Shared\Support\BeninDate;
 use App\Models\LeaveRequest;
 use App\Shared\Http\ApiException;
 use Carbon\Carbon;
@@ -32,7 +33,7 @@ final class UpdateHistoricalLeave
         $debut = Carbon::parse($dateDeDebut)->startOfDay();
         $fin = LeaveRequest::addBusinessDays($debut, $joursDemandes);
 
-        if ($fin->gte(now()->startOfDay())) {
+        if ($fin->gte(BeninDate::startOfToday())) {
             throw new ApiException(
                 422,
                 'LEAVE_NOT_ENTIRELY_PAST',

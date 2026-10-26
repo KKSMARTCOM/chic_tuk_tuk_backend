@@ -2,6 +2,7 @@
 
 namespace App\Domains\Finance\Application\Actions;
 
+use App\Shared\Support\BeninDate;
 use App\Domains\Finance\Domain\ContractPaymentPlanner;
 use App\Domains\Finance\Domain\PaymentPlan;
 use App\Models\DriverContract;
@@ -37,7 +38,7 @@ final class PlanDriverContractPayments
         $to = $to->copy()->startOfDay();
         $boundedFrom = $from->lt($start) ? $start->copy()->startOfDay() : $from;
         $boundedTo = $end !== null && $to->gt($end) ? $end->copy()->startOfDay() : $to;
-        if ($boundedFrom->gt($boundedTo) || $boundedFrom->gt(Carbon::today())) {
+        if ($boundedFrom->gt($boundedTo) || $boundedFrom->gt(BeninDate::startOfToday())) {
             throw ValidationException::withMessages(['from' => 'La période est hors du contrat de l\'agent.']);
         }
 
@@ -61,7 +62,7 @@ final class PlanDriverContractPayments
             ->get(['id', 'payment_date', 'status']);
 
         return ContractPaymentPlanner::plan(
-            $boundedFrom, $boundedTo, $start, $end, Carbon::today(),
+            $boundedFrom, $boundedTo, $start, $end, BeninDate::startOfToday(),
             $vehicleContract->pauses()->get()->concat($agentPauses),
             $payments,
         );

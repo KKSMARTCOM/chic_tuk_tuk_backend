@@ -375,4 +375,13 @@ class ValidateRemunerationStatementTest extends TestCase
 
         $this->assertContains('1 paiement(s) tombent sur des jours de pause ou d\'immobilisation : à annuler avant la validation.', $blockers);
     }
+
+    public function test_the_issue_date_may_be_the_benin_day_between_midnight_and_one(): void
+    {
+        $contract = VehicleContract::factory()->create(['daily_amount' => 0, 'daily_tax' => 0, 'start_date' => '2026-03-02']);
+        $april = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-04-01']);
+        Carbon::setTestNow('2026-11-02 23:30:00');
+
+        $this->assertSame([], app(ValidateRemunerationStatement::class)->issueDateViolations($april, Carbon::parse('2026-11-03')));
+    }
 }
