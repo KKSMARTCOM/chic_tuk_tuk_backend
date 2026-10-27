@@ -1064,6 +1064,7 @@ démission : le propriétaire lisait « Actif » sans agent.
 - `app:generate-remuneration-statements {--month=}` → `GenerateRemunerationStatements` : les brouillons des fiches de rémunération d'un mois (par défaut le mois écoulé)
 - `app:regenerate-remuneration-pdfs {--dry-run}` : refait le PDF des fiches VALIDÉES dont le PDF est encore rangé, depuis leurs chiffres figés (même numéro, date, chemin) ; ne touche ni `pdf_generated_at`, ni le compteur de téléchargements, et n'envoie rien
 - `app:purge-remuneration-pdfs` : efface les PDF de fiches générés depuis plus de `remuneration.pdf_retention_days` jours ; la fiche reste
+- `app:purge-notifications` : chaque nuit à 03:45, les notifications lues de plus de 90 jours et celles des courses terminées ou supprimées (2026-10-27)
 - `app:purge-expired-cache` : chaque nuit à 04:00, efface les lignes expirées de la table `cache` (recherche de lieux, 2026-10-27)
 - `app:audit-contract-payments` : LECTURE SEULE — plus ancien contrat, paiements sans mois, sans contrat, sur un jour d'arrêt, en double sur un même contrat véhicule (deux agents compris), en attente d'un mois passé
 
@@ -1080,6 +1081,7 @@ Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `boots
 | `app:generate-remuneration-statements` | le 1er du mois à 02:00 |
 | `app:purge-remuneration-pdfs`   | tous les jours à 03:00        |
 | `app:purge-enrollment-id-documents` | tous les jours à 03:30 |
+| `app:purge-notifications`        | tous les jours à 03:45        |
 | `app:purge-expired-cache`        | tous les jours à 04:00        |
 
 ⚠️ **L'application tourne en UTC, le Bénin est à UTC+1.** Seul `app:generate-daily` suit le
@@ -1412,6 +1414,17 @@ qu'en relisant le dépôt entier.
 | Véhicule mis en pause / reprise | le propriétaire du véhicule |
 | Paiement **validé** ou **annulé** | l'agent concerné, lui seul |
 | Versement enregistré (2026-10-22) | le propriétaire du contrat, s'il l'est encore du véhicule — seulement si `paid_on ≥ REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (absent : jamais) et fiches visibles ; ni correction ni annulation. Dans les mêmes conditions, l'e-mail `DisbursementMail` (2026-10-26), preuve jointe s'il y en a une |
+
+**La liste des notifications** (2026-10-27, spec `docs/specs/2026-10-27-liste-des-notifications-design.md`) :
+`GET /notifications?filter=unread|all`, `PATCH /{id}/unread`, `DELETE /{id}`, `DELETE /read` (les
+lues seulement, `{ deleted: n }`). ⚠️ **La notification « Nouvelle réservation disponible » des
+agents porte `data.kind = booking_available` et `data.booking_id`**, et `Notification::visible()`
+la cache — liste ET compteur — dès que sa course n'est plus `pending` sans agent, chez tous les
+agents ; elle revient si la course redevient libre. C'est une règle de LECTURE : rien n'est écrit
+à l'acceptation, et toute lecture des notifications d'un compte passe par `visible()`. La
+comparaison se fait en texte (`bookings.id::text`), et `coalesce` sur `kind` évite qu'une charge
+nulle ne cache une notification. Purge `app:purge-notifications` (03:45) : lues de plus de 90 jours
+(sur `created_at`, pas de `read_at`), et « course disponible » d'une course terminée ou supprimée.
 
 ⚠️ « Les administrateurs sont prévenus de toutes les actions agent » ne veut PAS dire
 qu'ils reçoivent tout : une pause validée ne leur revient pas, puisque c'est l'un d'eux
