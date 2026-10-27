@@ -39,6 +39,12 @@ return [
         'key' => env('OPEN_ROUTE_SERVICE_API_KEY'),
     ],
 
+    // La recherche de lieux (2026-10-27) : le serveur public de Komoot, sans clé.
+    'photon' => [
+        // `PHOTON_URL=` laissé vide dans le .env retombe aussi sur le serveur public.
+        'url' => env('PHOTON_URL') ?: 'https://photon.komoot.io/api/',
+    ],
+
     /*
      * Cloudflare Turnstile — protège les endpoints publics (POST /api/v1/public/bookings)
      * contre les robots. Tant que TURNSTILE_SECRET est vide, la vérification est

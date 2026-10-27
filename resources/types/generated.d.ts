@@ -468,6 +468,13 @@ school_class: string | null;
 health_notes: string | null;
 profession: string | null;
 };
+export type PlaceSuggestionData = {
+label: string;
+detail: string | null;
+lat: number;
+lng: number;
+source: "popular" | "osm";
+};
 export type PriceQuoteData = {
 distance_km: number;
 base_price: number;
