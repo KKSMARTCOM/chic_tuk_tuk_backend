@@ -28,6 +28,16 @@ final class MarkNotificationRead
     }
 
     /** @throws ModelNotFoundException */
+    /** La remettre « non lue » (2026-10-27), pour y revenir plus tard. */
+    public function unread(User $user, int $id): void
+    {
+        $notification = Notification::forUser($user->id)->findOrFail($id);
+
+        if ($notification->is_read) {
+            $notification->update(['is_read' => false]);
+        }
+    }
+
     public function tout(User $user): void
     {
         Notification::forUser($user->id)->unread()->update([

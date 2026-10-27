@@ -1632,6 +1632,9 @@ declare namespace App.Domains.Identity.Domain.Enums {
 export type Profil = 'admin' | 'client' | 'driver' | 'owner';
 }
 declare namespace App.Domains.Notification.Application.Data {
+export type DeletedNotificationsData = {
+deleted: number;
+};
 export type DeviceTokenData = {
 token: string;
 };

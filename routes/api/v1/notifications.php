@@ -40,6 +40,8 @@ Route::middleware(['token.fresh', 'auth:sanctum'])
          * quelqu'un la retire un jour.
          */
         Route::patch('/read-all', [NotificationController::class, 'markAllRead'])->name('read-all');
+        // Supprimer toutes ses notifications lues (2026-10-27) : littéral, donc avant `/{id}`.
+        Route::delete('/read', [NotificationController::class, 'destroyRead'])->name('destroy-read');
 
         Route::get('/preferences', [NotificationController::class, 'preferences'])->name('preferences');
         Route::patch('/preferences', [NotificationController::class, 'updatePreferences'])->name('preferences.update');
@@ -53,4 +55,10 @@ Route::middleware(['token.fresh', 'auth:sanctum'])
         Route::patch('/{id}/read', [NotificationController::class, 'markRead'])
             ->whereNumber('id')
             ->name('read');
+        Route::patch('/{id}/unread', [NotificationController::class, 'markUnread'])
+            ->whereNumber('id')
+            ->name('unread');
+        Route::delete('/{id}', [NotificationController::class, 'destroy'])
+            ->whereNumber('id')
+            ->name('destroy');
     });

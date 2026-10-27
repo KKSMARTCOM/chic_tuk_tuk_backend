@@ -2,11 +2,13 @@
 
 namespace App\Domains\Notification\Presentation\Api\V1;
 
+use App\Domains\Notification\Application\Actions\DeleteNotifications;
 use App\Domains\Notification\Application\Actions\ForgetDevice;
 use App\Domains\Notification\Application\Actions\ListNotifications;
 use App\Domains\Notification\Application\Actions\MarkNotificationRead;
 use App\Domains\Notification\Application\Actions\RegisterDevice;
 use App\Domains\Notification\Application\Actions\UpdateNotificationPreferences;
+use App\Domains\Notification\Application\Data\DeletedNotificationsData;
 use App\Domains\Notification\Application\Data\DeviceTokenData;
 use App\Domains\Notification\Application\Data\NotificationPageData;
 use App\Domains\Notification\Application\Data\NotificationPreferencesData;
@@ -40,6 +42,8 @@ final class NotificationController
             [$page, $nonLues] = $lister(
                 $this->utilisateur($request),
                 max(1, (int) $request->query('page', 1)),
+                // `filter=unread` seul filtre ; toute autre valeur, tableau compris, vaut « toutes ».
+                $request->query('filter') === 'unread',
             );
 
             return response()->json(NotificationPageData::fromPaginator($page, $nonLues));
@@ -62,6 +66,46 @@ final class NotificationController
         } catch (\Throwable $e) {
             return $this->echec($e, $request, 'le marquage d\'une notification',
                 'Cette notification n\'a pas pu être marquée comme lue.', 'NOTIFICATION_READ_FAILED');
+        }
+    }
+
+    public function markUnread(Request $request, int $id, MarkNotificationRead $marquer): Response
+    {
+        try {
+            $marquer->unread($this->utilisateur($request), $id);
+
+            return response()->noContent();
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->echec($e, $request, 'le retour d\'une notification à « non lue »',
+                'Cette notification n\'a pas pu être marquée comme non lue.', 'NOTIFICATION_UNREAD_FAILED');
+        }
+    }
+
+    public function destroy(Request $request, int $id, DeleteNotifications $delete): Response
+    {
+        try {
+            $delete->one($this->utilisateur($request), $id);
+
+            return response()->noContent();
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->echec($e, $request, 'la suppression d\'une notification',
+                'Cette notification n\'a pas pu être supprimée.', 'NOTIFICATION_DELETE_FAILED');
+        }
+    }
+
+    public function destroyRead(Request $request, DeleteNotifications $delete): JsonResponse
+    {
+        try {
+            return response()->json(new DeletedNotificationsData($delete->read($this->utilisateur($request))));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->echec($e, $request, 'la suppression des notifications lues',
+                'Vos notifications lues n\'ont pas pu être supprimées.', 'NOTIFICATIONS_DELETE_READ_FAILED');
         }
     }
 
