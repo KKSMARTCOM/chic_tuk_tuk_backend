@@ -937,7 +937,14 @@ l'`attribution` OpenStreetMap. Sous 2 caractères : liste vide sans appel ; plus
   hôpitaux, lieux de culte et gares gardés. Réponse en cache **6 h** par saisie normalisée.
 - ⚠️ **Repli** : Photon en échec (délai, statut, corps sans `features`) → Nominatim (`QueryNominatim`),
   JAMAIS en cache, échec journalisé en avertissement ; les deux en échec → les seuls lieux
-  populaires, en 200. Un échec n'est jamais mis en cache.
+  populaires, en 200. Un échec n'est jamais mis en cache. Le repli est limité à **une requête par
+  seconde** (`RateLimiter`, clé `places-nominatim-fallback`) : Nominatim interdit l'autocomplétion
+  plus rapide, et tout part de l'IP du serveur. Une réponse Photon de forme inattendue
+  (`TypeError`…) déclenche aussi le repli, jamais un 500.
+- ⚠️ **Le cache ne garde que des tableaux**, jamais d'objets : le cache `database` désérialise, et un
+  `PlaceSuggestionData` ou un modèle sérialisé casserait au premier changement de classe. Les lignes
+  expirées sont effacées chaque nuit à 04:00 (`app:purge-expired-cache`) : le cache `database` ne
+  les supprime qu'à la relecture, et chaque saisie de la recherche en crée une.
 - **Les lieux populaires** (`popular_places`, `PopularPlace`) : `/admin/settings/popular-places`
   (`manage-business-settings`, l'administrateur seul), GET/POST/PUT/DELETE, chaque route rend la
   liste entière. Nom unique sans casse ni accents (vérifié en PHP, « Ce lieu existe déjà »), 10 autres
@@ -1051,6 +1058,7 @@ démission : le propriétaire lisait « Actif » sans agent.
 - `app:generate-remuneration-statements {--month=}` → `GenerateRemunerationStatements` : les brouillons des fiches de rémunération d'un mois (par défaut le mois écoulé)
 - `app:regenerate-remuneration-pdfs {--dry-run}` : refait le PDF des fiches VALIDÉES dont le PDF est encore rangé, depuis leurs chiffres figés (même numéro, date, chemin) ; ne touche ni `pdf_generated_at`, ni le compteur de téléchargements, et n'envoie rien
 - `app:purge-remuneration-pdfs` : efface les PDF de fiches générés depuis plus de `remuneration.pdf_retention_days` jours ; la fiche reste
+- `app:purge-expired-cache` : chaque nuit à 04:00, efface les lignes expirées de la table `cache` (recherche de lieux, 2026-10-27)
 - `app:audit-contract-payments` : LECTURE SEULE — plus ancien contrat, paiements sans mois, sans contrat, sur un jour d'arrêt, en double sur un même contrat véhicule (deux agents compris), en attente d'un mois passé
 
 ## Scheduler (bootstrap/app.php → withSchedule)
@@ -1066,6 +1074,7 @@ Laravel 11+ sans Kernel.php : le scheduler est déclaré directement dans `boots
 | `app:generate-remuneration-statements` | le 1er du mois à 02:00 |
 | `app:purge-remuneration-pdfs`   | tous les jours à 03:00        |
 | `app:purge-enrollment-id-documents` | tous les jours à 03:30 |
+| `app:purge-expired-cache`        | tous les jours à 04:00        |
 
 ⚠️ **L'application tourne en UTC, le Bénin est à UTC+1.** Seul `app:generate-daily` suit le
 fuseau du Bénin (2026-10-07) : à 23:30 UTC, il partait à 00:30 le lendemain au Bénin. Ne pas
