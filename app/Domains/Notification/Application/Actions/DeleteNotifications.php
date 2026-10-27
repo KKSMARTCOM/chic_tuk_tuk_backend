@@ -16,9 +16,16 @@ final class DeleteNotifications
         Notification::forUser($user->id)->findOrFail($id)->delete();
     }
 
-    /** @return int le nombre de notifications supprimées ; les non lues restent */
+    /**
+     * @return int le nombre de notifications lues que la personne VOYAIT ; les non lues restent.
+     *             Les « course disponible » masquées et lues partent aussi, sans être comptées :
+     *             annoncer « 42 supprimées » pour 5 visibles serait faux (relecture finale).
+     */
     public function read(User $user): int
     {
-        return Notification::forUser($user->id)->where('is_read', true)->delete();
+        $visible = Notification::forUser($user->id)->visible()->where('is_read', true)->count();
+        Notification::forUser($user->id)->where('is_read', true)->delete();
+
+        return $visible;
     }
 }

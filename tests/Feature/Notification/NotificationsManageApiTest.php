@@ -3,6 +3,7 @@
 namespace Tests\Feature\Notification;
 
 use App\Domains\Identity\Domain\Enums\Profil;
+use App\Models\Booking;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,5 +122,19 @@ class NotificationsManageApiTest extends TestCase
 
         $this->as($token)->deleteJson('/api/v1/notifications/abc')->assertNotFound();
         $this->as($token)->patchJson('/api/v1/notifications/abc/unread')->assertNotFound();
+    }
+
+    /** Relecture finale : le nombre annoncé est celui que l'agent voyait ; les masquées partent aussi. */
+    public function test_deleting_read_ones_reports_only_the_visible_ones(): void
+    {
+        [$me, $token] = $this->account();
+        $this->notify($me, 'lue visible', read: true);
+        $taken = Booking::factory()->create(['status' => 'confirmed']);
+        Notification::create(['user_id' => $me->id, 'title' => 'course prise', 'message' => 'm', 'type' => 'info', 'is_read' => true,
+            'data' => ['kind' => 'booking_available', 'booking_id' => $taken->id]]);
+
+        $this->as($token)->deleteJson('/api/v1/notifications/read')->assertOk()->assertExactJson(['deleted' => 1]);
+
+        $this->assertSame(0, Notification::where('user_id', $me->id)->count());
     }
 }
