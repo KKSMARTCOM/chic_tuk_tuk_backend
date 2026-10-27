@@ -468,6 +468,10 @@ school_class: string | null;
 health_notes: string | null;
 profession: string | null;
 };
+export type PlaceSearchData = {
+places: Array<App.Domains.Booking.Application.Data.PlaceSuggestionData>;
+attribution: string;
+};
 export type PlaceSuggestionData = {
 label: string;
 detail: string | null;

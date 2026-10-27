@@ -128,6 +128,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('public-quote', fn (Request $request) => Limit::perMinute(60)
             ->by('public-quote|'.$request->ip()));
 
+        // La recherche de lieux (2026-10-27) : une requête par frappe, IP partagées (CGNAT).
+        RateLimiter::for('public-places', fn (Request $request) => Limit::perMinute(120)
+            ->by('public-places|'.$request->ip()));
+
         // La seule route volontairement serrée : elle crée des données. Turnstile la
         // protège en plus. Son isolement est justement ce qui compte le plus ici.
         RateLimiter::for('public-bookings', fn (Request $request) => Limit::perHour(10)

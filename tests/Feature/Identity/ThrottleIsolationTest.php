@@ -62,4 +62,17 @@ class ThrottleIsolationTest extends TestCase
         // elle serait bloquée alors qu'aucune réservation n'a été tentée.
         $this->postJson('/api/v1/public/bookings', [])->assertStatus(422);
     }
+
+    public function test_epuiser_la_recherche_de_lieux_ne_bloque_pas_le_devis(): void
+    {
+        // La recherche de lieux (2026-10-27) devient la route au plafond le plus haut
+        // (120 par minute) : on l'épuise, puis on éprouve le devis (60).
+        for ($i = 0; $i < 121; $i++) {
+            $this->getJson('/api/v1/public/places?q=a');
+        }
+
+        $this->assertSame(429, $this->getJson('/api/v1/public/places?q=a')->status());
+
+        $this->getJson('/api/v1/public/pricing/quote')->assertStatus(422);
+    }
 }

@@ -2,6 +2,7 @@
 
 use App\Domains\Booking\Presentation\Api\V1\Public\BookingController;
 use App\Domains\Booking\Presentation\Api\V1\Public\EnrollmentController;
+use App\Domains\Booking\Presentation\Api\V1\Public\PlaceController;
 use App\Domains\Booking\Presentation\Api\V1\Public\PricingController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,12 @@ Route::prefix('public')->name('public.')->group(function () {
         // abonnés (CGNAT). Le coût réel est borné par le cache de distance.
         ->middleware('throttle:public-quote')
         ->name('pricing.quote');
+
+    // La recherche de lieux (2026-10-27), appelée à chaque frappe après 300 ms : 120/min,
+    // pour la même raison que le devis (CGNAT). Le coût vers Photon est borné par le cache.
+    Route::get('/places', [PlaceController::class, 'index'])
+        ->middleware('throttle:public-places')
+        ->name('places.index');
 
     // Turnstile en plus du throttling : le partage d'IP (CGNAT) interdit de serrer la
     // limite, et un robot distribué la contournerait. Sans TURNSTILE_SECRET configuré,
