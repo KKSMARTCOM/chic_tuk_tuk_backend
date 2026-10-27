@@ -40,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
         'owner_disbursement' => \App\Models\OwnerDisbursement::class,
         'payment'          => \App\Models\Payment::class,
         'permission'       => \App\Models\Permission::class,
+        'popular_place'    => \App\Models\PopularPlace::class,
         'promo_code'       => \App\Models\PromoCode::class,
         'remuneration_statement' => \App\Models\RemunerationStatement::class,
         'role'             => \App\Models\Role::class,
