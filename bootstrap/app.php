@@ -74,6 +74,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Les PDF des fiches vivent un an (spec 2026-10-01, §7.2).
         $schedule->command('app:purge-remuneration-pdfs')->dailyAt('03:00')->appendOutputTo(storage_path('logs/commands.log'));
         $schedule->command('app:purge-enrollment-id-documents')->dailyAt('03:30')->appendOutputTo(storage_path('logs/commands.log'));
+        // Les notifications lues de plus de 90 jours, et celles des courses terminées (2026-10-27).
+        $schedule->command('app:purge-notifications')->dailyAt('03:45')->appendOutputTo(storage_path('logs/commands.log'));
         // Le cache `database` ne supprime une ligne expirée qu'à sa relecture (recherche de lieux, 2026-10-27).
         $schedule->command('app:purge-expired-cache')->dailyAt('04:00')->appendOutputTo(storage_path('logs/commands.log'));
         // Le journal d'activité garde 12 mois (`config/activitylog.php`).
