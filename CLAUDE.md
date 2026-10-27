@@ -935,6 +935,12 @@ l'`attribution` OpenStreetMap. Sous 2 caractères : liste vide sans appel ; plus
   Komoot) : centré sur Cotonou, 3 s, `User-Agent` nommé ; Bénin et zone desservie seulement
   (`OsmPlaceFilter`, les bornes des réservations), sans commerces ni services — écoles, marchés,
   hôpitaux, lieux de culte et gares gardés. Réponse en cache **6 h** par saisie normalisée.
+  L'essai du 2026-10-27 a ajouté : sans habitations (`building=house`, `apartments`…), sans
+  hébergements privés (`tourism=guest_house`… ; l'hôtel reste) ni limites (`boundary`) ; doublons du
+  moteur fusionnés (même nom à moins de 300 m, ou même nom et même ligne grise à moins de 3 km) ; les
+  lieux à moins de **25 km** du centre de Cotonou passent devant, dans l'ordre de Photon, qui pèse peu
+  la distance. Un résultat qui reprend le nom OU un autre nom d'un lieu populaire retenu, à moins de
+  300 m, est écarté. Un `q` qui n'est pas un texte (`q[]=…`) vaut une saisie vide.
 - ⚠️ **Repli** : Photon en échec (délai, statut, corps sans `features`) → Nominatim (`QueryNominatim`),
   JAMAIS en cache, échec journalisé en avertissement ; les deux en échec → les seuls lieux
   populaires, en 200. Un échec n'est jamais mis en cache. Le repli est limité à **une requête par

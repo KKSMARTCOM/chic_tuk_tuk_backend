@@ -18,7 +18,20 @@ final class OsmPlaceFilter
 
     public const MAX_LNG = 4;
 
-    private const DROPPED_KEYS = ['shop', 'office', 'craft'];
+    /** `boundary` : une limite administrative double la ville ou le quartier du même nom. */
+    private const DROPPED_KEYS = ['shop', 'office', 'craft', 'boundary'];
+
+    /** Les hébergements privés, au nom de leur propriétaire (essai du 2026-10-27) ; l'hôtel, repère courant, reste. */
+    private const DROPPED_TOURISM = ['guest_house', 'apartment', 'chalet', 'hostel', 'motel', 'camp_site', 'caravan_site', 'information'];
+
+    /**
+     * Les habitations : une maison nommée « AKPAKI » passait devant les quartiers (essai du
+     * 2026-10-27). Un bâtiment public cartographié comme tel (église, école) reste.
+     */
+    private const DROPPED_BUILDINGS = [
+        'house', 'allotment_house', 'residential', 'detached', 'semidetached_house', 'apartments',
+        'terrace', 'bungalow', 'hut', 'cabin', 'farm', 'garage', 'garages', 'shed', 'roof', 'construction',
+    ];
 
     private const KEPT_AMENITIES = [
         'school', 'college', 'university', 'hospital', 'clinic', 'place_of_worship', 'marketplace', 'bus_station',
@@ -34,6 +47,12 @@ final class OsmPlaceFilter
             return false;
         }
         if (in_array($key, self::DROPPED_KEYS, true)) {
+            return false;
+        }
+        if ($key === 'building' && in_array($value, self::DROPPED_BUILDINGS, true)) {
+            return false;
+        }
+        if ($key === 'tourism' && in_array($value, self::DROPPED_TOURISM, true)) {
             return false;
         }
 

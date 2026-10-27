@@ -25,7 +25,9 @@ final class PlaceController extends Controller
      */
     public function index(Request $request, SearchPlaces $search): JsonResponse
     {
-        $query = trim((string) $request->query('q', ''));
+        // Un `q[]=…` (robots) se lit comme une saisie vide, sans erreur au journal.
+        $raw = $request->query('q');
+        $query = is_string($raw) ? trim($raw) : '';
 
         if (mb_strlen($query) > self::MAX_LENGTH) {
             throw ValidationException::withMessages(['q' => 'La recherche ne dépasse pas 100 caractères.']);

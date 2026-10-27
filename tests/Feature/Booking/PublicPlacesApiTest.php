@@ -118,8 +118,8 @@ class PublicPlacesApiTest extends TestCase
         $this->photon([
             // À une centaine de mètres : le même lieu.
             PlaceProvidersTest::feature('Dantokpa', lat: 6.3709, lng: 2.4300),
-            // À plus d'un kilomètre : un autre.
-            PlaceProvidersTest::feature('Dantokpa', lat: 6.3800, lng: 2.4300),
+            // À plus d'un kilomètre, dans un autre quartier : un autre.
+            PlaceProvidersTest::feature('Dantokpa', props: ['district' => 'Missèbo'], lat: 6.3800, lng: 2.4300),
         ]);
 
         $places = $this->search('danto')->json('places');
@@ -229,5 +229,61 @@ class PublicPlacesApiTest extends TestCase
 
         Http::assertSentCount(3);
         $this->assertCount(1, Http::recorded(fn ($request) => str_contains($request->url(), 'nominatim')));
+    }
+
+    /** Relecture finale : un `q` en tableau (robots) ne doit pas finir en 500. */
+    public function test_a_non_text_query_returns_an_empty_list(): void
+    {
+        Http::fake();
+
+        $this->getJson('/api/v1/public/places?q[]=akpakpa')->assertOk()->assertJsonCount(0, 'places');
+        Http::assertNothingSent();
+    }
+
+    /** Relecture finale : Photon qui rend l'autre nom d'un lieu populaire, au même endroit, le répète. */
+    public function test_a_photon_duplicate_of_an_alias_is_dropped(): void
+    {
+        $this->place('CS Les Cracks', ['aliases' => ['Complexe scolaire Les Cracks'], 'lat' => 6.3561, 'lng' => 2.3728]);
+        $this->photon([PlaceProvidersTest::feature('Complexe scolaire Les Cracks', 'amenity', 'school', lat: 6.3562, lng: 2.3728)]);
+
+        $this->assertSame(['CS Les Cracks'], $this->labels($this->search('complexe')));
+    }
+
+    /** Essai du 2026-10-27 : Photon rend parfois deux fois le même lieu, à quelques mètres. */
+    public function test_engine_duplicates_are_merged(): void
+    {
+        $this->photon([
+            PlaceProvidersTest::feature('Godomey', lat: 6.3854, lng: 2.3432),
+            PlaceProvidersTest::feature('Godomey', lat: 6.3855, lng: 2.3433),
+            PlaceProvidersTest::feature('Godomey', props: ['city' => 'Agbocodji'], lat: 6.3794, lng: 2.3398),
+        ]);
+
+        $this->assertCount(2, $this->search('godom')->json('places'));
+    }
+
+    /** Essai du 2026-10-27 : « Togbin » proposait Togbin (Zogbodomey) avant ceux d'Abomey-Calavi. */
+    public function test_places_near_cotonou_come_first(): void
+    {
+        $this->photon([
+            PlaceProvidersTest::feature('Togbin Zou', lat: 7.0053, lng: 2.0267),
+            PlaceProvidersTest::feature('Togbin', lat: 6.3732, lng: 2.3089),
+            PlaceProvidersTest::feature('Fidjrossè Dangbo', lat: 6.5813, lng: 2.5449),
+            PlaceProvidersTest::feature('Togbin Plage', lat: 6.3477, lng: 2.3099),
+        ]);
+
+        $this->assertSame(['Togbin', 'Togbin Plage', 'Togbin Zou', 'Fidjrossè Dangbo'], $this->labels($this->search('togb')));
+    }
+
+    /** Essai du 2026-10-27 : « Abomey-Calavi » sortait deux fois (la ville et le bourg, à 1 km). */
+    public function test_the_same_name_and_detail_close_by_is_merged(): void
+    {
+        $this->photon([
+            PlaceProvidersTest::feature('Abomey-Calavi', props: ['city' => null, 'state' => 'Atlantique'], lat: 6.4485, lng: 2.3557),
+            PlaceProvidersTest::feature('Abomey-Calavi', props: ['city' => null, 'state' => 'Atlantique'], lat: 6.4560, lng: 2.3500),
+            PlaceProvidersTest::feature('Godomey', props: ['city' => 'Abomey-Calavi', 'state' => 'Atlantique'], lat: 6.3854, lng: 2.3432),
+            PlaceProvidersTest::feature('Godomey', props: ['city' => 'Agbocodji', 'state' => 'Atlantique'], lat: 6.3794, lng: 2.3398),
+        ]);
+
+        $this->assertSame(['Abomey-Calavi', 'Godomey', 'Godomey'], $this->labels($this->search('abom')));
     }
 }

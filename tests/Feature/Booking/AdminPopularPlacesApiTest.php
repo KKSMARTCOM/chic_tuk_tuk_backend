@@ -104,8 +104,12 @@ class AdminPopularPlacesApiTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors('aliases');
         $admin->postJson(self::URL, $this->payload(['aliases' => ['']]))
             ->assertStatus(422)->assertJsonValidationErrors('aliases.0');
+        // Le second des deux est signalé : c'est lui qui répète.
         $admin->postJson(self::URL, $this->payload(['aliases' => ['Les Cracks', 'Les Cracks']]))
-            ->assertStatus(422)->assertJsonValidationErrors('aliases.0');
+            ->assertStatus(422)->assertJsonValidationErrors('aliases.1');
+        // Sans casse ni accents, comme le nom (relecture finale).
+        $admin->postJson(self::URL, $this->payload(['aliases' => ['Les Cracks', 'les crâcks']]))
+            ->assertStatus(422)->assertJsonPath('errors', ['aliases.1' => ['Cet autre nom est répété.']]);
         $admin->postJson(self::URL, $this->payload(['name' => '', 'lat' => null]))
             ->assertStatus(422)->assertJsonValidationErrors(['name', 'lat']);
     }

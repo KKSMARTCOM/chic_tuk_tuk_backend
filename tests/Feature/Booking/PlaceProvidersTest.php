@@ -81,6 +81,31 @@ class PlaceProvidersTest extends TestCase
         $this->assertSame(['Gare routière'], array_map(fn ($p) => $p->label, app(QueryPhoton::class)('a')));
     }
 
+    /** Essai du 2026-10-27 : « Akpak » proposait d'abord deux maisons nommées « AKPAKI ». */
+    public function test_photon_drops_dwellings_but_keeps_named_public_buildings(): void
+    {
+        $this->photon([
+            self::feature('AKPAKI', 'building', 'house'),
+            self::feature('AKPAKI', 'building', 'allotment_house'),
+            self::feature('Résidence', 'building', 'apartments'),
+            self::feature('Église Saint-Michel', 'building', 'church'),
+        ]);
+
+        $this->assertSame(['Église Saint-Michel'], array_map(fn ($p) => $p->label, app(QueryPhoton::class)('a')));
+    }
+
+    /** Essai du 2026-10-27 : « Calav » proposait cinq maisons d'hôtes au nom de leur propriétaire. */
+    public function test_photon_drops_guest_houses_and_boundaries_but_keeps_hotels(): void
+    {
+        $this->photon([
+            self::feature('CALAVI SEME LEONIE', 'tourism', 'guest_house'),
+            self::feature('Abomey-Calavi', 'boundary', 'administrative'),
+            self::feature('Hôtel du Lac', 'tourism', 'hotel'),
+        ]);
+
+        $this->assertSame(['Hôtel du Lac'], array_map(fn ($p) => $p->label, app(QueryPhoton::class)('a')));
+    }
+
     public function test_photon_detail_line(): void
     {
         $this->photon([
@@ -119,7 +144,7 @@ class PlaceProvidersTest extends TestCase
         Http::fake(['nominatim.openstreetmap.org/*' => Http::response([
             ['display_name' => 'Akpakpa, Cotonou, Littoral, Bénin', 'lat' => '6.37', 'lon' => '2.45', 'class' => 'place', 'type' => 'suburb'],
             ['display_name' => 'Erevan, Cotonou, Bénin', 'lat' => '6.36', 'lon' => '2.42', 'class' => 'shop', 'type' => 'supermarket'],
-            ['display_name' => 'Bénin', 'lat' => '9.5', 'lon' => '2.25', 'class' => 'boundary', 'type' => 'administrative'],
+            ['display_name' => 'Bénin', 'lat' => '9.5', 'lon' => '2.25', 'class' => 'place', 'type' => 'country'],
         ])]);
 
         $places = app(QueryNominatim::class)('Akpakpa');

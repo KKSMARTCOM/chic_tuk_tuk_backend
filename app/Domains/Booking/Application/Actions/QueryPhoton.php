@@ -13,9 +13,9 @@ use App\Domains\Booking\Domain\PlaceText;
  */
 final class QueryPhoton
 {
-    private const COTONOU_LAT = '6.3703';
+    public const COTONOU_LAT = '6.3703';
 
-    private const COTONOU_LNG = '2.3912';
+    public const COTONOU_LNG = '2.3912';
 
     /** @return list<PlaceSuggestionData> */
     public function __invoke(string $query): array

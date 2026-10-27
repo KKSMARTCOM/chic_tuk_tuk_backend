@@ -85,7 +85,7 @@ final class PopularPlaceController
             'name' => ['required', 'string', 'max:120'],
             'landmark' => ['nullable', 'string', 'max:120'],
             'aliases' => ['nullable', 'array', 'max:10'],
-            'aliases.*' => ['required', 'string', 'max:120', 'distinct'],
+            'aliases.*' => ['required', 'string', 'max:120'],
             'lat' => ['required', 'numeric', 'between:'.OsmPlaceFilter::MIN_LAT.','.OsmPlaceFilter::MAX_LAT],
             'lng' => ['required', 'numeric', 'between:'.OsmPlaceFilter::MIN_LNG.','.OsmPlaceFilter::MAX_LNG],
             'is_active' => ['sometimes', 'boolean'],
@@ -96,7 +96,6 @@ final class PopularPlaceController
             'aliases.max' => 'Dix autres noms au plus.',
             'aliases.*.required' => 'Un autre nom ne peut pas être vide.',
             'aliases.*.max' => 'Un autre nom ne dépasse pas 120 caractères.',
-            'aliases.*.distinct' => 'Cet autre nom est répété.',
             'lat.required' => 'Placez le lieu sur la carte.',
             'lng.required' => 'Placez le lieu sur la carte.',
             'lat.between' => $zone,
@@ -108,6 +107,15 @@ final class PopularPlaceController
                 ->contains(fn (string $other) => PlaceText::normalize($other) === $name);
             if ($name !== '' && $taken) {
                 $validator->errors()->add('name', 'Ce lieu existe déjà');
+            }
+            // Les autres noms, sans doublon — sans casse ni accents, comme le nom.
+            $seen = [];
+            foreach ((array) $request->input('aliases', []) as $i => $alias) {
+                $key = is_string($alias) ? PlaceText::normalize($alias) : '';
+                if ($key !== '' && in_array($key, $seen, true)) {
+                    $validator->errors()->add("aliases.{$i}", 'Cet autre nom est répété.');
+                }
+                $seen[] = $key;
             }
         })->validate();
 
