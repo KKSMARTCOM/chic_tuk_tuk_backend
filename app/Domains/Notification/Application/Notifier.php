@@ -6,6 +6,7 @@ use App\Domains\Finance\Application\Mail\DisbursementMail;
 use App\Models\Announcement;
 use App\Models\Booking;
 use App\Models\LeaveRequest;
+use App\Models\Notification;
 use App\Models\OwnerDisbursement;
 use App\Models\Payment;
 use App\Models\RemunerationStatement;
@@ -87,11 +88,14 @@ final class Notifier
     {
         $trajet = "Trajet : {$booking->from_location} → {$booking->to_location}";
 
+        // `kind` et `booking_id` (2026-10-27) : la notification disparaît de la liste des
+        // agents dès que la course n'est plus libre (`Notification::scopeVisible`).
         $this->versLesAgents(
             'Nouvelle réservation disponible',
             $trajet,
             'info',
             '/driver/bookings/available',
+            ['kind' => Notification::KIND_BOOKING_AVAILABLE, 'booking_id' => $booking->id],
         );
 
         $this->versLesAdmins(
@@ -564,10 +568,11 @@ final class Notifier
         });
     }
 
-    private function versLesAgents(string $titre, string $message, string $ton, ?string $url = null): void
+    /** @param  array<string, string>  $extra  des clés de plus dans la charge */
+    private function versLesAgents(string $titre, string $message, string $ton, ?string $url = null, array $extra = []): void
     {
         // Délégué au service, qui sait charger les jetons de tous les agents en une requête.
-        $this->sansCasser(fn () => $this->push->sendToDrivers($titre, $message, $this->charge($ton, $url)));
+        $this->sansCasser(fn () => $this->push->sendToDrivers($titre, $message, [...$this->charge($ton, $url), ...$extra]));
     }
 
     /**

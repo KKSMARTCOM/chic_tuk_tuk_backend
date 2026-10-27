@@ -20,7 +20,8 @@ final class ListNotifications
     /** @return array{0: LengthAwarePaginator, 1: int} */
     public function __invoke(User $user, int $page = 1): array
     {
-        $requete = Notification::forUser($user->id);
+        // Sans les notifications des courses qui ne sont plus libres (2026-10-27).
+        $requete = Notification::forUser($user->id)->visible();
 
         return [
             (clone $requete)->orderByDesc('created_at')->orderByDesc('id')
