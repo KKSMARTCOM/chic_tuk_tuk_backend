@@ -398,7 +398,7 @@ l'ensemble, pas sur la page. Les réservations gardent leur enveloppe (`data` + 
   agents.
 
 Routes existantes : `GET /api/v1/health`, `GET /api/v1/public/pricing/quote`,
-`POST /api/v1/public/bookings`, et l'authentification : `POST /api/v1/auth/login`,
+`GET /api/v1/public/places`, `POST /api/v1/public/bookings`, et l'authentification : `POST /api/v1/auth/login`,
 `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`, `POST /api/v1/auth/password`,
 `POST /api/v1/auth/password/forgot`, `POST /api/v1/auth/password/reset`.
 
@@ -920,6 +920,31 @@ questions visibles, les seules rubriques non vides, `answer_html` seulement.
   (`2026_10_22_200100_seed_owner_faq`), tout masqué, qui ne fait rien si la FAQ a déjà une
   rubrique : l'onglet du propriétaire reste caché tant que l'admin n'a rien montré.
 - Journal `settings.faq_*`, sans jamais recopier une réponse. Aucune permission nouvelle.
+
+## La recherche de lieux (2026-10-27)
+
+Spec : `docs/specs/2026-10-27-recherche-de-lieux-design.md`. Les fronts n'interrogent plus aucun
+moteur : `GET /public/places?q=…` (publique, `throttle:public-places`, 120/min par IP) rend au plus
+8 `PlaceSuggestionData` (`label`, `detail`, `lat`, `lng`, `source` `popular|osm`) et
+l'`attribution` OpenStreetMap. Sous 2 caractères : liste vide sans appel ; plus de 100 : 422.
+
+- **L'ordre** (`SearchPlaces`) : au plus 5 lieux populaires actifs dont un mot du nom ou d'un autre
+  nom commence par la saisie, sans casse ni accents (`PlaceText`), le début du nom d'abord ; puis
+  Photon. Un résultat Photon du même nom à moins de 300 m d'un lieu populaire retenu est écarté.
+- **Photon** (`QueryPhoton`, `services.photon.url` / `PHOTON_URL`, vide = le serveur public de
+  Komoot) : centré sur Cotonou, 3 s, `User-Agent` nommé ; Bénin et zone desservie seulement
+  (`OsmPlaceFilter`, les bornes des réservations), sans commerces ni services — écoles, marchés,
+  hôpitaux, lieux de culte et gares gardés. Réponse en cache **6 h** par saisie normalisée.
+- ⚠️ **Repli** : Photon en échec (délai, statut, corps sans `features`) → Nominatim (`QueryNominatim`),
+  JAMAIS en cache, échec journalisé en avertissement ; les deux en échec → les seuls lieux
+  populaires, en 200. Un échec n'est jamais mis en cache.
+- **Les lieux populaires** (`popular_places`, `PopularPlace`) : `/admin/settings/popular-places`
+  (`manage-business-settings`, l'administrateur seul), GET/POST/PUT/DELETE, chaque route rend la
+  liste entière. Nom unique sans casse ni accents (vérifié en PHP, « Ce lieu existe déjà »), 10 autres
+  noms au plus, coordonnées dans la zone. La liste active est en cache sans durée
+  (`PopularPlacesCache`), effacée à CHAQUE écriture. Journal `settings.popular_place_added|updated|removed`
+  (les seuls champs changés ; une modification sans changement n'écrit rien). Aucune permission
+  nouvelle : pas de seeder.
 
 ## L'inscription d'un abonnement (2026-10-14)
 
