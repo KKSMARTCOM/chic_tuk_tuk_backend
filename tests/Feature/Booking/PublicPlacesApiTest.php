@@ -5,6 +5,7 @@ namespace Tests\Feature\Booking;
 use App\Domains\Booking\Application\PopularPlacesCache;
 use App\Models\PopularPlace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -182,5 +183,51 @@ class PublicPlacesApiTest extends TestCase
             $this->getJson('/api/v1/public/places?q=a')->assertOk();
         }
         $this->getJson('/api/v1/public/places?q=a')->assertStatus(429);
+    }
+
+    /** Relecture finale : le cache `database` désérialise ; un objet en cache casse au prochain changement de classe. */
+    public function test_the_caches_hold_plain_arrays_only(): void
+    {
+        $this->place('Akpakpa Dodomè');
+        $this->photon([PlaceProvidersTest::feature('Akpakpa')]);
+
+        $this->search('akpakpa')->assertOk();
+
+        $photon = Cache::get('places.photon.'.sha1('akpakpa'));
+        $popular = Cache::get('popular-places.active');
+        $this->assertIsArray($photon);
+        $this->assertIsArray($photon[0]);
+        $this->assertIsArray($popular);
+        $this->assertIsArray($popular[0]);
+        // Et la réponse suivante, tirée du cache, est la même.
+        $this->assertSame(['Akpakpa Dodomè', 'Akpakpa'], $this->labels($this->search('akpakpa')));
+    }
+
+    /** Relecture finale : une forme inattendue de Photon ne doit pas emporter les lieux populaires. */
+    public function test_an_unexpected_photon_payload_falls_back(): void
+    {
+        $this->place('Akpakpa Dodomè');
+        Http::fake([
+            'photon.komoot.io/*' => Http::response(['features' => [['geometry' => ['coordinates' => 'cassé'], 'properties' => ['name' => ['x']]]]]),
+            'nominatim.openstreetmap.org/*' => Http::response([]),
+        ]);
+
+        $this->search('akpakpa')->assertOk()->assertJsonPath('places.0.label', 'Akpakpa Dodomè');
+    }
+
+    /** Relecture finale : Nominatim interdit l'autocomplétion au-delà d'une requête par seconde, et tout part de notre IP. */
+    public function test_the_nominatim_fallback_is_limited_to_one_call_per_second(): void
+    {
+        $this->place('Akpakpa Dodomè');
+        Http::fake([
+            'photon.komoot.io/*' => Http::response('erreur', 500),
+            'nominatim.openstreetmap.org/*' => Http::response([]),
+        ]);
+
+        $this->search('akpak')->assertOk();
+        $this->search('akpakp')->assertOk()->assertJsonPath('places.0.label', 'Akpakpa Dodomè');
+
+        Http::assertSentCount(3);
+        $this->assertCount(1, Http::recorded(fn ($request) => str_contains($request->url(), 'nominatim')));
     }
 }

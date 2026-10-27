@@ -15,10 +15,19 @@ final class PopularPlacesCache
 {
     private const KEY = 'popular-places.active';
 
-    /** @return Collection<int, PopularPlace> */
+    /**
+     * Le cache garde les colonnes brutes, jamais des objets : le cache `database`
+     * désérialise, et un modèle sérialisé casserait au premier changement de classe
+     * (relecture finale du 2026-10-27).
+     *
+     * @return Collection<int, PopularPlace>
+     */
     public static function active(): Collection
     {
-        return Cache::rememberForever(self::KEY, fn () => PopularPlace::where('is_active', true)->orderBy('name')->get());
+        $rows = Cache::rememberForever(self::KEY, fn () => PopularPlace::where('is_active', true)->orderBy('name')
+            ->get()->map(fn (PopularPlace $place) => $place->getAttributes())->all());
+
+        return PopularPlace::hydrate($rows);
     }
 
     public static function forget(): void

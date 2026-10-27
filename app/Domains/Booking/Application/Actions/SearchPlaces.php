@@ -9,6 +9,7 @@ use App\Domains\Booking\Domain\PlaceText;
 use App\Models\PopularPlace;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * La recherche de lieux pendant la frappe (spec 2026-10-27-recherche-de-lieux, §4.2 à
@@ -22,6 +23,13 @@ final class SearchPlaces
     private const MAX_POPULAR = 5;
 
     private const PHOTON_CACHE_HOURS = 6;
+
+    /**
+     * Nominatim interdit l'autocomplétion au-delà d'une requête par seconde, et le repli
+     * part de la seule IP du serveur (relecture finale du 2026-10-27) : au-delà, les lieux
+     * populaires sortent seuls.
+     */
+    private const NOMINATIM_PER_SECOND = 1;
 
     /** Un résultat du moteur à moins de cette distance d'un lieu populaire du même nom le répète. */
     private const DUPLICATE_METERS = 300;
@@ -65,27 +73,36 @@ final class SearchPlaces
     private function engine(string $query): array
     {
         $key = 'places.photon.'.sha1(PlaceText::normalize($query));
+        // Des tableaux en cache, jamais des objets : le cache `database` désérialise.
         $cached = Cache::get($key);
         if (is_array($cached)) {
-            return $cached;
+            return array_map(fn (array $place) => PlaceSuggestionData::from($place), $cached);
         }
 
         try {
             $places = ($this->photon)($query);
-            Cache::put($key, $places, now()->addHours(self::PHOTON_CACHE_HOURS));
+            Cache::put($key, array_map(fn (PlaceSuggestionData $place) => $place->toArray(), $places), now()->addHours(self::PHOTON_CACHE_HOURS));
 
             return $places;
-        } catch (\RuntimeException $e) {
+        } catch (\Throwable $e) {
+            // \Throwable : une forme de réponse inattendue lève une TypeError, pas une
+            // RuntimeException, et ne doit pas emporter les lieux populaires.
             Log::warning('Recherche de lieux : Photon en échec, repli sur Nominatim. '.$e->getMessage());
         }
 
-        try {
-            return ($this->nominatim)($query);
-        } catch (\RuntimeException $e) {
-            Log::warning('Recherche de lieux : Nominatim en échec aussi, lieux populaires seuls. '.$e->getMessage());
-
-            return [];
+        $fallback = [];
+        $allowed = RateLimiter::attempt('places-nominatim-fallback', self::NOMINATIM_PER_SECOND, function () use ($query, &$fallback) {
+            try {
+                $fallback = ($this->nominatim)($query);
+            } catch (\Throwable $e) {
+                Log::warning('Recherche de lieux : Nominatim en échec aussi, lieux populaires seuls. '.$e->getMessage());
+            }
+        }, 1);
+        if (! $allowed) {
+            Log::warning('Recherche de lieux : repli Nominatim limité à une requête par seconde, lieux populaires seuls.');
         }
+
+        return $fallback;
     }
 
     /** @param  list<PlaceSuggestionData>  $popular */
