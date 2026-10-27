@@ -18,6 +18,7 @@ use App\Domains\Fleet\Presentation\Api\V1\Admin\InternalAssignmentController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\PreparationStepController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\PreparationStepSettingsController;
+use App\Domains\Booking\Presentation\Api\V1\Admin\PopularPlaceController;
 use App\Domains\Fleet\Presentation\Api\V1\Admin\VehicleContractSettingsController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\RoleController;
 use App\Domains\Identity\Presentation\Api\V1\Admin\UserController;
@@ -309,6 +310,11 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
             // La liste par défaut des étapes de préparation (2026-10-20).
             Route::get('/preparation-steps', [PreparationStepSettingsController::class, 'show'])->name('preparation-steps.show');
             Route::put('/preparation-steps', [PreparationStepSettingsController::class, 'update'])->name('preparation-steps.update');
+            // Les lieux populaires de la recherche de lieux (2026-10-27).
+            Route::get('/popular-places', [PopularPlaceController::class, 'index'])->name('popular-places.index');
+            Route::post('/popular-places', [PopularPlaceController::class, 'store'])->name('popular-places.store');
+            Route::put('/popular-places/{place}', [PopularPlaceController::class, 'update'])->whereUuid('place')->name('popular-places.update');
+            Route::delete('/popular-places/{place}', [PopularPlaceController::class, 'destroy'])->whereUuid('place')->name('popular-places.destroy');
         });
 
         /*

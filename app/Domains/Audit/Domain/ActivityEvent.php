@@ -138,6 +138,9 @@ enum ActivityEvent: string
     case FaqEntryHidden = 'settings.faq_entry_hidden';
     case FaqEntryMoved = 'settings.faq_entry_moved';
     case FaqEntryDeleted = 'settings.faq_entry_deleted';
+    case PopularPlaceAdded = 'settings.popular_place_added';
+    case PopularPlaceUpdated = 'settings.popular_place_updated';
+    case PopularPlaceRemoved = 'settings.popular_place_removed';
 
     public function label(): string
     {
@@ -250,6 +253,9 @@ enum ActivityEvent: string
             self::FaqEntryHidden => 'Question de FAQ masquée',
             self::FaqEntryMoved => 'Question de FAQ déplacée',
             self::FaqEntryDeleted => 'Question de FAQ supprimée',
+            self::PopularPlaceAdded => 'Lieu populaire ajouté',
+            self::PopularPlaceUpdated => 'Lieu populaire modifié',
+            self::PopularPlaceRemoved => 'Lieu populaire supprimé',
         };
     }
 

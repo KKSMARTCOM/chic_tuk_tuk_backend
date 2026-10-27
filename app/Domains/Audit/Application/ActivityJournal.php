@@ -17,6 +17,7 @@ use App\Models\FaqEntry;
 use App\Models\FaqSection;
 use App\Models\OwnerDisbursement;
 use App\Models\Payment;
+use App\Models\PopularPlace;
 use App\Models\RemunerationStatement;
 use App\Models\Role;
 use App\Models\SubscriptionEnrollment;
@@ -733,6 +734,24 @@ final class ActivityJournal
     public function faqEntryDeleted(string $question): void
     {
         $this->record(ActivityEvent::FaqEntryDeleted, null, "a supprimé la question « {$question} » de la FAQ");
+    }
+
+    // ----- Les lieux populaires (2026-10-27) ------------------------------------------------
+
+    public function popularPlaceAdded(PopularPlace $place): void
+    {
+        $this->record(ActivityEvent::PopularPlaceAdded, $place, "a ajouté le lieu populaire « {$place->name} »");
+    }
+
+    /** @param  array<string, array{from: mixed, to: mixed}>  $changes  les seuls champs changés */
+    public function popularPlaceUpdated(PopularPlace $place, array $changes): void
+    {
+        $this->record(ActivityEvent::PopularPlaceUpdated, $place, "a modifié le lieu populaire « {$place->name} »", $changes ? ['changes' => $changes] : []);
+    }
+
+    public function popularPlaceRemoved(string $name): void
+    {
+        $this->record(ActivityEvent::PopularPlaceRemoved, null, "a supprimé le lieu populaire « {$name} »");
     }
 
     public function disbursementRecorded(OwnerDisbursement $d): void
