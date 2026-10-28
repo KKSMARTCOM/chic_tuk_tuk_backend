@@ -1045,6 +1045,10 @@ démission : le propriétaire lisait « Actif » sans agent.
   `DRIVER_CONTRACT_NOT_ENDED|VEHICLE_TAKEN|STATEMENT_VALIDATED`, `DRIVER_HAS_ACTIVE_CONTRACT`).
   Le détail du contrat porte `is_reopenable` et `days_to_generate` ; rien n'est généré d'office.
   **Rejouer le seeder après déploiement.**
+- **Le compte d'un propriétaire, à l'administrateur seul aussi** (2026-10-28) : `manage-owner-accounts`
+  garde `owners/{id}/toggle-status` (en plus d'`edit-owners`). À la création comme à la modification,
+  `is_active` n'est lu qu'avec cette permission : sans elle, le compte naît actif ou garde son statut
+  (`OwnerController`), sans refus. **Rejouer le seeder après déploiement.**
 - Supprimer un contrat agent terminé défait aussi sa fin (`UndoDriverContractEnd`), relu sous
   verrou ; une reconduction supprimée rouvre la pause `agent_change` qu'elle avait fermée la veille.
 - Relecture du 2026-10-21 : un départ ne se date pas dans le futur (`DRIVER_CONTRACT_END_IN_FUTURE`)

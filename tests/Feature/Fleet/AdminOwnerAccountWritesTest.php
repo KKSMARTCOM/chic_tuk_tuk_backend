@@ -72,7 +72,7 @@ class AdminOwnerAccountWritesTest extends TestCase
 
     public function test_the_status_is_set_explicitly(): void
     {
-        $token = $this->login(['edit-owners']);
+        $token = $this->login(['edit-owners', 'manage-owner-accounts']);
         $owner = $this->owner();
 
         $this->asBearer($token)->postJson("/api/v1/admin/owners/{$owner->id}/toggle-status", ['is_active' => false])
@@ -83,6 +83,17 @@ class AdminOwnerAccountWritesTest extends TestCase
         $this->asBearer($token)->postJson("/api/v1/admin/owners/{$owner->id}/toggle-status", ['is_active' => false])
             ->assertOk();
         $this->assertFalse($owner->fresh()->is_active);
+    }
+
+    // L'administrateur seul (2026-10-28) : modifier un propriétaire ne suffit plus.
+    public function test_edit_owners_no_longer_sets_the_status(): void
+    {
+        $token = $this->login(['view-owners', 'edit-owners']);
+        $owner = $this->owner();
+
+        $this->asBearer($token)->postJson("/api/v1/admin/owners/{$owner->id}/toggle-status", ['is_active' => false])
+            ->assertForbidden();
+        $this->assertTrue($owner->fresh()->is_active);
     }
 
     public function test_the_password_is_replaced_when_confirmed(): void

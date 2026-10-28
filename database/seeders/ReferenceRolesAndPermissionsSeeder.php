@@ -133,6 +133,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
         // Ajoutée le 2026-10-21, à l'administrateur seul : le départ ferme le compte d'un
         // agent, seul l'administrateur le rouvre (spec état véhicule/agent, §4).
         'manage-driver-accounts' => ['Ouvrir ou fermer le compte d\'un agent', 'Activer ou désactiver le compte d\'un agent'],
+        // Ajoutée le 2026-10-28, à l'administrateur seul : activer ou désactiver un propriétaire
+        // ne suit plus `edit-owners`, que porte l'utilisateur.
+        'manage-owner-accounts' => ['Ouvrir ou fermer le compte d\'un propriétaire', 'Activer ou désactiver le compte d\'un propriétaire'],
         'export-drivers' => ['Exporter les agents', 'Exporter la liste des agents'],
         'import-drivers' => ['Importer des agents', 'Importer des agents via fichier'],
         'view-drivers' => ['Voir les chauffeurs', 'Voir les chauffeurs'],

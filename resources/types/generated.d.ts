@@ -1427,7 +1427,7 @@ name: string;
 email: string | null;
 phone: string;
 adresse: string | null;
-is_active: boolean;
+is_active: boolean | null;
 vehicles: Array<App.Domains.Fleet.Application.Data.OwnerVehicleEditData>;
 add_vehicle: App.Domains.Fleet.Application.Data.OwnerVehicleAttachmentData | null;
 confirm_transfer: boolean;

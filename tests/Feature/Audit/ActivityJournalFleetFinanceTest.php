@@ -78,7 +78,7 @@ class ActivityJournalFleetFinanceTest extends TestCase
     {
         $owner = $this->owner('Rachid Bello');
 
-        $this->as($this->token(['edit-owners']))
+        $this->as($this->token(['edit-owners', 'manage-owner-accounts']))
             ->postJson("/api/v1/admin/owners/{$owner->id}/toggle-status", ['is_active' => false])
             ->assertOk();
 

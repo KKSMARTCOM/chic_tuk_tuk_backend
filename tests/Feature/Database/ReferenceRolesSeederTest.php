@@ -322,7 +322,7 @@ class ReferenceRolesSeederTest extends TestCase
         $admin = Role::query()->where('name', 'admin')->firstOrFail();
         $user = Role::query()->where('name', 'utilisateur')->firstOrFail();
 
-        foreach (['manage-driver-accounts', 'reopen-driver-contracts'] as $permission) {
+        foreach (['manage-driver-accounts', 'manage-owner-accounts', 'reopen-driver-contracts'] as $permission) {
             $this->assertTrue($admin->hasPermissionTo($permission), "admin doit porter {$permission}");
             $this->assertFalse($user->hasPermissionTo($permission), "utilisateur ne doit pas porter {$permission}");
         }

@@ -74,6 +74,11 @@ final class OwnerController
 
     public function store(Request $request, CreateOwnerData $data, CreateOwner $create, ShowOwnerDetail $show): JsonResponse
     {
+        // Le statut du compte est à l'administrateur seul (2026-10-28) : sans la permission, il naît actif.
+        if (! $request->user()->can('manage-owner-accounts')) {
+            $data->isActive = true;
+        }
+
         try {
             $owner = $create($data);
             $this->journal->accountCreated($owner);
@@ -95,6 +100,11 @@ final class OwnerController
         UpdateOwner $update,
         ShowOwnerDetail $show,
     ): JsonResponse {
+        // Sans `manage-owner-accounts`, le statut envoyé est ignoré : le compte garde le sien.
+        if (! $request->user()->can('manage-owner-accounts')) {
+            $data->isActive = null;
+        }
+
         try {
             $owner = $findOwner($ownerId);
             $update($owner, $data);
@@ -137,6 +147,11 @@ final class OwnerController
         UpdateOwnerPasswordData $data,
         UpdateOwnerPassword $update,
     ): JsonResponse {
+        // Sans `manage-owner-accounts`, le statut envoyé est ignoré : le compte garde le sien.
+        if (! $request->user()->can('manage-owner-accounts')) {
+            $data->isActive = null;
+        }
+
         try {
             $owner = $findOwner($ownerId);
             $update($owner, $data);

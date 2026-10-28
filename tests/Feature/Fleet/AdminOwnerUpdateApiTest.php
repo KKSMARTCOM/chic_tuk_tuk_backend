@@ -102,7 +102,7 @@ class AdminOwnerUpdateApiTest extends TestCase
 
     public function test_the_identity_is_updated_and_the_owner_keeps_his_own_phone(): void
     {
-        $token = $this->login(['edit-owners']);
+        $token = $this->login(['edit-owners', 'manage-owner-accounts']);
         $owner = $this->owner(['phone' => '97111111']);
 
         $this->update($token, $owner, $this->identity($owner, ['name' => 'Nom Corrigé', 'is_active' => false]))
@@ -111,6 +111,28 @@ class AdminOwnerUpdateApiTest extends TestCase
             ->assertJsonPath('is_active', false);
 
         $this->assertSame('97111111', $owner->fresh()->phone);
+    }
+
+    // L'administrateur seul (2026-10-28) : sans `manage-owner-accounts`, le statut envoyé est ignoré.
+    public function test_without_manage_owner_accounts_the_status_is_kept(): void
+    {
+        $token = $this->login(['edit-owners']);
+        $owner = $this->owner();
+
+        $this->update($token, $owner, $this->identity($owner, ['name' => 'Nom Corrigé', 'is_active' => false]))
+            ->assertOk()
+            ->assertJsonPath('name', 'Nom Corrigé')
+            ->assertJsonPath('is_active', true);
+    }
+
+    public function test_the_status_may_be_left_out(): void
+    {
+        $token = $this->login(['edit-owners']);
+        $owner = $this->owner();
+        $payload = $this->identity($owner);
+        unset($payload['is_active']);
+
+        $this->update($token, $owner, $payload)->assertOk()->assertJsonPath('is_active', true);
     }
 
     public function test_a_phone_of_another_owner_is_refused_but_an_agents_is_not(): void

@@ -118,6 +118,23 @@ class AdminOwnerCreateApiTest extends TestCase
         $response->assertJsonPath('id', $owner->id)->assertJsonPath('vehicles', []);
     }
 
+    // L'administrateur seul (2026-10-28) : sans `manage-owner-accounts`, le compte naît actif.
+    public function test_only_manage_owner_accounts_creates_an_inactive_account(): void
+    {
+        $this->asBearer($this->login(['create-owners']))
+            ->postJson('/api/v1/admin/owners', $this->payload(['is_active' => false]))
+            ->assertCreated();
+        $this->assertTrue($this->createdOwner()->is_active);
+    }
+
+    public function test_manage_owner_accounts_creates_an_inactive_account(): void
+    {
+        $this->asBearer($this->login(['create-owners', 'manage-owner-accounts']))
+            ->postJson('/api/v1/admin/owners', $this->payload(['is_active' => false]))
+            ->assertCreated();
+        $this->assertFalse($this->createdOwner()->is_active);
+    }
+
     public function test_a_new_vehicle_is_created_with_its_contract(): void
     {
         $token = $this->login(['create-owners']);

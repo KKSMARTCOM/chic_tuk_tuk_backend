@@ -133,8 +133,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
 
         Route::middleware('permission:edit-owners')->group(function () {
             Route::put('/owners/{owner}', [OwnerController::class, 'update'])->name('owners.update');
+            // L'administrateur seul (2026-10-28), comme le compte d'un agent.
             Route::post('/owners/{owner}/toggle-status', [OwnerController::class, 'setStatus'])
-                ->name('owners.toggle-status');
+                ->middleware('permission:manage-owner-accounts')->name('owners.toggle-status');
             Route::post('/owners/{owner}/password', [OwnerController::class, 'updatePassword'])
                 ->name('owners.update-password');
         });

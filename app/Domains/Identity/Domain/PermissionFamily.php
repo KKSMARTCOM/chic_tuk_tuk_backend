@@ -22,6 +22,8 @@ final class PermissionFamily
         // `manage-driver-accounts` (2026-10-21) se range avec les agents.
         'driver-accounts' => 'Agents',
         'owners' => 'Propriétaires',
+        // `manage-owner-accounts` (2026-10-28) se range avec les propriétaires.
+        'owner-accounts' => 'Propriétaires',
         'vehicles' => 'Véhicules',
         'contracts' => 'Contrats',
         // `reopen-driver-contracts` (2026-10-21) se range avec les contrats.

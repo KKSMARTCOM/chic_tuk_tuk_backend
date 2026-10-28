@@ -22,7 +22,8 @@ final class UpdateOwnerData extends BaseData
         public ?string $email,
         public string $phone,
         public ?string $adresse,
-        public bool $isActive,
+        /** Ignoré sans `manage-owner-accounts` : le compte garde son statut. */
+        public ?bool $isActive,
         /** @var array<int, OwnerVehicleEditData> */
         #[DataCollectionOf(OwnerVehicleEditData::class)]
         public array $vehicles = [],
@@ -41,7 +42,7 @@ final class UpdateOwnerData extends BaseData
             'email' => ['nullable', ...EmailRules::rules(), Rule::unique('users', 'email')->where('profil', 'owner')->ignore($ownerId)],
             'phone' => ['required', 'string', Rule::unique('users', 'phone')->where('profil', 'owner')->ignore($ownerId)],
             'adresse' => ['nullable', 'string', 'max:255'],
-            'is_active' => ['required', 'boolean'],
+            'is_active' => ['nullable', 'boolean'],
             'vehicles' => ['present', 'array'],
             'add_vehicle' => ['nullable', 'array'],
             'confirm_transfer' => ['nullable', 'boolean'],
