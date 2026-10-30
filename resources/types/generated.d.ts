@@ -123,7 +123,7 @@ events: Array<App.Domains.Audit.Application.Data.ActivityEventOptionData>;
 };
 }
 declare namespace App.Domains.Audit.Domain {
-export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.enrollment_submitted' | 'booking.enrollment_corrected' | 'booking.enrollment_link_renewed' | 'booking.enrollment_id_document_purged' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'driver.contract_reopened' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_invested_amount_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'vehicle.preparation_step_done' | 'vehicle.preparation_step_undone' | 'vehicle.preparation_step_redated' | 'vehicle.preparation_step_added' | 'vehicle.preparation_step_renamed' | 'vehicle.preparation_step_removed' | 'vehicle.preparation_proof_attached' | 'vehicle.preparation_proof_removed' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.disbursement_recorded' | 'payment.disbursement_updated' | 'payment.disbursement_cancelled' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'announcement.sent' | 'announcement.reminded' | 'announcement.withdrawn' | 'announcement.deleted' | 'settings.pricing_updated' | 'settings.contract_terms_updated' | 'settings.preparation_steps_updated' | 'settings.faq_section_created' | 'settings.faq_section_renamed' | 'settings.faq_section_moved' | 'settings.faq_section_deleted' | 'settings.faq_entry_created' | 'settings.faq_entry_updated' | 'settings.faq_entry_shown' | 'settings.faq_entry_hidden' | 'settings.faq_entry_moved' | 'settings.faq_entry_deleted' | 'settings.popular_place_added' | 'settings.popular_place_updated' | 'settings.popular_place_removed';
+export type ActivityEvent = 'auth.login' | 'auth.login_failed' | 'auth.logout' | 'auth.session_revoked' | 'auth.other_sessions_revoked' | 'auth.password_changed' | 'auth.password_reset' | 'booking.created' | 'booking.enrollment_submitted' | 'booking.enrollment_corrected' | 'booking.enrollment_link_renewed' | 'booking.enrollment_id_document_purged' | 'booking.updated' | 'booking.deleted' | 'booking.driver_assigned' | 'booking.driver_removed' | 'booking.status_changed' | 'booking.reopened' | 'booking.accepted' | 'booking.started' | 'booking.completed' | 'booking.cancelled' | 'booking.expired' | 'booking.subscription_revoked' | 'booking.subscription_transferred' | 'booking.subscription_terminated' | 'account.created' | 'account.updated' | 'account.status_changed' | 'account.password_set' | 'account.deleted' | 'account.role_created' | 'account.role_updated' | 'account.role_deleted' | 'driver.availability_changed' | 'driver.contract_updated' | 'driver.contract_ended' | 'driver.contract_deleted' | 'driver.contract_reopened' | 'leave.requested' | 'leave.approved' | 'leave.rejected' | 'leave.ended' | 'leave.added' | 'leave.corrected' | 'leave.deleted' | 'leave.started' | 'vehicle.created' | 'vehicle.updated' | 'vehicle.status_changed' | 'vehicle.deleted' | 'vehicle.paused' | 'vehicle.pause_ended' | 'vehicle.pause_cancelled' | 'vehicle.contract_created' | 'vehicle.contract_updated' | 'vehicle.contract_invested_amount_updated' | 'vehicle.contract_deleted' | 'vehicle.contract_activated' | 'vehicle.contract_target_reached' | 'vehicle.contract_completed' | 'vehicle.internal_assignment_created' | 'vehicle.internal_assignment_ended' | 'vehicle.preparation_step_done' | 'vehicle.preparation_step_undone' | 'vehicle.preparation_step_redated' | 'vehicle.preparation_step_added' | 'vehicle.preparation_step_renamed' | 'vehicle.preparation_step_removed' | 'vehicle.preparation_proof_attached' | 'vehicle.preparation_proof_removed' | 'payment.created' | 'payment.updated' | 'payment.validated' | 'payment.cancelled' | 'payment.deleted' | 'payment.disbursement_recorded' | 'payment.disbursement_updated' | 'payment.disbursement_cancelled' | 'payment.daily_generated' | 'payment.period_generated' | 'payment.batch_validated' | 'payment.batch_cancelled' | 'payment.cancelled_purged' | 'payment.commission_cancelled' | 'remuneration_statement.generated' | 'remuneration_statement.validated' | 'remuneration_statement.sent' | 'remuneration_statement.send_requested' | 'remuneration_statement.cancelled' | 'remuneration_statement.purged' | 'announcement.sent' | 'announcement.reminded' | 'announcement.withdrawn' | 'announcement.deleted' | 'settings.pricing_updated' | 'settings.contract_terms_updated' | 'settings.preparation_steps_updated' | 'settings.glossary_term_created' | 'settings.glossary_term_updated' | 'settings.glossary_term_shown' | 'settings.glossary_term_hidden' | 'settings.glossary_term_deleted' | 'settings.faq_section_created' | 'settings.faq_section_renamed' | 'settings.faq_section_moved' | 'settings.faq_section_deleted' | 'settings.faq_entry_created' | 'settings.faq_entry_updated' | 'settings.faq_entry_shown' | 'settings.faq_entry_hidden' | 'settings.faq_entry_moved' | 'settings.faq_entry_deleted' | 'settings.popular_place_added' | 'settings.popular_place_updated' | 'settings.popular_place_removed';
 }
 declare namespace App.Domains.Booking.Application.Data {
 export type AdminBookingDetailData = {
@@ -574,29 +574,22 @@ export type TripType = 'go' | 'return';
 export type WeekDays = 'lun_ven' | 'lun_sam' | 'lun_dim';
 }
 declare namespace App.Domains.Content.Application.Data {
-export type AdminFaqData = {
-sections: Array<App.Domains.Content.Application.Data.AdminFaqSectionData>;
+export type AdminGlossaryData = {
+terms: Array<App.Domains.Content.Application.Data.AdminGlossaryTermData>;
 };
-export type AdminFaqEntryData = {
+export type AdminGlossaryTermData = {
 id: string;
-question: string;
-answer: string;
-answer_html: string;
+term: string;
+definition: string;
+definition_html: string;
+formula: string | null;
 is_visible: boolean;
 };
-export type AdminFaqSectionData = {
+export type OwnerGlossaryTermData = {
 id: string;
-title: string;
-entries: Array<App.Domains.Content.Application.Data.AdminFaqEntryData>;
-};
-export type OwnerFaqEntryData = {
-id: string;
-question: string;
-answer_html: string;
-};
-export type OwnerFaqSectionData = {
-title: string;
-entries: Array<App.Domains.Content.Application.Data.OwnerFaqEntryData>;
+term: string;
+definition_html: string;
+formula: string | null;
 };
 }
 declare namespace App.Domains.Finance.Application.Data {

@@ -128,6 +128,12 @@ enum ActivityEvent: string
     case PricingUpdated = 'settings.pricing_updated';
     case ContractTermsUpdated = 'settings.contract_terms_updated';
     case PreparationStepsUpdated = 'settings.preparation_steps_updated';
+    case GlossaryTermCreated = 'settings.glossary_term_created';
+    case GlossaryTermUpdated = 'settings.glossary_term_updated';
+    case GlossaryTermShown = 'settings.glossary_term_shown';
+    case GlossaryTermHidden = 'settings.glossary_term_hidden';
+    case GlossaryTermDeleted = 'settings.glossary_term_deleted';
+    // La FAQ, remplacée par le glossaire le 2026-10-30 : ces codes ne nomment plus que l'historique.
     case FaqSectionCreated = 'settings.faq_section_created';
     case FaqSectionRenamed = 'settings.faq_section_renamed';
     case FaqSectionMoved = 'settings.faq_section_moved';
@@ -243,6 +249,11 @@ enum ActivityEvent: string
             self::PricingUpdated => 'Tarifs modifiés',
             self::ContractTermsUpdated => 'Réglages des contrats modifiés',
             self::PreparationStepsUpdated => 'Étapes de préparation modifiées',
+            self::GlossaryTermCreated => 'Terme du glossaire ajouté',
+            self::GlossaryTermUpdated => 'Terme du glossaire modifié',
+            self::GlossaryTermShown => 'Terme du glossaire montré',
+            self::GlossaryTermHidden => 'Terme du glossaire masqué',
+            self::GlossaryTermDeleted => 'Terme du glossaire supprimé',
             self::FaqSectionCreated => 'Rubrique de FAQ ajoutée',
             self::FaqSectionRenamed => 'Rubrique de FAQ renommée',
             self::FaqSectionMoved => 'Rubrique de FAQ déplacée',

@@ -5,7 +5,10 @@ namespace App\Models;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 
-/** Une question de la FAQ et sa réponse en Markdown ; masquée tant que `is_visible` est faux. */
+/**
+ * Une question de l'ancienne FAQ, remplacée par `GlossaryTerm` le 2026-10-30. Reste pour les lignes
+ * du journal qui la désignent, et le temps qu'une migration retire la table.
+ */
 class FaqEntry extends Model
 {
     use HasUuid;

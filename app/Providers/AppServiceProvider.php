@@ -34,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
         'driver_contract'  => \App\Models\DriverContract::class,
         'fcm_token'        => \App\Models\FcmToken::class,
         'leave_request'    => \App\Models\LeaveRequest::class,
+        'glossary_term'    => \App\Models\GlossaryTerm::class,
         'faq_entry'        => \App\Models\FaqEntry::class,
         'faq_section'      => \App\Models\FaqSection::class,
         'notification'     => \App\Models\Notification::class,
