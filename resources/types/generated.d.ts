@@ -582,14 +582,12 @@ id: string;
 term: string;
 definition: string;
 definition_html: string;
-formula: string | null;
 is_visible: boolean;
 };
 export type OwnerGlossaryTermData = {
 id: string;
 term: string;
 definition_html: string;
-formula: string | null;
 };
 }
 declare namespace App.Domains.Finance.Application.Data {

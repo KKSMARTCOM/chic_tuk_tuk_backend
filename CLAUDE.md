@@ -909,15 +909,15 @@ enregistre ce que l'agence a versé au propriétaire, par contrat propriétaire,
 
 Spec : `docs/specs/2026-10-30-glossaire-proprietaire-design.md`. Il remplace la FAQ du 2026-10-22, domaine
 `Content`. `glossary_terms` (`GlossaryTerm`) : `term`, `term_key` (sans casse ni accents, UNIQUE, sert
-d'ordre alphabétique, posé à l'enregistrement), `definition` en Markdown, `formula` en texte, `is_visible`.
+d'ordre alphabétique, posé à l'enregistrement), `definition` en Markdown, formule comprise (2026-10-31), `is_visible`.
 Écrit par l'administrateur seul (`manage-business-settings`, `/admin/glossary`, `/admin/glossary/terms*`,
 chaque écriture rend le glossaire entier) ; lu par le propriétaire (`GET /owner/glossary`,
-`view-own-contracts`) : termes visibles, `definition_html` et `formula`, jamais le Markdown.
+`view-own-contracts`) : termes visibles, `definition_html`, jamais le Markdown.
 
 - Le Markdown se rend par `AnnouncementBody::toHtml()`, jamais côté client.
 - La migration `2026_10_30_100000_create_glossary_terms` convertit les questions : le terme est le texte
-  entre guillemets, la ligne `**Formule :**` passe dans `formula`, la visibilité est gardée, les rubriques
-  et l'ordre manuel disparaissent. ⚠️ `faq_sections`, `faq_entries` et leurs modèles restent pour le retour
+  entre guillemets, la visibilité est gardée, les rubriques
+  et l'ordre manuel disparaissent. ⚠️ `2026_10_31_100000` a remis les formules dans la définition ; la colonne `formula`, vide, `faq_sections`, `faq_entries` et leurs modèles restent pour le retour
   arrière et les lignes du journal, comme les codes `settings.faq_*` : à retirer par une migration ultérieure.
 - Journal `settings.glossary_term_*`, sans jamais recopier une définition. Aucune permission nouvelle.
 

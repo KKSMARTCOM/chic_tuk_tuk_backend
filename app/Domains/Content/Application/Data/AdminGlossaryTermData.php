@@ -14,12 +14,11 @@ final class AdminGlossaryTermData extends BaseData
         public string $term,
         public string $definition,
         public string $definitionHtml,
-        public ?string $formula,
         public bool $isVisible,
     ) {}
 
     public static function fromModel(GlossaryTerm $term): self
     {
-        return new self($term->id, $term->term, $term->definition, AnnouncementBody::toHtml($term->definition), $term->formula, $term->is_visible);
+        return new self($term->id, $term->term, $term->definition, AnnouncementBody::toHtml($term->definition), $term->is_visible);
     }
 }

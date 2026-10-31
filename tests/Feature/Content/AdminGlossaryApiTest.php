@@ -57,12 +57,11 @@ class AdminGlossaryApiTest extends TestCase
         $this->assertSame(['cumul', 'Échéance', 'Solde dû', 'Total'], array_column($admin->getJson('/api/v1/admin/glossary')->json('terms'), 'term'));
     }
 
-    public function test_a_term_carries_its_definition_its_formula_and_starts_hidden(): void
+    public function test_a_term_carries_its_definition_and_starts_hidden(): void
     {
-        $this->as()->postJson('/api/v1/admin/glossary/terms', ['term' => ' Solde dû ', 'definition' => '**Ce qui revient.**', 'formula' => ' a − b '])
+        $this->as()->postJson('/api/v1/admin/glossary/terms', ['term' => ' Solde dû ', 'definition' => '**Ce qui revient.**'])
             ->assertOk()
             ->assertJsonPath('terms.0.term', 'Solde dû')
-            ->assertJsonPath('terms.0.formula', 'a − b')
             ->assertJsonPath('terms.0.is_visible', false)
             ->assertJsonPath('terms.0.definition', '**Ce qui revient.**')
             ->assertJsonPath('terms.0.definition_html', fn ($html) => str_contains($html, '<strong>'));
@@ -80,21 +79,20 @@ class AdminGlossaryApiTest extends TestCase
         $admin->patchJson("/api/v1/admin/glossary/terms/{$id}", ['term' => 'Solde Dû'])->assertOk();
     }
 
-    public function test_term_and_definition_are_required_the_formula_is_not(): void
+    public function test_term_and_definition_are_required(): void
     {
         $admin = $this->as();
 
         $admin->postJson('/api/v1/admin/glossary/terms', [])->assertUnprocessable()->assertJsonValidationErrors(['term', 'definition']);
-        $admin->postJson('/api/v1/admin/glossary/terms', ['term' => 'A', 'definition' => 'D', 'formula' => ''])->assertOk()->assertJsonPath('terms.0.formula', null);
     }
 
     public function test_show_all_changes_the_visibility_alone_and_the_journal_says_so(): void
     {
-        $term = GlossaryTerm::create(['term' => 'Solde dû', 'definition' => 'Secret', 'formula' => 'a − b']);
+        $term = GlossaryTerm::create(['term' => 'Solde dû', 'definition' => 'Secret']);
 
         $this->as()->patchJson("/api/v1/admin/glossary/terms/{$term->id}", ['is_visible' => true])->assertOk()->assertJsonPath('terms.0.is_visible', true);
 
-        $this->assertSame('a − b', $term->fresh()->formula);
+        $this->assertSame('Secret', $term->fresh()->definition);
         $entry = Activity::where('event', 'settings.glossary_term_shown')->sole();
         $this->assertStringContainsString('Solde dû', $entry->description);
         $this->assertSame(0, Activity::where('event', 'settings.glossary_term_updated')->count());

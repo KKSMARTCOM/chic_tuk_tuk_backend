@@ -6,6 +6,7 @@ use App\Models\FaqEntry;
 use App\Models\FaqSection;
 use App\Models\GlossaryTerm;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -35,13 +36,23 @@ class GlossaryConversionTest extends TestCase
         $this->assertSame(0, GlossaryTerm::where('term', 'like', 'Que %')->count());
     }
 
-    public function test_the_formula_leaves_the_definition_and_the_example_stays(): void
+    public function test_the_formula_is_back_in_the_definition_before_the_example(): void
     {
-        $term = GlossaryTerm::where('term', 'Solde dû')->sole();
+        $definition = GlossaryTerm::where('term', 'Solde dû')->sole()->definition;
 
-        $this->assertSame('Solde dû = total recettes − charges prélevées', $term->formula);
-        $this->assertStringNotContainsString('Formule', $term->definition);
-        $this->assertStringContainsString('Exemple : 105 000 F', $term->definition);
+        $this->assertStringContainsString('**Formule :** Solde dû = total recettes − charges prélevées', $definition);
+        $this->assertLessThan(strpos($definition, 'Exemple : 105 000 F'), strpos($definition, '**Formule :**'));
+        $this->assertSame(0, GlossaryTerm::whereNotNull('formula')->count());
+    }
+
+    public function test_a_formula_without_example_closes_the_definition(): void
+    {
+        $id = GlossaryTerm::create(['term' => 'Nouveau', 'definition' => 'Texte.'])->id;
+        DB::table('glossary_terms')->where('id', $id)->update(['formula' => 'a + b']);
+
+        (require database_path('migrations/2026_10_31_100000_merge_glossary_formula_into_definition.php'))->up();
+
+        $this->assertSame("Texte.\n\n**Formule :** a + b", GlossaryTerm::findOrFail($id)->definition);
     }
 
     public function test_visibility_is_kept_and_two_questions_on_one_term_are_both_kept(): void

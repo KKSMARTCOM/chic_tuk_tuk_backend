@@ -13,11 +13,10 @@ final class OwnerGlossaryTermData extends BaseData
         public string $id,
         public string $term,
         public string $definitionHtml,
-        public ?string $formula,
     ) {}
 
     public static function fromModel(GlossaryTerm $term): self
     {
-        return new self($term->id, $term->term, AnnouncementBody::toHtml($term->definition), $term->formula);
+        return new self($term->id, $term->term, AnnouncementBody::toHtml($term->definition));
     }
 }

@@ -6,12 +6,12 @@ use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
-/** Un terme du glossaire des propriétaires : définition en Markdown, formule facultative ; masqué tant que `is_visible` est faux. */
+/** Un terme du glossaire des propriétaires : définition en Markdown, formule comprise ; masqué tant que `is_visible` est faux. */
 class GlossaryTerm extends Model
 {
     use HasUuid;
 
-    protected $fillable = ['term', 'definition', 'formula', 'is_visible'];
+    protected $fillable = ['term', 'definition', 'is_visible'];
 
     protected $casts = ['is_visible' => 'boolean'];
 

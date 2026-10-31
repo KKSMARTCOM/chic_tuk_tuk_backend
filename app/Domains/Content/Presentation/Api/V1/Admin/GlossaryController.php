@@ -39,7 +39,7 @@ final class GlossaryController
         return $this->guard($request, 'la modification d\'un terme', function () use ($request, $id) {
             $term = GlossaryTerm::findOrFail($id);
             $term->fill($this->validated($request, $term));
-            $content = $term->isDirty(['term', 'definition', 'formula']);
+            $content = $term->isDirty(['term', 'definition']);
             $visibility = $term->isDirty('is_visible');
             $term->save();
             if ($content) {
@@ -72,20 +72,15 @@ final class GlossaryController
                 }
             }],
             'definition' => [...$required, 'string', 'max:20000'],
-            'formula' => ['sometimes', 'nullable', 'string', 'max:500'],
             'is_visible' => ['sometimes', 'boolean'],
         ], [
             'term.required' => 'Le terme est obligatoire.',
             'term.max' => 'Le terme ne dépasse pas 255 caractères.',
             'definition.required' => 'La définition est obligatoire.',
-            'formula.max' => 'La formule ne dépasse pas 500 caractères.',
         ])->validate();
 
         if (array_key_exists('term', $data)) {
             $data['term'] = trim($data['term']);
-        }
-        if (array_key_exists('formula', $data)) {
-            $data['formula'] = trim((string) $data['formula']) ?: null;
         }
 
         return $data;

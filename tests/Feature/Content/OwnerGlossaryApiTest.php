@@ -34,14 +34,14 @@ class OwnerGlossaryApiTest extends TestCase
 
     public function test_the_owner_reads_visible_terms_alphabetically_rendered_never_the_markdown(): void
     {
-        GlossaryTerm::create(['term' => 'Total recettes', 'definition' => '**T**', 'formula' => 'a × b', 'is_visible' => true]);
+        GlossaryTerm::create(['term' => 'Total recettes', 'definition' => '**T**', 'is_visible' => true]);
         GlossaryTerm::create(['term' => 'Échéance', 'definition' => 'E', 'is_visible' => true]);
         GlossaryTerm::create(['term' => 'Masqué', 'definition' => 'M', 'is_visible' => false]);
 
         $response = $this->as()->getJson('/api/v1/owner/glossary')->assertOk();
 
         $this->assertSame(['Échéance', 'Total recettes'], array_column($response->json(), 'term'));
-        $response->assertJsonPath('1.formula', 'a × b')->assertJsonMissingPath('0.definition');
+        $response->assertJsonMissingPath('0.definition');
         $this->assertStringContainsString('<strong>T</strong>', $response->json('1.definition_html'));
     }
 
