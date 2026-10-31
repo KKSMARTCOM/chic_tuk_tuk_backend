@@ -36,7 +36,7 @@ class LeaveCountersTest extends TestCase
         if ($avecContrat) {
             $contrat = DriverContract::factory()->create([
                 'driver_id' => $driver->id,
-                'start_date' => now()->subMonths($moisEcoules)->startOfDay(),
+                'start_date' => now()->subMonthsNoOverflow($moisEcoules)->startOfDay(),
                 'contract_months' => 24,
                 'status' => 'active',
             ]);
@@ -47,8 +47,8 @@ class LeaveCountersTest extends TestCase
                 'driver_id' => $driver->id,
                 'driver_contract_id' => $contrat?->id,
                 'status' => 'completed',
-                'start_date' => now()->subMonths(2)->toDateString(),
-                'end_date' => now()->subMonths(2)->addDays($joursTermines - 1)->toDateString(),
+                'start_date' => now()->subMonthsNoOverflow(2)->toDateString(),
+                'end_date' => now()->subMonthsNoOverflow(2)->addDays($joursTermines - 1)->toDateString(),
                 'requested_days' => $joursTermines,
                 'effective_days' => $joursTermines,
             ]);
@@ -131,7 +131,7 @@ class LeaveCountersTest extends TestCase
 
         $ancien = DriverContract::factory()->create([
             'driver_id' => $driver->id,
-            'start_date' => now()->subMonths(30)->startOfDay(),
+            'start_date' => now()->subMonthsNoOverflow(30)->startOfDay(),
             'contract_months' => 24,
             'status' => 'completed',
         ]);
@@ -139,14 +139,14 @@ class LeaveCountersTest extends TestCase
             'driver_id' => $driver->id,
             'driver_contract_id' => $ancien->id,
             'status' => 'completed',
-            'start_date' => now()->subMonths(20)->toDateString(),
+            'start_date' => now()->subMonthsNoOverflow(20)->toDateString(),
             'requested_days' => 5,
             'effective_days' => 5,
         ]);
 
         DriverContract::factory()->create([
             'driver_id' => $driver->id,
-            'start_date' => now()->subMonths(2)->startOfDay(),
+            'start_date' => now()->subMonthsNoOverflow(2)->startOfDay(),
             'contract_months' => 24,
             'status' => 'active',
         ]);

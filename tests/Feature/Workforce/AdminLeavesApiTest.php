@@ -54,7 +54,7 @@ class AdminLeavesApiTest extends TestCase
         $driver = Driver::factory()->create(['user_id' => $user->id]);
         DriverContract::factory()->create([
             'driver_id' => $driver->id,
-            'start_date' => now()->subMonths(6)->startOfDay(),
+            'start_date' => now()->subMonthsNoOverflow(6)->startOfDay(),
             'contract_months' => 24,
             'status' => 'active',
         ]);
@@ -126,7 +126,7 @@ class AdminLeavesApiTest extends TestCase
         ]);
         LeaveRequest::factory()->create([
             'driver_id' => $agent->id, 'driver_contract_id' => $contrat->id,
-            'status' => 'completed', 'start_date' => now()->subMonth()->toDateString(),
+            'status' => 'completed', 'start_date' => now()->subMonthNoOverflow()->toDateString(),
             'requested_days' => 3, 'effective_days' => 3,
         ]);
 
@@ -183,13 +183,13 @@ class AdminLeavesApiTest extends TestCase
         LeaveRequest::factory()->create([
             'driver_id' => $agent->id, 'driver_contract_id' => $contrat->id,
             'status' => 'completed', 'source' => 'admin_historical',
-            'start_date' => now()->subMonths(2)->toDateString(),
+            'start_date' => now()->subMonthsNoOverflow(2)->toDateString(),
             'requested_days' => 2, 'effective_days' => 2,
         ]);
         LeaveRequest::factory()->create([
             'driver_id' => $agent->id, 'driver_contract_id' => $contrat->id,
             'status' => 'completed', 'source' => 'driver_request',
-            'start_date' => now()->subMonth()->toDateString(),
+            'start_date' => now()->subMonthNoOverflow()->toDateString(),
             'requested_days' => 3, 'effective_days' => 3,
         ]);
 
@@ -258,7 +258,7 @@ class AdminLeavesApiTest extends TestCase
         $large = $this->agent('Beaucoup');
         LeaveRequest::factory()->create([
             'driver_id' => $small->id, 'driver_contract_id' => $small->activeDriverContract->id,
-            'status' => 'completed', 'start_date' => now()->subMonth()->toDateString(),
+            'status' => 'completed', 'start_date' => now()->subMonthNoOverflow()->toDateString(),
             'requested_days' => 3, 'effective_days' => 3,
         ]);
         [, $token] = $this->connecter(Profil::Admin, ['view-leaves']);

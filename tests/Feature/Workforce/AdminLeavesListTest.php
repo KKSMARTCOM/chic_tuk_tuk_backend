@@ -38,7 +38,7 @@ class AdminLeavesListTest extends TestCase
 
         $contrat = DriverContract::factory()->create([
             'driver_id' => $driver->id,
-            'start_date' => now()->subMonths($moisEcoules)->startOfDay(),
+            'start_date' => now()->subMonthsNoOverflow($moisEcoules)->startOfDay(),
             'end_date' => $statutContrat === 'active' ? null : now()->subDays(10)->toDateString(),
             'contract_months' => 24,
             'status' => $statutContrat,
@@ -49,7 +49,7 @@ class AdminLeavesListTest extends TestCase
                 'driver_id' => $driver->id,
                 'driver_contract_id' => $contrat->id,
                 'status' => 'completed',
-                'start_date' => now()->subMonths(2)->toDateString(),
+                'start_date' => now()->subMonthsNoOverflow(2)->toDateString(),
                 'requested_days' => $joursPris,
                 'effective_days' => $joursPris,
             ]);
@@ -111,8 +111,8 @@ class AdminLeavesListTest extends TestCase
         $driver = Driver::factory()->create(['user_id' => $user->id]);
         DriverContract::factory()->create([
             'driver_id' => $driver->id,
-            'start_date' => now()->subMonths(30)->startOfDay(),
-            'end_date' => now()->subMonths(24)->toDateString(),
+            'start_date' => now()->subMonthsNoOverflow(30)->startOfDay(),
+            'end_date' => now()->subMonthsNoOverflow(24)->toDateString(),
             'contract_months' => 24,
             'status' => 'completed',
         ]);
@@ -185,7 +185,7 @@ class AdminLeavesListTest extends TestCase
         $court = Driver::factory()->create(['user_id' => $user->id]);
         DriverContract::factory()->create([
             'driver_id' => $court->id,
-            'start_date' => now()->subMonths(3)->startOfDay(),
+            'start_date' => now()->subMonthsNoOverflow(3)->startOfDay(),
             'end_date' => null,
             'contract_months' => 12,
             'status' => 'active',
