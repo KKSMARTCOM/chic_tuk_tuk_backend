@@ -133,9 +133,11 @@ final class BuildStatementFigures
                 : $outstanding[$line];
         }
 
-        // D'abord les restes à recouvrer sur la part sous le revenu total, puis le reste
-        // jusqu'au plafond sur la part au-delà, dans l'ordre des lignes.
-        $proposed = ChargeLedger::propose($outstanding, $within);
+        // D'abord la charge DU MOIS sur la part sous le revenu total (décidé le 2026-11-02) :
+        // les arriérés, l'admin décide de les recouvrer en saisissant plus, jusqu'au reste à
+        // recouvrer. Puis le reste jusqu'au plafond sur la part au-delà, dans l'ordre des lignes.
+        $monthCharge = collect($due)->map(fn ($d, $line) => min($d, max(0.0, $outstanding[$line])))->all();
+        $proposed = ChargeLedger::propose($monthCharge, $within);
         if ($beyond > 0) {
             // Bornée au plafond TOTAL : une ligne déjà prélevée au-delà de son total a un
             // plafond négatif, que le `max(0, …)` par ligne ne retrancherait plus (relecture finale).

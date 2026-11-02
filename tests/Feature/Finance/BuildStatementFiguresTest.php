@@ -191,6 +191,44 @@ class BuildStatementFiguresTest extends TestCase
         );
     }
 
+    // Décidé le 2026-11-02 : la proposition prend la charge DU MOIS ; l'admin décide s'il
+    // recouvre aussi les arriérés, jusqu'au reste à recouvrer. L'estimation du propriétaire suit.
+    public function test_the_proposal_takes_the_month_charge_and_leaves_arrears_to_the_admin(): void
+    {
+        $contract = VehicleContract::factory()->create([
+            'start_date' => '2026-07-01', 'unlimited_internet' => 5_000, 'spotify_premium' => 2_500, 'manager_remuneration' => 20_000,
+        ]);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-07-01',
+            'figures' => ['charges' => [
+                ['key' => 'internet', 'due' => 5_000, 'deducted' => 5_000],
+                ['key' => 'spotify', 'due' => 2_500, 'deducted' => 0],
+                ['key' => 'manager', 'due' => 20_000, 'deducted' => 10_000],
+            ]],
+        ]);
+        $this->paidOn($contract, $this->businessDays('2026-08-03', '2026-08-31'), (float) $contract->daily_net_amount);
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01']);
+        Carbon::setTestNow('2026-09-01 09:00:00');
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-08', $august);
+        $charges = collect($f->charges)->keyBy('key');
+
+        $this->assertEquals(['internet' => 5_000, 'spotify' => 2_500, 'manager' => 20_000], $charges->map->proposed->all());
+        $this->assertEquals(['internet' => 5_000, 'spotify' => 5_000, 'manager' => 30_000], $charges->map->outstanding->all());
+        $this->assertEquals($f->totalRevenue - 27_500, $f->balanceDue);
+
+        // L'admin peut prélever aussi les arriérés : rien ne le refuse.
+        $august->update(['deducted_spotify' => 5_000, 'deducted_manager' => 30_000]);
+        $more = app(BuildStatementFigures::class)($contract, '2026-08', $august->fresh());
+        $this->assertSame([], \App\Domains\Finance\Domain\ChargeLedger::violationsFor($more));
+        $this->assertEquals($f->totalRevenue - 40_000, $more->balanceDue);
+
+        // L'estimation du propriétaire, au mois en cours, ne retient que la charge du mois.
+        Carbon::setTestNow('2026-08-31 23:59:00');
+        $estimate = app(BuildStatementFigures::class)($contract, '2026-08', null, ownerEstimate: true);
+        $this->assertEquals(27_500, collect($estimate->charges)->sum('deducted'));
+    }
+
     public function test_a_payment_without_month_is_left_out_as_by_the_calculator(): void
     {
         // Un paiement saisi à la main peut n'avoir aucun `payment_month` : le calculateur du

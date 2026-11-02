@@ -1162,7 +1162,10 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
 - **Le compte de charges** (`ChargeLedger`, classe pure) remplace, pour les fiches, le
   report automatique du déficit : dû par mois TRAVAILLÉ, reste à recouvrer par ligne
   (ouverture + dû − prélevé des fiches validées), valeur proposée servie dans l'ordre
-  internet, Spotify, manager dans la limite de ce que le mois rapporte. Deux refus `422` :
+  internet, Spotify, manager dans la limite de ce que le mois rapporte. ⚠️ **La valeur proposée est
+  la charge DU MOIS, pas le reste à recouvrer** (décidé le 2026-11-02) : l'admin décide de recouvrer
+  les arriérés en saisissant plus, jusqu'au reste à recouvrer. L'estimation du propriétaire suit la
+  même proposition. Au-delà du revenu total, la part au-delà règle toujours tout le reste (2026-10-12). Deux refus `422` :
   prélever plus que le reste d'une ligne, et un solde dû négatif. Ils sont vérifiés à
   l'enregistrement ET à la validation ; `ValidateRemunerationStatement::blockers()` les
   annonce à l'écran avant le clic.

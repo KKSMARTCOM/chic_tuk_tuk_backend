@@ -22,8 +22,9 @@ final class ChargeLedger
     ];
 
     /**
-     * La valeur proposée : chaque ligne reçoit son reste à recouvrer, dans la limite de ce
-     * que le mois rapporte et du total à recouvrer, servie dans l'ordre de la fiche.
+     * La valeur proposée : chaque ligne reçoit le montant qu'on lui passe — la charge du mois
+     * depuis le 2026-11-02, plus le reste à recouvrer —, dans la limite de ce que le mois
+     * rapporte, servie dans l'ordre de la fiche.
      *
      * @param  array<string, float|int>  $outstanding
      * @return array<string, float>
