@@ -14,6 +14,7 @@ use Database\Seeders\ReferenceRolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -190,6 +191,38 @@ class PaymentCleanupTest extends TestCase
         $this->assertModelExists($live);
         $this->assertModelExists($commission);
         $this->assertSame(1, Activity::where('event', 'payment.cancelled_purged')->count());
+    }
+
+    public function test_purging_a_selection_deletes_only_the_selected_cancelled_payments(): void
+    {
+        $chosen = $this->pay('2026-03-03', 'cancelled');
+        $other = $this->pay('2026-03-04', 'cancelled');
+
+        $this->api(['purge-payments'])->deleteJson('/api/v1/admin/payments/cancelled', ['payment_ids' => [$chosen->id]])
+            ->assertOk()->assertJson(['deleted' => 1]);
+
+        $this->assertModelMissing($chosen);
+        $this->assertModelExists($other);
+        $this->assertSame(1, Activity::where('event', 'payment.cancelled_purged')->count());
+    }
+
+    public function test_purging_a_selection_is_all_or_nothing(): void
+    {
+        $cancelled = $this->pay('2026-03-03', 'cancelled');
+        $live = $this->pay('2026-03-02');
+        $commission = Payment::factory()->create(['payment_type' => 'commission', 'status' => 'cancelled', 'vehicle_contract_id' => null]);
+
+        foreach ([$live, $commission] as $intruder) {
+            $this->api(['purge-payments'])->deleteJson('/api/v1/admin/payments/cancelled', ['payment_ids' => [$cancelled->id, $intruder->id]])
+                ->assertStatus(409)->assertJsonPath('code', 'PAYMENT_NOT_CANCELLED');
+        }
+        $this->api(['purge-payments'])->deleteJson('/api/v1/admin/payments/cancelled', ['payment_ids' => [$cancelled->id, (string) Str::uuid()]])
+            ->assertStatus(409)->assertJsonPath('code', 'PAYMENT_NOT_FOUND');
+
+        $this->assertModelExists($cancelled);
+        $this->assertModelExists($live);
+        $this->assertModelExists($commission);
+        $this->assertSame(0, Activity::where('event', 'payment.cancelled_purged')->count());
     }
 
     public function test_only_the_admin_role_holds_the_purge_payments_permission(): void

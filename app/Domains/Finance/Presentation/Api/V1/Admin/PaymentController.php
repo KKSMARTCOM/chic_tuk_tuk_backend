@@ -18,6 +18,7 @@ use App\Domains\Finance\Application\Actions\ValidatePaymentsBatch;
 use App\Domains\Finance\Application\Data\CancelPaymentsBatchData;
 use App\Domains\Finance\Application\Data\CorrectCollectionDateData;
 use App\Domains\Finance\Application\Data\CreatePaymentData;
+use App\Domains\Finance\Application\Data\PurgeCancelledPaymentsData;
 use App\Domains\Finance\Application\Data\UpdatePaymentData;
 use App\Domains\Finance\Application\Data\ValidatePaymentData;
 use App\Domains\Finance\Application\Data\ValidatePaymentsBatchData;
@@ -119,12 +120,15 @@ final class PaymentController
             });
     }
 
-    /** Vider les paiements de contrat annulés — `purge-payments`, l'administrateur seul (2026-10-01). */
-    public function purgeCancelled(Request $request, PurgeCancelledPayments $purge): JsonResponse
+    /**
+     * Vider les paiements de contrat annulés — `purge-payments`, l'administrateur seul (2026-10-01) ;
+     * tous, ou la sélection de la liste (2026-11-03).
+     */
+    public function purgeCancelled(Request $request, PurgeCancelledPaymentsData $data, PurgeCancelledPayments $purge): JsonResponse
     {
         return $this->guard($request, 'la purge des paiements annulés', 'Les paiements annulés n\'ont pas pu être vidés.', 'PAYMENTS_PURGE_FAILED',
-            function () use ($purge) {
-                ['count' => $count, 'total' => $total] = $purge();
+            function () use ($data, $purge) {
+                ['count' => $count, 'total' => $total] = $purge($data->paymentIds);
                 if ($count > 0) {
                     $this->journal->cancelledPaymentsPurged($count, $total);
                 }

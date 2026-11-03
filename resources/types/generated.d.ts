@@ -877,6 +877,9 @@ date: string;
 class: 'out_of_contract' | 'weekend' | 'agent_pause' | 'immobilized' | 'paid' | 'cancelled' | 'to_generate';
 payment_id: string | null;
 };
+export type PurgeCancelledPaymentsData = {
+payment_ids: Array<string> | null;
+};
 export type RemunerationStatementDetailData = {
 id: string;
 number: string | null;

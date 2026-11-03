@@ -1273,7 +1273,9 @@ contrat. Spec : `docs/specs/2026-10-01-reconstitution-des-fiches-design.md`, pro
   (`edit-payments`, silencieuse par défaut). ⚠️ **La liste masque les paiements annulés
   par défaut** ; `filter[status]=cancelled` les montre, et
   `DELETE /admin/payments/cancelled` (`purge-payments`, l'administrateur seul) vide les
-  paiements de CONTRAT annulés — rejouer le seeder après déploiement.
+  paiements de CONTRAT annulés — rejouer le seeder après déploiement. Avec `payment_ids`
+  (2026-11-03), seulement la sélection, tout ou rien : `409 PAYMENT_NOT_FOUND`, ou
+  `PAYMENT_NOT_CANCELLED` pour un paiement non annulé ou une commission.
 - **Saisie manuelle** d'un paiement de contrat : `driver_contract_id` (contrat même terminé)
   et `payment_month` = mois de la date. Avant, ces paiements naissaient sans mois et
   n'entraient dans aucune fiche.
