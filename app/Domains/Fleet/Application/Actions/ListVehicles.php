@@ -33,7 +33,8 @@ final class ListVehicles
             stats: new AdminVehicleStatsData(
                 total: $page->total(),
                 active: (clone $query)->where('is_active', true)->count(),
-                paused: (clone $query)->whereHas('activePause')->count(),
+                paused: (clone $query)->whereHas('activePause', fn ($q) => $q->where('reason_type', '!=', 'agent_change'))->count(),
+                immobilized: (clone $query)->whereHas('activePause', fn ($q) => $q->where('reason_type', 'agent_change'))->count(),
                 withoutContract: (clone $query)->whereDoesntHave('liveVehicleContract')->count(),
             ),
             owners: User::query()

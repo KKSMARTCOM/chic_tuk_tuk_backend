@@ -1057,6 +1057,10 @@ démission : le propriétaire lisait « Actif » sans agent.
   contrat propriétaire qui n'est plus en cours (`DRIVER_CONTRACT_VEHICLE_CONTRACT_CLOSED`) ; la
   reconduction verrouille le contrat propriétaire avant ses vérifications.
 - Recensement en lecture seule avant la prod : `docs/runbooks/scripts-2026-10/audit-etat-vehicule-agent.php`.
+- ⚠️ **Le départ n'est pas une pause** (2026-11-03) : la pause véhicule `agent_change` se nomme
+  IMMOBILISATION partout. `EndDriverContract` prévient le propriétaire (`Notifier::vehicleImmobilized`,
+  après la transaction) ; la liste admin porte `is_immobilized` (et `is_on_pause` faux) et le compteur
+  `immobilized`, retiré de `paused`.
 
 ## Commandes artisan
 
@@ -1421,6 +1425,7 @@ qu'en relisant le dépôt entier.
 | Demande de pause déposée | les administrateurs |
 | Pause validée / refusée | l'agent concerné |
 | Véhicule mis en pause / reprise | le propriétaire du véhicule |
+| Véhicule immobilisé (départ de l'agent, 2026-11-03) | le propriétaire du véhicule — « Véhicule immobilisé », date du premier jour sans agent, jamais le mot « pause » ni le motif du départ |
 | Paiement **validé** ou **annulé** | l'agent concerné, lui seul |
 | Versement enregistré (2026-10-22) | le propriétaire du contrat, s'il l'est encore du véhicule — seulement si `paid_on ≥ REMUNERATION_DISBURSEMENT_NOTIFY_FROM` (absent : jamais) et fiches visibles ; ni correction ni annulation. Dans les mêmes conditions, l'e-mail `DisbursementMail` (2026-10-26), preuve jointe s'il y en a une |
 

@@ -80,9 +80,19 @@ class AdminVehiclesReadApiTest extends TestCase
 
         Vehicle::factory()->create(['owner_id' => null, 'vehicle_number' => 'T-0003']);
 
+        // Le départ d'un agent IMMOBILISE le véhicule, ce n'est pas une pause (2026-11-03).
+        $waiting = Vehicle::factory()->create(['owner_id' => $owner->id, 'vehicle_number' => 'T-0004', 'is_active' => false]);
+        VehiclePause::create([
+            'vehicle_id' => $waiting->id,
+            'vehicle_contract_id' => VehicleContract::factory()->forVehicle($waiting)->create()->id,
+            'start_date' => now()->subDay()->toDateString(),
+            'reason_type' => 'agent_change',
+            'is_auto' => true,
+        ]);
+
         $response = $this->asBearer($token)->getJson('/api/v1/admin/vehicles')->assertOk();
 
-        $response->assertJsonPath('stats', ['total' => 3, 'active' => 2, 'paused' => 1, 'without_contract' => 1]);
+        $response->assertJsonPath('stats', ['total' => 4, 'active' => 2, 'paused' => 1, 'immobilized' => 1, 'without_contract' => 1]);
         $response->assertJsonPath('owners.0.name', 'Awa Propriétaire');
 
         $byNumber = collect($response->json('vehicles'))->keyBy('vehicle_number');
@@ -90,6 +100,9 @@ class AdminVehiclesReadApiTest extends TestCase
         $this->assertSame('Agent Titulaire', $byNumber['T-0001']['driver']['name']);
         $this->assertEquals(1_000_000, $byNumber['T-0001']['contract']['total_amount']);
         $this->assertTrue($byNumber['T-0002']['is_on_pause']);
+        $this->assertFalse($byNumber['T-0002']['is_immobilized']);
+        $this->assertFalse($byNumber['T-0004']['is_on_pause']);
+        $this->assertTrue($byNumber['T-0004']['is_immobilized']);
         // La ligne porte la pause en cours, pour la terminer sans ouvrir la fiche.
         $this->assertSame($pause->id, $byNumber['T-0002']['active_pause_id']);
         $this->assertNull($byNumber['T-0001']['active_pause_id']);

@@ -41,6 +41,7 @@ use Illuminate\Support\Facades\Mail;
  * | Demande de pause déposée         | les administrateurs                |
  * | Pause validée / refusée          | l'agent concerné                   |
  * | Véhicule mis en pause / reprise  | le propriétaire du véhicule        |
+ * | Véhicule immobilisé (départ)     | le propriétaire du véhicule        |
  * | Paiement validé / annulé          | l'agent concerné, lui seul         |
  * | Communiqué envoyé / relancé       | ses destinataires (arrêtés à l'envoi) |
  *
@@ -260,6 +261,25 @@ final class Notifier
             $this->immatriculation($vehicule).' est en pause depuis le '.$this->jour($pause->start_date)
                 .' — motif : '.$pause->reason_label
                 .($pause->reason_notes ? " ({$pause->reason_notes})" : ''),
+            'warning',
+            $vehicule ? "/owner/vehicles/{$vehicule->id}/pauses" : null,
+        );
+    }
+
+    /**
+     * L'agent est parti (2026-11-03) : le véhicule n'est pas « en pause », il est IMMOBILISÉ en
+     * attente d'un nouvel agent. Son PROPRIÉTAIRE est prévenu, sans le motif du départ, qui
+     * regarde l'agent.
+     */
+    public function vehicleImmobilized(VehiclePause $pause): void
+    {
+        $vehicule = $pause->vehicle;
+
+        $this->vers(
+            $vehicule?->owner,
+            'Véhicule immobilisé',
+            $this->immatriculation($vehicule).' est immobilisé depuis le '.$this->jour($pause->start_date)
+                .', en attente d\'un nouvel agent.',
             'warning',
             $vehicule ? "/owner/vehicles/{$vehicule->id}/pauses" : null,
         );

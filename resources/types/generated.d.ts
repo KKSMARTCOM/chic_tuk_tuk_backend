@@ -1233,6 +1233,7 @@ vehicle_type: 'moto' | 'tricycle' | 'car';
 notes: string | null;
 is_active: boolean;
 is_on_pause: boolean;
+is_immobilized: boolean;
 active_pause_id: string | null;
 owner: App.Domains.Fleet.Application.Data.AdminVehiclePersonData | null;
 driver: App.Domains.Fleet.Application.Data.AdminVehiclePersonData | null;
@@ -1275,6 +1276,7 @@ export type AdminVehicleStatsData = {
 total: number;
 active: number;
 paused: number;
+immobilized: number;
 without_contract: number;
 };
 export type AssignInternalDriverData = {

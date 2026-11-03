@@ -217,6 +217,18 @@ class NotificationRoutingTest extends TestCase
         $this->assertStringContainsString('Boîte de vitesses', $message);
     }
 
+    public function test_un_vehicule_immobilise_previent_le_proprietaire_sans_parler_de_pause(): void
+    {
+        // Le départ d'un agent n'est pas une pause : le véhicule attend un nouvel agent (2026-11-03).
+        $this->notifier()->vehicleImmobilized($this->pauseVehicule('agent_change'));
+
+        $this->assertSame(['Propriétaire'], $this->destinataires());
+        $notification = Notification::first();
+        $this->assertSame('Véhicule immobilisé', $notification->title);
+        $this->assertStringContainsString('est immobilisé depuis le '.now()->format('d/m/Y').', en attente d\'un nouvel agent', $notification->message);
+        $this->assertStringNotContainsString('pause', $notification->message);
+    }
+
     public function test_une_pause_vehicule_ne_previent_ni_les_admins_ni_les_agents(): void
     {
         $this->notifier()->vehiclePaused($this->pauseVehicule('accident'));

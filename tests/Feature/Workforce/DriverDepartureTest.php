@@ -7,6 +7,7 @@ use App\Domains\Workforce\Application\Actions\EndDriverContract;
 use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
+use App\Models\Notification;
 use App\Models\VehicleContract;
 use App\Models\VehiclePause;
 use App\Shared\Http\ApiException;
@@ -96,6 +97,19 @@ class DriverDepartureTest extends TestCase
             'user_id' => $contract->vehicle->owner_id,
             'title' => 'Reprise du véhicule',
         ]);
+    }
+
+    public function test_departure_tells_the_owner_the_vehicle_is_immobilized(): void
+    {
+        $contract = $this->activeContract();
+
+        $this->end($contract, now()->subDays(2)->toDateString());
+
+        // La date est celle du premier jour sans agent, celle de la pause « changement d'agent ».
+        $start = VehiclePause::where('driver_contract_id', $contract->id)->where('reason_type', 'agent_change')->sole()->start_date;
+        $notification = Notification::where('user_id', $contract->vehicle->owner_id)->sole();
+        $this->assertSame('Véhicule immobilisé', $notification->title);
+        $this->assertStringContainsString('depuis le '.$start->format('d/m/Y'), $notification->message);
     }
 
     public function test_departure_deletes_a_pause_not_yet_started(): void

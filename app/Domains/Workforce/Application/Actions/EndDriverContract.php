@@ -3,6 +3,7 @@
 namespace App\Domains\Workforce\Application\Actions;
 
 use App\Shared\Support\BeninDate;
+use App\Domains\Notification\Application\Notifier;
 use App\Domains\Workforce\Application\Data\EndDriverContractData;
 use App\Models\DriverContract;
 use App\Models\LeaveRequest;
@@ -67,7 +68,7 @@ final class EndDriverContract
             );
         }
 
-        return DB::transaction(function () use ($contract, $data, $endDate) {
+        $ended = DB::transaction(function () use ($contract, $data, $endDate) {
             // Calculé AVANT de clore les pauses : il lit les pauses en cours ET terminées, le
             // résultat ne change donc pas, mais l'ordre le rend évident.
             $firstDayWithoutAgent = $this->firstDayWithoutAgent($contract, $endDate);
@@ -97,8 +98,8 @@ final class EndDriverContract
             $contract->driver->user?->update(['is_active' => false]);
             ($this->syncAvailability)($contract->driver->refresh());
 
-            // Créer une pause véhicule pour changement d'agent
-            VehiclePause::create([
+            // Créer une pause véhicule pour changement d'agent : le véhicule est IMMOBILISÉ.
+            $immobilization = VehiclePause::create([
                 'vehicle_id' => $contract->vehicle_id,
                 'vehicle_contract_id' => $contract->vehicle_contract_id,
                 'driver_contract_id' => $contract->id,
@@ -109,8 +110,13 @@ final class EndDriverContract
                 'is_auto' => true,
             ]);
 
-            return $contract->refresh();
+            return [$contract->refresh(), $immobilization];
         });
+
+        // Après la transaction, comme toute notification (2026-11-03).
+        app(Notifier::class)->vehicleImmobilized($ended[1]);
+
+        return $ended[0];
     }
 
     /**

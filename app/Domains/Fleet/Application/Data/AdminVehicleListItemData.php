@@ -10,7 +10,8 @@ use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
  * Une ligne de la liste des véhicules — ex-Admin\VehicleController::index().
  *
  * `isOnPause` suit la définition du modèle : une pause SANS date de fin. `activePauseId`
- * permet de la terminer depuis la liste, comme le Blade.
+ * permet de la terminer depuis la liste, comme le Blade. ⚠️ Depuis le 2026-11-03, le départ
+ * de l'agent (`agent_change`) n'est plus une pause : `isImmobilized`, et `isOnPause` faux.
  */
 final class AdminVehicleListItemData extends BaseData
 {
@@ -22,6 +23,7 @@ final class AdminVehicleListItemData extends BaseData
         public ?string $notes,
         public bool $isActive,
         public bool $isOnPause,
+        public bool $isImmobilized,
         public ?string $activePauseId,
         public ?AdminVehiclePersonData $owner,
         public ?AdminVehiclePersonData $driver,
@@ -40,7 +42,8 @@ final class AdminVehicleListItemData extends BaseData
             vehicleType: $vehicle->vehicle_type,
             notes: $vehicle->notes,
             isActive: (bool) $vehicle->is_active,
-            isOnPause: $vehicle->activePause !== null,
+            isOnPause: $vehicle->activePause !== null && $vehicle->activePause->reason_type !== 'agent_change',
+            isImmobilized: $vehicle->activePause?->reason_type === 'agent_change',
             activePauseId: $vehicle->activePause?->id,
             owner: $vehicle->owner
                 ? new AdminVehiclePersonData($vehicle->owner->id, $vehicle->owner->name, $vehicle->owner->phone)
