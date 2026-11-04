@@ -278,6 +278,11 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
                 ->whereUuid('announcement')->name('announcements.send');
             Route::post('/announcements/{announcement}/remind', [AnnouncementController::class, 'remind'])
                 ->whereUuid('announcement')->name('announcements.remind');
+            // Ajouter des destinataires à un communiqué envoyé (2026-11-04).
+            Route::get('/announcements/{announcement}/recipients/new', [AnnouncementController::class, 'newRecipients'])
+                ->whereUuid('announcement')->name('announcements.recipients.new');
+            Route::post('/announcements/{announcement}/recipients', [AnnouncementController::class, 'addRecipients'])
+                ->whereUuid('announcement')->name('announcements.recipients.store');
             Route::post('/announcements/{announcement}/withdraw', [AnnouncementController::class, 'withdraw'])
                 ->whereUuid('announcement')->name('announcements.withdraw');
         });

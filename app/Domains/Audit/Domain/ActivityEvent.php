@@ -121,6 +121,8 @@ enum ActivityEvent: string
     // Communiqués (2026-10-13)
     case AnnouncementSent = 'announcement.sent';
     case AnnouncementReminded = 'announcement.reminded';
+    case AnnouncementRecipientsAdded = 'announcement.recipients_added';
+    case AnnouncementDuplicated = 'announcement.duplicated';
     case AnnouncementWithdrawn = 'announcement.withdrawn';
     case AnnouncementDeleted = 'announcement.deleted';
 
@@ -244,6 +246,8 @@ enum ActivityEvent: string
             self::RemunerationStatementsPurged => 'Fiches annulées vidées',
             self::AnnouncementSent => 'Communiqué envoyé',
             self::AnnouncementReminded => 'Communiqué relancé',
+            self::AnnouncementRecipientsAdded => 'Destinataires ajoutés',
+            self::AnnouncementDuplicated => 'Communiqué dupliqué',
             self::AnnouncementWithdrawn => 'Communiqué retiré',
             self::AnnouncementDeleted => 'Brouillon de communiqué supprimé',
             self::PricingUpdated => 'Tarifs modifiés',

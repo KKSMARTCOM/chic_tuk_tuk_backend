@@ -486,6 +486,21 @@ final class ActivityJournal
             ['recipients' => $recipients, 'selection' => $selection, 'note' => $note]);
     }
 
+    public function announcementRecipientsAdded(Announcement $announcement, int $recipients): void
+    {
+        $this->record(ActivityEvent::AnnouncementRecipientsAdded, $announcement,
+            "a ajouté {$recipients} destinataire(s) au communiqué « {$announcement->title} »",
+            ['recipients' => $recipients]);
+    }
+
+    /** Sur le NOUVEAU brouillon, l'original dans `properties` (2026-11-04). */
+    public function announcementDuplicated(Announcement $draft, Announcement $original): void
+    {
+        $this->record(ActivityEvent::AnnouncementDuplicated, $draft,
+            "a dupliqué le communiqué « {$original->title} »",
+            ['original_id' => $original->id]);
+    }
+
     public function announcementWithdrawn(Announcement $announcement): void
     {
         $this->record(ActivityEvent::AnnouncementWithdrawn, $announcement,

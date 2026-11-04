@@ -2,6 +2,8 @@
 
 namespace App\Domains\Announcement\Presentation\Api\V1\Admin;
 
+use App\Domains\Announcement\Application\Actions\AddAnnouncementRecipients;
+use App\Domains\Announcement\Application\Actions\PreviewNewAnnouncementRecipients;
 use App\Domains\Announcement\Application\Actions\AddAnnouncementAttachment;
 use App\Domains\Announcement\Application\Actions\DeleteAnnouncementDraft;
 use App\Domains\Announcement\Application\Actions\ListAnnouncementRecipients;
@@ -14,7 +16,9 @@ use App\Domains\Announcement\Application\Actions\SearchAnnouncementUsers;
 use App\Domains\Announcement\Application\Actions\SendAnnouncement;
 use App\Domains\Announcement\Application\Actions\ShowAnnouncement;
 use App\Domains\Announcement\Application\Actions\WithdrawAnnouncement;
+use App\Domains\Announcement\Application\Data\AddAnnouncementRecipientsData;
 use App\Domains\Announcement\Application\Data\PreviewRecipientsData;
+use App\Domains\Announcement\Application\Data\RecipientPreviewData;
 use App\Domains\Announcement\Application\Data\RemindAnnouncementData;
 use App\Domains\Announcement\Application\Data\SaveAnnouncementData;
 use App\Domains\Audit\Application\ActivityJournal;
@@ -136,6 +140,23 @@ final class AnnouncementController
             $count = $remind($model, $data->recipientIds, $data->note);
             $model->refresh();
             $this->journal->announcementReminded($model, $count, $data->recipientIds !== null, $model->last_reminder_note);
+
+            return response()->json(($this->show)($announcement));
+        });
+    }
+
+    /** « Les nouveaux du ciblage » d'un communiqué envoyé (2026-11-04). */
+    public function newRecipients(Request $request, string $announcement, PreviewNewAnnouncementRecipients $preview): JsonResponse|Response
+    {
+        return $this->guard($request, fn () => response()->json(
+            RecipientPreviewData::fromUsers($preview(Announcement::findOrFail($announcement)))));
+    }
+
+    public function addRecipients(Request $request, string $announcement, AddAnnouncementRecipientsData $data, AddAnnouncementRecipients $add): JsonResponse|Response
+    {
+        return $this->guard($request, function () use ($announcement, $data, $add) {
+            $model = Announcement::findOrFail($announcement);
+            $this->journal->announcementRecipientsAdded($model, $add($model, $data->userIds, $data->newFromTargeting));
 
             return response()->json(($this->show)($announcement));
         });
