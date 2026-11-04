@@ -249,6 +249,11 @@ class AdminOwnerDossierApiTest extends TestCase
         $this->dossier($admin)->assertNotFound();
     }
 
+    public function test_a_malformed_identifier_is_a_404(): void
+    {
+        $this->api()->getJson('/api/v1/admin/owners/pas-un-uuid/dossier')->assertNotFound();
+    }
+
     public function test_the_dossier_needs_view_owners(): void
     {
         $this->dossier($this->owner(), ['view-payments'])->assertForbidden();

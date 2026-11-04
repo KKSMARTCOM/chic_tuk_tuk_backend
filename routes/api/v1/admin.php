@@ -125,7 +125,7 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::middleware('permission:view-owners')->group(function () {
             Route::get('/owners', [OwnerController::class, 'index'])->name('owners.index');
             Route::get('/owners/{owner}', [OwnerController::class, 'show'])->name('owners.show');
-            Route::get('/owners/{owner}/dossier', [OwnerController::class, 'dossier'])->name('owners.dossier');
+            Route::get('/owners/{owner}/dossier', [OwnerController::class, 'dossier'])->whereUuid('owner')->name('owners.dossier');
         });
 
         Route::post('/owners', [OwnerController::class, 'store'])
