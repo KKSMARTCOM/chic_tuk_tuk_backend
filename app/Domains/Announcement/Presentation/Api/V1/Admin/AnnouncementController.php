@@ -3,6 +3,7 @@
 namespace App\Domains\Announcement\Presentation\Api\V1\Admin;
 
 use App\Domains\Announcement\Application\Actions\AddAnnouncementRecipients;
+use App\Domains\Announcement\Application\Actions\DuplicateAnnouncement;
 use App\Domains\Announcement\Application\Actions\PreviewNewAnnouncementRecipients;
 use App\Domains\Announcement\Application\Actions\AddAnnouncementAttachment;
 use App\Domains\Announcement\Application\Actions\DeleteAnnouncementDraft;
@@ -17,6 +18,7 @@ use App\Domains\Announcement\Application\Actions\SendAnnouncement;
 use App\Domains\Announcement\Application\Actions\ShowAnnouncement;
 use App\Domains\Announcement\Application\Actions\WithdrawAnnouncement;
 use App\Domains\Announcement\Application\Data\AddAnnouncementRecipientsData;
+use App\Domains\Announcement\Application\Data\AnnouncementDuplicateData;
 use App\Domains\Announcement\Application\Data\PreviewRecipientsData;
 use App\Domains\Announcement\Application\Data\RecipientPreviewData;
 use App\Domains\Announcement\Application\Data\RemindAnnouncementData;
@@ -60,6 +62,18 @@ final class AnnouncementController
     public function update(Request $request, string $announcement, SaveAnnouncementData $data, SaveAnnouncementDraft $save): JsonResponse|Response
     {
         return $this->guard($request, fn () => response()->json(($this->show)($save(Announcement::findOrFail($announcement), $data, $request->user())->id)));
+    }
+
+    /** Un brouillon neuf depuis un communiqué envoyé ou retiré (2026-11-04). */
+    public function duplicate(Request $request, string $announcement, DuplicateAnnouncement $duplicate): JsonResponse|Response
+    {
+        return $this->guard($request, function () use ($request, $announcement, $duplicate) {
+            $original = Announcement::with('attachments')->findOrFail($announcement);
+            [$draft, $skipped] = $duplicate($original, $request->user());
+            $this->journal->announcementDuplicated($draft, $original);
+
+            return response()->json(new AnnouncementDuplicateData(($this->show)($draft->id), $skipped), 201);
+        });
     }
 
     public function destroy(Request $request, string $announcement, DeleteAnnouncementDraft $delete): JsonResponse|Response

@@ -969,6 +969,24 @@ l'`attribution` OpenStreetMap. Sous 2 caractères : liste vide sans appel ; plus
   (les seuls champs changés ; une modification sans changement n'écrit rien). Aucune permission
   nouvelle : pas de seeder.
 
+## Communiqués : relance choisie, ajout, duplication (2026-11-04)
+
+Spec : `docs/specs/2026-11-04-communiques-relance-ajout-design.md` (complète celle du 2026-10-13).
+
+- **Relance** (`POST /admin/announcements/{id}/remind`, `RemindAnnouncementData`) : sans `recipient_ids`, les
+  non-lus actifs reçus depuis plus d'une heure (`remindable_unread_count`) ; avec, les lignes cochées, lues
+  comprises (`DeliverAnnouncement` en `includeRead`). Mot facultatif (200 car.) gardé sur
+  `announcements.last_reminder_note` — le job le relit, une remise rejouée renvoie le même texte. Notification
+  « Rappel : {titre} », texte = le mot, à défaut le titre ; mot en tête de l'e-mail. Une relance ne touche
+  jamais `read_at`. Garde-fou d'une heure par communiqué, inchangé.
+- **Ajout** (`send-announcements`) : `GET …/recipients/new` (« les nouveaux du ciblage », sans `sent_by` ni les
+  destinataires existants) et `POST …/recipients` (`user_ids` ou `new_from_targeting`), communiqué `sent`
+  seulement ; les personnes ajoutées entrent dans `target_user_ids` ; l'envoi d'origine leur part.
+- **Dupliquer** (`POST …/duplicate`, `draft-announcements`) : brouillon neuf depuis `sent` ou `withdrawn`,
+  fichiers COPIÉS sous son dossier, `skipped_attachments` pour un fichier disparu.
+- Journal `announcement.reminded` (`selection`, `note`), `announcement.recipients_added`,
+  `announcement.duplicated` (sur le brouillon, `original_id`).
+
 ## L'inscription d'un abonnement (2026-10-14)
 
 Spec : `docs/specs/2026-10-14-inscription-abonnement-design.md`. Tout parent d'abonnement

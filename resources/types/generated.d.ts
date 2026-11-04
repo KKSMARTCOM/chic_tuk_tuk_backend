@@ -43,6 +43,10 @@ original_name: string;
 mime_type: string;
 size: number;
 };
+export type AnnouncementDuplicateData = {
+announcement: App.Domains.Announcement.Application.Data.AdminAnnouncementData;
+skipped_attachments: number;
+};
 export type AnnouncementRecipientData = {
 id: string;
 user_id: string;

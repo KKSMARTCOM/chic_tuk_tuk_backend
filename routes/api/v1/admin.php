@@ -271,6 +271,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
                 ->whereUuid(['announcement', 'attachment'])->name('announcements.attachments.destroy');
             Route::get('/announcements/{announcement}/recipients', [AnnouncementController::class, 'recipients'])
                 ->whereUuid('announcement')->name('announcements.recipients');
+            // Renvoyer comme un communiqué neuf (2026-11-04) : un brouillon, donc la rédaction.
+            Route::post('/announcements/{announcement}/duplicate', [AnnouncementController::class, 'duplicate'])
+                ->whereUuid('announcement')->name('announcements.duplicate');
         });
 
         Route::middleware('permission:send-announcements')->group(function () {
