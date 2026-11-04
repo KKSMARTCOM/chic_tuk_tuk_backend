@@ -432,6 +432,16 @@ partagés avec le Blade. Trois règles décidées le même jour :
 - Un véhicule conduit par un agent (contrat agent actif) est en lecture seule sur la
   fiche : `OwnerService::update()` ignore ce qu'on lui envoie pour lui.
 
+**Le dossier d'un propriétaire** (2026-11-04, spec `docs/specs/2026-11-04-dossier-proprietaire-design.md`) :
+`GET /admin/owners/{owner}/dossier` (`view-owners`, `ShowOwnerDossier`) rend en un appel ses chiffres
+(`BuildDisbursementSummary` sur tous ses contrats ; reste à percevoir des contrats en attente et en cours),
+ses véhicules avec l'état de l'espace propriétaire (`OwnerVehicleSummaryData::ownerState`, plus
+`no_contract` et `inactive`) et leurs contrats, puis — `null` sans leur permission — ses 5 dernières fiches,
+10 derniers versements, 10 derniers paiements qui lui reviennent (`forOwner`) et 5 dernières lignes du
+journal. `GET /admin/owners/{owner}` reste celui du formulaire. La liste des paiements accepte
+`filter[owner_id]` (même règle que `total_paid`) ; les lignes de fiches portent `owner_id`, `vehicle_id`,
+`vehicle_contract_id`, le détail `owner_id`, et la liste des véhicules l'`id` du contrat.
+
 **Les véhicules et leurs pauses** (`/admin/vehicles*`, domaine `Fleet`) — liste, fiche,
 création, modification, suppression. ⚠️ Statut et pauses véhicule ne s'écrivent plus à la main
 depuis le 2026-10-21 (voir « L'état d'un véhicule et de son agent ») : les règles ci-dessous sur
