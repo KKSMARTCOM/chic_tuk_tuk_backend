@@ -1056,6 +1056,7 @@ status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
 contract_months: number;
 start_date: string | null;
 end_date: string | null;
+planned_end_date: string | null;
 total_amount: number;
 total_paid: number;
 progress_percent: number;

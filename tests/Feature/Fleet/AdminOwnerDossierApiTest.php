@@ -14,6 +14,7 @@ use App\Models\VehiclePause;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -105,6 +106,8 @@ class AdminOwnerDossierApiTest extends TestCase
         $this->assertSame($agent->driver_id, $first['driver']['id']);
         $this->assertSame($running->id, $first['contract']['id']);
         $this->assertSame(48, $first['contract']['pauses']['pause_allowance']);
+        // La fin prévue du contrat en cours (relecture du 2026-11-04) : début + durée.
+        $this->assertSame($running->planned_end_date->toDateString(), $first['contract']['planned_end_date']);
         $this->assertEquals(100_000, $first['contract']['total_paid']);
 
         $second = $this->vehicleRow($json, 'A-0002');
@@ -260,5 +263,28 @@ class AdminOwnerDossierApiTest extends TestCase
     public function test_the_dossier_needs_view_owners(): void
     {
         $this->dossier($this->owner(), ['view-payments'])->assertForbidden();
+    }
+
+    // Mineur de la relecture du 2026-11-04 : le payé de chaque contrat se calcule une fois, en une requête.
+    public function test_paid_totals_are_summed_once_for_all_contracts(): void
+    {
+        $owner = $this->owner();
+        foreach (['A-0001', 'A-0002', 'A-0003'] as $number) {
+            $contract = $this->contract($this->vehicle($owner, $number), ['total_amount' => 1_000_000]);
+            Payment::factory()->onDay('2026-11-02')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 100_000]);
+        }
+        $sums = 0;
+        DB::listen(function ($query) use (&$sums) {
+            if (str_contains($query->sql, 'sum("net_amount")') || str_contains($query->sql, 'sum(net_amount)')) {
+                $sums++;
+            }
+        });
+
+        $json = $this->dossier($owner)->assertOk()->json();
+
+        $this->assertSame(1, $sums);
+        $this->assertEquals(2_700_000, $json['totals']['remaining']);
+        $this->assertEquals(100_000, $json['vehicles'][0]['contract']['total_paid']);
+        $this->assertSame(10, $json['vehicles'][0]['contract']['progress_percent']);
     }
 }

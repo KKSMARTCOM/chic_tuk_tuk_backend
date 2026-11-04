@@ -25,6 +25,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleContract;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\Models\Activity;
+use Illuminate\Support\Collection;
 
 /**
  * Le dossier d'un propriétaire (spec 2026-11-04-dossier-proprietaire) : ses véhicules et
@@ -48,7 +49,17 @@ final class ShowOwnerDossier
             ->get();
         $contracts = VehicleContract::where('owner_id', $owner->id)->get();
 
-        $rows = $vehicles->map(fn (Vehicle $vehicle) => $this->vehicle($vehicle, $owner))->values();
+        // Le payé de chaque contrat montré, en UNE requête : l'accesseur `total_paid` en ferait une
+        // par lecture (relecture du 2026-11-04). Même règle : `forOwner`, validés, en net.
+        $shown = $vehicles->map(fn (Vehicle $v) => $this->shownContract($v)?->id)->filter();
+        $paid = Payment::query()->forOwner()->where('status', 'completed')
+            ->whereIn('vehicle_contract_id', $contracts->pluck('id')->merge($shown)->unique()->values())
+            ->groupBy('vehicle_contract_id')
+            ->selectRaw('vehicle_contract_id, sum(net_amount) as paid')
+            ->pluck('paid', 'vehicle_contract_id')
+            ->map(fn ($sum) => (float) $sum);
+
+        $rows = $vehicles->map(fn (Vehicle $vehicle) => $this->vehicle($vehicle, $owner, $paid))->values();
         // Ce que l'agence a versé et doit : la permission des versements (2026-11-04).
         $summary = $viewer->can('view-disbursements') ? ($this->disbursementSummary)($contracts->pluck('id')) : null;
 
@@ -64,7 +75,7 @@ final class ShowOwnerDossier
             totals: new AdminOwnerDossierTotalsData(
                 disbursed: $summary?->disbursed,
                 remaining: round((float) $contracts->whereIn('status', ['pending', 'active'])
-                    ->sum(fn (VehicleContract $contract) => $contract->remaining_amount), 2),
+                    ->sum(fn (VehicleContract $contract) => max(0, (float) $contract->total_amount - ($paid[$contract->id] ?? 0))), 2),
                 outstanding: $summary?->outstanding,
                 vehiclesInService: $rows->where('state', 'active')->count(),
                 vehiclesTotal: $rows->count(),
@@ -77,9 +88,15 @@ final class ShowOwnerDossier
         );
     }
 
-    private function vehicle(Vehicle $vehicle, User $owner): AdminOwnerDossierVehicleData
+    private function shownContract(Vehicle $vehicle): ?VehicleContract
     {
-        $contract = $vehicle->activeVehicleContract ?? $vehicle->liveVehicleContract ?? $vehicle->settledVehicleContract;
+        return $vehicle->activeVehicleContract ?? $vehicle->liveVehicleContract ?? $vehicle->settledVehicleContract;
+    }
+
+    /** @param  Collection<string, float>  $paid */
+    private function vehicle(Vehicle $vehicle, User $owner, Collection $paid): AdminOwnerDossierVehicleData
+    {
+        $contract = $this->shownContract($vehicle);
         $state = match (true) {
             ! $vehicle->is_active => 'inactive',
             $contract === null => 'no_contract',
@@ -96,7 +113,7 @@ final class ShowOwnerDossier
             pauseSince: $pause?->start_date?->toDateString(),
             pauseReasonLabel: $pause?->reason_label,
             driver: $driver ? new AdminVehiclePersonData($driver->id, $driver->user?->name, $driver->user?->phone) : null,
-            contract: $contract ? AdminOwnerDossierContractData::fromModel($contract) : null,
+            contract: $contract ? AdminOwnerDossierContractData::fromModel($contract, $paid[$contract->id] ?? 0.0) : null,
             pastContracts: $vehicle->vehicleContracts
                 ->where('owner_id', $owner->id)
                 ->reject(fn (VehicleContract $past) => $past->id === $contract?->id)

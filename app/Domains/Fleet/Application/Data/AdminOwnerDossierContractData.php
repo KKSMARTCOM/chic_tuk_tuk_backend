@@ -18,6 +18,8 @@ final class AdminOwnerDossierContractData extends BaseData
         public int $contractMonths,
         public ?string $startDate,
         public ?string $endDate,
+        /** Début + durée, pour un contrat qui n'a pas encore de date de fin (2026-11-04). */
+        public ?string $plannedEndDate,
         public float $totalAmount,
         public float $totalPaid,
         public int $progressPercent,
@@ -25,17 +27,22 @@ final class AdminOwnerDossierContractData extends BaseData
         public ?OwnerContractPauseSummaryData $pauses,
     ) {}
 
-    public static function fromModel(VehicleContract $contract): self
+    /** `$totalPaid` : le payé déjà sommé par le dossier, une requête pour tous ses contrats. */
+    public static function fromModel(VehicleContract $contract, float $totalPaid): self
     {
+        $total = (float) $contract->total_amount;
+
         return new self(
             id: $contract->id,
             status: $contract->status,
             contractMonths: (int) $contract->contract_months,
             startDate: $contract->start_date?->toDateString(),
             endDate: $contract->end_date?->toDateString(),
+            plannedEndDate: $contract->planned_end_date?->toDateString(),
             totalAmount: (float) $contract->total_amount,
-            totalPaid: $contract->total_paid,
-            progressPercent: $contract->progress_percentage,
+            totalPaid: $totalPaid,
+            // La règle de `VehicleContract::progress_percentage`, sur le payé reçu.
+            progressPercent: $total > 0 ? (int) min(100, round($totalPaid / $total * 100)) : 0,
             pauses: $contract->start_date
                 ? OwnerContractPauseSummaryData::fromContract($contract, ContractMonthCalculator::for($contract))
                 : null,
