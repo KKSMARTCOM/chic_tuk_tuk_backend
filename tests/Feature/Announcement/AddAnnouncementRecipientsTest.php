@@ -123,7 +123,7 @@ class AddAnnouncementRecipientsTest extends TestCase
             ->assertOk()->assertJsonPath('recipients_count', 2);
 
         $this->as($this->sender)->postJson("/api/v1/admin/announcements/{$announcement->id}/recipients", ['user_ids' => [$existing->id]])
-            ->assertStatus(422)->assertJsonPath('errors.user_ids.0', 'Personne à ajouter : tous sont déjà destinataires.');
+            ->assertStatus(422)->assertJsonPath('errors.user_ids.0', 'Personne à ajouter : les comptes choisis sont déjà destinataires, désactivés, ou l’expéditeur.');
         $this->as($this->sender)->postJson("/api/v1/admin/announcements/{$announcement->id}/recipients", [])
             ->assertStatus(422)->assertJsonValidationErrors('user_ids');
     }
@@ -158,5 +158,29 @@ class AddAnnouncementRecipientsTest extends TestCase
 
         $this->assertSame('a ajouté 1 destinataire(s) au communiqué « Session de formation »',
             Activity::where('event', 'announcement.recipients_added')->sole()->description);
+    }
+
+    // Relecture du 2026-11-04 : la recherche signale un destinataire même hors de la page affichée.
+    public function test_the_search_flags_existing_recipients_of_the_announcement(): void
+    {
+        $existing = User::factory()->profil(Profil::Owner)->create(['name' => 'Awa Destinataire']);
+        $announcement = $this->sentToOwners();
+        User::factory()->profil(Profil::Owner)->create(['name' => 'Awa Nouvelle']);
+
+        $rows = collect($this->as($this->sender)->getJson("/api/v1/admin/announcements/recipients/search?q=awa&announcement_id={$announcement->id}")
+            ->assertOk()->json())->keyBy('name');
+
+        $this->assertTrue($rows['Awa Destinataire']['is_recipient']);
+        $this->assertFalse($rows['Awa Nouvelle']['is_recipient']);
+        $this->assertSame($existing->id, $rows['Awa Destinataire']['id']);
+    }
+
+    public function test_the_refusal_does_not_claim_everyone_is_already_a_recipient(): void
+    {
+        $announcement = $this->sentToOwners();
+
+        $this->as($this->sender)->postJson("/api/v1/admin/announcements/{$announcement->id}/recipients", ['user_ids' => [$this->sender->id]])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.user_ids.0', 'Personne à ajouter : les comptes choisis sont déjà destinataires, désactivés, ou l’expéditeur.');
     }
 }

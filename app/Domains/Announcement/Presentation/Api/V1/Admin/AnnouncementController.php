@@ -128,7 +128,7 @@ final class AnnouncementController
 
     public function searchUsers(Request $request, SearchAnnouncementUsers $search): JsonResponse|Response
     {
-        return $this->guard($request, fn () => response()->json($search((string) $request->query('q', ''))));
+        return $this->guard($request, fn () => response()->json($search((string) $request->query('q', ''), $request->query('announcement_id'))));
     }
 
     public function recipients(Request $request, string $announcement, ListAnnouncementRecipients $list): JsonResponse|Response

@@ -208,4 +208,17 @@ class RemindSelectionTest extends TestCase
         $this->assertNull($rows[$original->id]['added_at']);
         $this->assertNotNull($rows[$added->id]['added_at']);
     }
+
+    // Relecture du 2026-11-04 : la règle d'une heure ne vaut que pour les AJOUTÉS, pas pour l'envoi d'origine.
+    public function test_unread_reminder_right_after_sending_still_works(): void
+    {
+        Mail::fake();
+        $announcement = Announcement::factory()->sent()->create(['title' => 'Session de formation', 'sent_at' => now()->subMinutes(10)]);
+        $recipient = $this->recipient($announcement);
+
+        $this->api()->getJson("/api/v1/admin/announcements/{$announcement->id}")->assertJsonPath('remindable_unread_count', 1);
+        $this->remind($announcement)->assertOk();
+
+        $this->assertSame(1, Notification::where('user_id', $recipient->user_id)->count());
+    }
 }

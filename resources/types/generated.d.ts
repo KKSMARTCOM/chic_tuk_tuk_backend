@@ -68,6 +68,7 @@ id: string;
 name: string;
 profil: string;
 has_email: boolean;
+is_recipient: boolean;
 };
 export type MyAnnouncementData = {
 id: string;

@@ -39,7 +39,7 @@ final class AddAnnouncementRecipients
                     ->whereKeyNot($locked->sent_by)->whereNotIn('id', $existing)->orderBy('name')->get();
 
             if ($users->isEmpty()) {
-                throw ValidationException::withMessages(['user_ids' => 'Personne à ajouter : tous sont déjà destinataires.']);
+                throw ValidationException::withMessages(['user_ids' => 'Personne à ajouter : les comptes choisis sont déjà destinataires, désactivés, ou l’expéditeur.']);
             }
 
             $now = now();

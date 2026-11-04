@@ -60,12 +60,12 @@ final class RemindAnnouncement
         }
 
         // Un compte désactivé depuis l'envoi n'est plus relancé (2026-10-14) ; un destinataire
-        // ajouté depuis moins d'une heure vient de le recevoir (2026-11-04).
+        // AJOUTÉ après l'envoi depuis moins d'une heure vient de le recevoir (2026-11-04).
         $ids = $unread->whereHas('user', fn ($q) => $q->where('is_active', true))
-            ->where('created_at', '<=', now()->subHour())
+            ->where(fn ($q) => $q->where('created_at', '<=', now()->subHour())->orWhere('created_at', '<=', $announcement->sent_at))
             ->pluck('id');
         if ($ids->isEmpty()) {
-            throw new ApiException(409, 'ANNOUNCEMENT_NOTHING_TO_REMIND', 'Les destinataires qui n\'ont pas lu ce communiqué n\'ont plus de compte actif, ou viennent de le recevoir.');
+            throw new ApiException(409, 'ANNOUNCEMENT_NOTHING_TO_REMIND', 'Les destinataires qui n\'ont pas lu ce communiqué n\'ont plus de compte actif, ou viennent d\'être ajoutés.');
         }
 
         return $ids;

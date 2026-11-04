@@ -13,6 +13,8 @@ final class AnnouncementUserData extends BaseData
         public string $name,
         public string $profil,
         public bool $hasEmail,
+        /** Déjà destinataire du communiqué demandé à la recherche (2026-11-04). */
+        public bool $isRecipient = false,
     ) {}
 
     public static function fromUser(User $user): self

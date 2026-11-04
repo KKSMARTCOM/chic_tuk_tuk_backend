@@ -139,4 +139,19 @@ class DuplicateAnnouncementTest extends TestCase
         $this->assertSame('a dupliqué le communiqué « Session de formation »', $activity->description);
         $this->assertSame($original->id, $activity->properties['original_id']);
     }
+
+    // Relecture du 2026-11-04 : une copie qui échoue sans lever ne laisse pas une pièce sans fichier.
+    public function test_a_failed_copy_counts_as_skipped(): void
+    {
+        $original = Announcement::factory()->sent()->create();
+        $this->attach($original, 'programme.pdf');
+        $disk = \Mockery::mock(Storage::disk('local'))->makePartial();
+        $disk->shouldReceive('copy')->andReturnFalse();
+        Storage::set('local', $disk);
+
+        $json = $this->duplicate($original)->assertCreated()->json();
+
+        $this->assertSame(1, $json['skipped_attachments']);
+        $this->assertCount(0, $json['announcement']['attachments']);
+    }
 }

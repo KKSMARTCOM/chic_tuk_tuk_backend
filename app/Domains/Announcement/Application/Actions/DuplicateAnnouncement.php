@@ -50,7 +50,12 @@ final class DuplicateAnnouncement
                     }
                     $extension = pathinfo($file->path, PATHINFO_EXTENSION);
                     $path = "announcements/{$draft->id}/".Str::random(40).($extension !== '' ? ".{$extension}" : '');
-                    $disk->copy($file->path, $path);
+                    // Un disque réglé sans exception rend `false` : la pièce n'est pas reprise.
+                    if (! $disk->copy($file->path, $path)) {
+                        $skipped++;
+
+                        continue;
+                    }
                     $copied[] = $path;
                     $draft->attachments()->create([
                         'original_name' => $file->original_name,

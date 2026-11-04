@@ -22,7 +22,8 @@ final class ShowAnnouncement
                 'recipients as read_count' => fn ($q) => $q->whereNotNull('read_at'),
                 // La règle de `RemindAnnouncement` pour les non-lus (2026-11-04).
                 'recipients as remindable_unread_count' => fn ($q) => $q->whereNull('read_at')
-                    ->where('created_at', '<=', now()->subHour())
+                    ->where(fn ($r) => $r->where('announcement_recipients.created_at', '<=', now()->subHour())
+                        ->orWhereColumn('announcement_recipients.created_at', '<=', 'announcements.sent_at'))
                     ->whereHas('user', fn ($u) => $u->where('is_active', true)),
             ])
             ->findOrFail($id);
