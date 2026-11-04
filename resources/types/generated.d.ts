@@ -14,8 +14,10 @@ sent_by_name: string | null;
 sent_at: string | null;
 withdrawn_at: string | null;
 last_reminded_at: string | null;
+last_reminder_note: string | null;
 recipients_count: number;
 read_count: number;
+remindable_unread_count: number;
 };
 export type AdminAnnouncementListItemData = {
 id: string;
@@ -38,6 +40,7 @@ mime_type: string;
 size: number;
 };
 export type AnnouncementRecipientData = {
+id: string;
 user_id: string;
 name: string | null;
 profil: string;
@@ -45,6 +48,8 @@ read_at: string | null;
 emailed_at: string | null;
 email_skipped: 'no_address' | 'opted_out' | 'failed' | null;
 reminded_count: number;
+is_active: boolean;
+added_at: string | null;
 };
 export type AnnouncementRecipientPageData = {
 recipients: Array<App.Domains.Announcement.Application.Data.AnnouncementRecipientData>;
@@ -81,6 +86,10 @@ target_user_ids: Array<string>;
 export type RecipientPreviewData = {
 total: number;
 with_email: number;
+};
+export type RemindAnnouncementData = {
+recipient_ids: Array<string> | null;
+note: string | null;
 };
 export type SaveAnnouncementData = {
 title: string;

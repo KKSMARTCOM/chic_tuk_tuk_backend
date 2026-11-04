@@ -30,7 +30,11 @@ final class AdminAnnouncementData extends BaseData
         public ?string $sentAt,
         public ?string $withdrawnAt,
         public ?string $lastRemindedAt,
+        /** Le mot de la dernière relance (2026-11-04). */
+        public ?string $lastReminderNote,
         public int $recipientsCount,
         public int $readCount,
+        /** Ce que relancerait « Relancer les non-lus » : non-lus actifs, reçus depuis plus d'une heure. */
+        public int $remindableUnreadCount,
     ) {}
 }

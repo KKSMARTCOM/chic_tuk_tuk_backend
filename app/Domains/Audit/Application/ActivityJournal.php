@@ -477,11 +477,13 @@ final class ActivityJournal
             ['recipients' => $recipients]);
     }
 
-    public function announcementReminded(Announcement $announcement, int $recipients): void
+    /** Une relance des non-lus, ou d'une sélection (2026-11-04) ; le mot reste dans `properties`. */
+    public function announcementReminded(Announcement $announcement, int $recipients, bool $selection = false, ?string $note = null): void
     {
+        $who = $selection ? 'destinataire(s) choisi(s)' : 'non-lu(s)';
         $this->record(ActivityEvent::AnnouncementReminded, $announcement,
-            "a relancé {$recipients} non-lu(s) du communiqué « {$announcement->title} »",
-            ['recipients' => $recipients]);
+            "a relancé {$recipients} {$who} du communiqué « {$announcement->title} »",
+            ['recipients' => $recipients, 'selection' => $selection, 'note' => $note]);
     }
 
     public function announcementWithdrawn(Announcement $announcement): void

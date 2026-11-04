@@ -1,6 +1,9 @@
 {{-- La version texte d'un communiqué. ⚠️ `{!! !!}` : un texte brut n'a pas d'entités HTML. --}}
 @if ($reminder)
 RAPPEL
+@if ($note)
+{!! $note !!}
+@endif
 @endif
 {!! $title !!}
 

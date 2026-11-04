@@ -19,7 +19,7 @@ class Announcement extends Model
 
     protected $fillable = [
         'title', 'body', 'status', 'target_profiles', 'target_user_ids',
-        'created_by', 'updated_by', 'sent_by', 'sent_at', 'withdrawn_by', 'withdrawn_at', 'last_reminded_at',
+        'created_by', 'updated_by', 'sent_by', 'sent_at', 'withdrawn_by', 'withdrawn_at', 'last_reminded_at', 'last_reminder_note',
     ];
 
     protected $casts = [

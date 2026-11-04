@@ -17,7 +17,14 @@ final class ShowAnnouncement
     {
         $a = Announcement::query()
             ->with(['attachments', 'createdBy', 'sentBy'])
-            ->withCount(['recipients', 'recipients as read_count' => fn ($q) => $q->whereNotNull('read_at')])
+            ->withCount([
+                'recipients',
+                'recipients as read_count' => fn ($q) => $q->whereNotNull('read_at'),
+                // La règle de `RemindAnnouncement` pour les non-lus (2026-11-04).
+                'recipients as remindable_unread_count' => fn ($q) => $q->whereNull('read_at')
+                    ->where('created_at', '<=', now()->subHour())
+                    ->whereHas('user', fn ($u) => $u->where('is_active', true)),
+            ])
             ->findOrFail($id);
 
         $users = User::query()->whereIn('id', $a->target_user_ids ?? [])->orderBy('name')->get();
@@ -37,8 +44,10 @@ final class ShowAnnouncement
             sentAt: $a->sent_at?->toIso8601String(),
             withdrawnAt: $a->withdrawn_at?->toIso8601String(),
             lastRemindedAt: $a->last_reminded_at?->toIso8601String(),
+            lastReminderNote: $a->last_reminder_note,
             recipientsCount: (int) $a->recipients_count,
             readCount: (int) $a->read_count,
+            remindableUnreadCount: (int) $a->remindable_unread_count,
         );
     }
 }

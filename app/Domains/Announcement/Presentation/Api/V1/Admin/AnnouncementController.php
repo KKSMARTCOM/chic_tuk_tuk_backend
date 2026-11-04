@@ -15,6 +15,7 @@ use App\Domains\Announcement\Application\Actions\SendAnnouncement;
 use App\Domains\Announcement\Application\Actions\ShowAnnouncement;
 use App\Domains\Announcement\Application\Actions\WithdrawAnnouncement;
 use App\Domains\Announcement\Application\Data\PreviewRecipientsData;
+use App\Domains\Announcement\Application\Data\RemindAnnouncementData;
 use App\Domains\Announcement\Application\Data\SaveAnnouncementData;
 use App\Domains\Audit\Application\ActivityJournal;
 use App\Models\Announcement;
@@ -128,11 +129,13 @@ final class AnnouncementController
         });
     }
 
-    public function remind(Request $request, string $announcement, RemindAnnouncement $remind): JsonResponse|Response
+    public function remind(Request $request, string $announcement, RemindAnnouncementData $data, RemindAnnouncement $remind): JsonResponse|Response
     {
-        return $this->guard($request, function () use ($announcement, $remind) {
+        return $this->guard($request, function () use ($announcement, $data, $remind) {
             $model = Announcement::findOrFail($announcement);
-            $this->journal->announcementReminded($model, $remind($model));
+            $count = $remind($model, $data->recipientIds, $data->note);
+            $model->refresh();
+            $this->journal->announcementReminded($model, $count, $data->recipientIds !== null, $model->last_reminder_note);
 
             return response()->json(($this->show)($announcement));
         });

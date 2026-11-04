@@ -539,15 +539,18 @@ final class Notifier
         $this->versCommunique($user, 'Nouveau communiqué', $announcement);
     }
 
-    /** La relance d'un communiqué non lu — seulement aux non-lus, choisis par le job. */
+    /**
+     * La relance d'un communiqué, aux non-lus ou aux destinataires choisis (2026-11-04) :
+     * « Rappel : {titre} », et le mot de rappel pour texte quand il y en a un.
+     */
     public function announcementReminder(Announcement $announcement, User $user): void
     {
-        $this->versCommunique($user, 'Rappel : communiqué non lu', $announcement);
+        $this->versCommunique($user, 'Rappel : '.$announcement->title, $announcement, $announcement->last_reminder_note);
     }
 
-    private function versCommunique(User $user, string $titre, Announcement $announcement): void
+    private function versCommunique(User $user, string $titre, Announcement $announcement, ?string $texte = null): void
     {
-        $this->sansCasser(fn () => $this->push->sendToUser($user, $titre, $announcement->title, [
+        $this->sansCasser(fn () => $this->push->sendToUser($user, $titre, $texte ?? $announcement->title, [
             'type' => 'info',
             'url' => "/announcements/{$announcement->id}",
             'announcement_id' => $announcement->id,

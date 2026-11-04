@@ -50,13 +50,15 @@ final class DeliverAnnouncement implements ShouldQueue
         public readonly string $announcementId,
         public readonly array $recipientIds,
         public readonly bool $reminder = false,
+        /** Relance d'une sélection (2026-11-04) : les lecteurs aussi, c'est eux qu'on a choisis. */
+        public readonly bool $includeRead = false,
     ) {}
 
     /** @param  Collection<int, string>|list<string>  $recipientIds */
-    public static function dispatchFor(Announcement $announcement, Collection|array $recipientIds, bool $reminder): void
+    public static function dispatchFor(Announcement $announcement, Collection|array $recipientIds, bool $reminder, bool $includeRead = false): void
     {
         collect($recipientIds)->chunk(self::CHUNK)->each(
-            fn (Collection $chunk) => self::dispatch($announcement->id, $chunk->values()->all(), $reminder)
+            fn (Collection $chunk) => self::dispatch($announcement->id, $chunk->values()->all(), $reminder, $includeRead)
         );
     }
 
@@ -83,7 +85,7 @@ final class DeliverAnnouncement implements ShouldQueue
                 if (! $this->stillSent($announcement)) {
                     return false;
                 }
-                if (! $recipient->user || ! $recipient->user->is_active || ($this->reminder && $recipient->read_at !== null)) {
+                if (! $recipient->user || ! $recipient->user->is_active || ($this->reminder && ! $this->includeRead && $recipient->read_at !== null)) {
                     return;
                 }
 

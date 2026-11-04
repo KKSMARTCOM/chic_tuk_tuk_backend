@@ -82,6 +82,8 @@ class SendAnnouncementTest extends TestCase
         $announcement = Announcement::factory()->sent()->create();
         $read = AnnouncementRecipient::factory()->for($announcement)->read()->create();
         $unread = AnnouncementRecipient::factory()->for($announcement)->create();
+        // Un destinataire reçu depuis moins d'une heure n'est pas relancé (2026-11-04).
+        $this->travel(2)->hours();
 
         $this->assertSame(1, app(RemindAnnouncement::class)($announcement));
         $this->assertSame(1, $unread->fresh()->reminded_count);
@@ -113,7 +115,7 @@ class SendAnnouncementTest extends TestCase
             $this->assertSame('ANNOUNCEMENT_NOTHING_TO_REMIND', $e->errorCode);
         }
 
-        AnnouncementRecipient::factory()->for($announcement)->create();
+        AnnouncementRecipient::factory()->for($announcement)->create(['created_at' => now()->subHours(2)]);
         $this->assertSame(1, app(RemindAnnouncement::class)($announcement->fresh()));
         $this->assertSame(0, $disabled->fresh()->reminded_count);
     }

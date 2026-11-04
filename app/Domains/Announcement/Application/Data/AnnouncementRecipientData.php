@@ -9,6 +9,8 @@ use Spatie\TypeScriptTransformer\Attributes\LiteralTypeScriptType;
 final class AnnouncementRecipientData extends BaseData
 {
     public function __construct(
+        /** La ligne, pour la relance d'une sélection (2026-11-04). */
+        public string $id,
         public string $userId,
         public ?string $name,
         public string $profil,
@@ -17,5 +19,9 @@ final class AnnouncementRecipientData extends BaseData
         #[LiteralTypeScriptType("'no_address' | 'opted_out' | 'failed' | null")]
         public ?string $emailSkipped,
         public int $remindedCount,
+        /** Un compte désactivé n'est plus relancé : la confirmation le compte à part. */
+        public bool $isActive,
+        /** Ajouté après l'envoi (2026-11-04) ; `null` pour l'envoi d'origine. */
+        public ?string $addedAt,
     ) {}
 }

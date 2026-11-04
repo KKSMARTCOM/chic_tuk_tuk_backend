@@ -32,6 +32,9 @@
                         <td style="padding:32px;">
                             @if ($reminder)
                                 <p style="margin:0 0 12px; font-size:13px; font-weight:600; color:#b45309; text-transform:uppercase; letter-spacing:0.5px;">Rappel</p>
+                                @if ($note)
+                                    <p style="margin:0 0 16px; padding:12px 16px; background-color:#fffbeb; border-left:4px solid #b45309; font-size:15px; line-height:1.5; color:#111827;">{{ $note }}</p>
+                                @endif
                             @endif
                             <h1 style="margin:0 0 16px; font-size:22px; line-height:1.3; font-weight:700; color:#111827;">{{ $title }}</h1>
                             <div style="font-size:15px; line-height:1.6;">{!! $bodyHtml !!}</div>

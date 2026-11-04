@@ -31,6 +31,7 @@ final class ListAnnouncementRecipients
 
         return new AnnouncementRecipientPageData(
             recipients: collect($page->items())->map(fn (AnnouncementRecipient $r) => new AnnouncementRecipientData(
+                id: $r->id,
                 userId: $r->user_id,
                 name: $r->user?->name,
                 profil: $r->profil,
@@ -38,6 +39,8 @@ final class ListAnnouncementRecipients
                 emailedAt: $r->emailed_at?->toIso8601String(),
                 emailSkipped: $r->email_skipped,
                 remindedCount: $r->reminded_count,
+                isActive: (bool) $r->user?->is_active,
+                addedAt: $announcement->sent_at && $r->created_at?->gt($announcement->sent_at) ? $r->created_at->toIso8601String() : null,
             ))->all(),
             pagination: PaginationData::fromPaginator($page),
         );

@@ -64,7 +64,7 @@ class DeliverAnnouncementTest extends TestCase
         DeliverAnnouncement::dispatchFor($announcement, [$read->id, $unread->id], true);
 
         $this->assertSame(0, Notification::where('user_id', $read->user_id)->count());
-        $this->assertSame('Rappel : communiqué non lu', Notification::where('user_id', $unread->user_id)->sole()->title);
+        $this->assertSame('Rappel : '.$announcement->title, Notification::where('user_id', $unread->user_id)->sole()->title);
         Mail::assertSent(AnnouncementMail::class, fn (AnnouncementMail $mail) => $mail->reminder && $mail->envelope()->subject === 'Rappel : '.$announcement->title);
     }
 

@@ -42,6 +42,8 @@ class AnnouncementMail extends Mailable
                 'bodyHtml' => AnnouncementBody::toHtml((string) $this->announcement->body),
                 'bodyText' => (string) $this->announcement->body,
                 'reminder' => $this->reminder,
+                // Le mot de la relance (2026-11-04), en tête du corps.
+                'note' => $this->reminder ? $this->announcement->last_reminder_note : null,
                 'url' => rtrim((string) config('app.front_app_url'), '/')."/announcements/{$this->announcement->id}",
                 'attached' => $this->attachesFiles(),
                 'fileNames' => $this->announcement->attachments->pluck('original_name')->all(),
