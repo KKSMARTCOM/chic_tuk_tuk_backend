@@ -17,6 +17,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Carbon;
 
 /**
  * Remet un communiqué à un paquet de destinataires : cloche + push, puis e-mail (spec
@@ -52,13 +53,19 @@ final class DeliverAnnouncement implements ShouldQueue
         public readonly bool $reminder = false,
         /** Relance d'une sélection (2026-11-04) : les lecteurs aussi, c'est eux qu'on a choisis. */
         public readonly bool $includeRead = false,
+        /**
+         * La relance que ce job remet (ISO 8601). Une relance plus récente l'a dépassé : il ne
+         * remet rien, sans quoi il partirait avec le mot de l'autre (relecture du 2026-11-04).
+         */
+        public readonly ?string $reminderAt = null,
     ) {}
 
     /** @param  Collection<int, string>|list<string>  $recipientIds */
     public static function dispatchFor(Announcement $announcement, Collection|array $recipientIds, bool $reminder, bool $includeRead = false): void
     {
+        $reminderAt = $reminder ? $announcement->last_reminded_at?->toIso8601String() : null;
         collect($recipientIds)->chunk(self::CHUNK)->each(
-            fn (Collection $chunk) => self::dispatch($announcement->id, $chunk->values()->all(), $reminder, $includeRead)
+            fn (Collection $chunk) => self::dispatch($announcement->id, $chunk->values()->all(), $reminder, $includeRead, $reminderAt)
         );
     }
 
@@ -72,6 +79,9 @@ final class DeliverAnnouncement implements ShouldQueue
         // La relance remise est celle qui porte cette date ; une relance suivante en aura une autre.
         $reminderAt = $announcement->last_reminded_at;
         if ($this->reminder && ! $reminderAt) {
+            return;
+        }
+        if ($this->reminder && $this->reminderAt && ! $reminderAt->eq(Carbon::parse($this->reminderAt))) {
             return;
         }
 

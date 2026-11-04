@@ -24,4 +24,9 @@ final class RemindAnnouncementData extends BaseData
             'note' => ['nullable', 'string', 'max:200'],
         ];
     }
+
+    public static function messages(): array
+    {
+        return ['recipient_ids.max' => 'Une relance vise 500 destinataires au plus : relancez en plusieurs fois.'];
+    }
 }

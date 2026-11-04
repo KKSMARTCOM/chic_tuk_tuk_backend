@@ -221,4 +221,30 @@ class RemindSelectionTest extends TestCase
 
         $this->assertSame(1, Notification::where('user_id', $recipient->user_id)->count());
     }
+
+    // Mineur de la relecture du 2026-11-04 : un job de relance en retard, dépassé par une relance
+    // plus récente, ne remet rien — ni avec le mot de l'autre.
+    public function test_a_late_job_overtaken_by_a_newer_reminder_delivers_nothing(): void
+    {
+        Mail::fake();
+        $announcement = $this->announcement();
+        $recipient = $this->recipient($announcement, ['read_at' => now()]);
+        $first = now()->subHours(2);
+        $announcement->update(['last_reminded_at' => now(), 'last_reminder_note' => 'Mot de la relance B']);
+
+        (new DeliverAnnouncement($announcement->id, [$recipient->id], true, true, $first->toIso8601String()))->handle(app(Notifier::class));
+
+        $this->assertSame(0, Notification::count());
+        Mail::assertNothingSent();
+    }
+
+    public function test_more_than_500_recipients_get_a_clear_message(): void
+    {
+        $announcement = $this->announcement();
+        $ids = array_map(fn () => (string) \Illuminate\Support\Str::uuid(), range(1, 501));
+
+        $this->remind($announcement, ['recipient_ids' => $ids])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.recipient_ids.0', 'Une relance vise 500 destinataires au plus : relancez en plusieurs fois.');
+    }
 }
