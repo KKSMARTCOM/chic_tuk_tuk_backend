@@ -434,7 +434,7 @@ partagés avec le Blade. Trois règles décidées le même jour :
 
 **Le dossier d'un propriétaire** (2026-11-04, spec `docs/specs/2026-11-04-dossier-proprietaire-design.md`) :
 `GET /admin/owners/{owner}/dossier` (`view-owners`, `ShowOwnerDossier`) rend en un appel ses chiffres
-(`BuildDisbursementSummary` sur tous ses contrats ; reste à percevoir des contrats en attente et en cours),
+(`BuildDisbursementSummary` sur tous ses contrats, `null` sans `view-disbursements` ; reste à percevoir des contrats en attente et en cours),
 ses véhicules avec l'état de l'espace propriétaire (`OwnerVehicleSummaryData::ownerState`, plus
 `no_contract` et `inactive`) et leurs contrats, puis — `null` sans leur permission — ses 5 dernières fiches,
 10 derniers versements, 10 derniers paiements qui lui reviennent (`forOwner`) et 5 dernières lignes du

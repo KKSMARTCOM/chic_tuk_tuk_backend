@@ -8,12 +8,12 @@ use App\Shared\Data\BaseData;
 final class AdminOwnerDossierTotalsData extends BaseData
 {
     public function __construct(
-        /** Les versements non annulés, tous contrats (`BuildDisbursementSummary`). */
-        public float $disbursed,
+        /** Les versements non annulés, tous contrats (`BuildDisbursementSummary`) ; `null` sans `view-disbursements`. */
+        public ?float $disbursed,
         /** Sur les contrats en attente et en cours : total moins ce qui est payé. */
         public float $remaining,
-        /** Fiches validées moins versements, le calcul de la fiche du contrat. */
-        public float $outstanding,
+        /** Fiches validées moins versements, le calcul de la fiche du contrat ; `null` sans `view-disbursements`. */
+        public ?float $outstanding,
         public int $vehiclesInService,
         public int $vehiclesTotal,
     ) {}

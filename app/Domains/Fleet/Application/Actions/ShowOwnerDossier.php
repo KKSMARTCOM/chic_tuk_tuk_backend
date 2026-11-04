@@ -49,7 +49,8 @@ final class ShowOwnerDossier
         $contracts = VehicleContract::where('owner_id', $owner->id)->get();
 
         $rows = $vehicles->map(fn (Vehicle $vehicle) => $this->vehicle($vehicle, $owner))->values();
-        $summary = ($this->disbursementSummary)($contracts->pluck('id'));
+        // Ce que l'agence a versé et doit : la permission des versements (2026-11-04).
+        $summary = $viewer->can('view-disbursements') ? ($this->disbursementSummary)($contracts->pluck('id')) : null;
 
         return new AdminOwnerDossierData(
             id: $owner->id,
@@ -61,10 +62,10 @@ final class ShowOwnerDossier
             createdAt: $owner->created_at->toIso8601String(),
             lastLoginAt: $owner->last_login_at?->toIso8601String(),
             totals: new AdminOwnerDossierTotalsData(
-                disbursed: $summary->disbursed,
+                disbursed: $summary?->disbursed,
                 remaining: round((float) $contracts->whereIn('status', ['pending', 'active'])
                     ->sum(fn (VehicleContract $contract) => $contract->remaining_amount), 2),
-                outstanding: $summary->outstanding,
+                outstanding: $summary?->outstanding,
                 vehiclesInService: $rows->where('state', 'active')->count(),
                 vehiclesTotal: $rows->count(),
             ),

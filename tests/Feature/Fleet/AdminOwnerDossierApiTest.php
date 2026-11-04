@@ -189,7 +189,10 @@ class AdminOwnerDossierApiTest extends TestCase
             $this->assertNull($limited[$block], $block);
         }
         $this->assertCount(1, $limited['vehicles']);
-        $this->assertArrayHasKey('outstanding', $limited['totals']);
+        // Ce que l'agence a versé et doit au propriétaire : sous view-disbursements (2026-11-04).
+        $this->assertNull($limited['totals']['disbursed']);
+        $this->assertNull($limited['totals']['outstanding']);
+        $this->assertNotNull($limited['totals']['remaining']);
 
         $full = $this->dossier($owner)->assertOk()->json();
         foreach (['statements', 'disbursements', 'payments', 'activity'] as $block) {

@@ -1087,9 +1087,9 @@ status: App.Domains.Finance.Domain.Enums.RemunerationStatementStatus;
 status_label: string;
 };
 export type AdminOwnerDossierTotalsData = {
-disbursed: number;
+disbursed: number | null;
 remaining: number;
-outstanding: number;
+outstanding: number | null;
 vehicles_in_service: number;
 vehicles_total: number;
 };
