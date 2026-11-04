@@ -1246,6 +1246,7 @@ phone: string | null;
 email: string | null;
 };
 export type AdminVehicleContractProgressData = {
+id: string;
 total_paid: number;
 total_amount: number;
 progress_percentage: number;

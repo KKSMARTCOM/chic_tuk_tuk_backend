@@ -9,6 +9,8 @@ use App\Shared\Data\BaseData;
 final class AdminVehicleContractProgressData extends BaseData
 {
     public function __construct(
+        /** Le lien vers le contrat dans la liste (2026-11-04). */
+        public string $id,
         public float $totalPaid,
         public float $totalAmount,
         public int $progressPercentage,
@@ -17,6 +19,7 @@ final class AdminVehicleContractProgressData extends BaseData
     public static function fromModel(VehicleContract $contract): self
     {
         return new self(
+            id: $contract->id,
             totalPaid: $contract->total_paid,
             totalAmount: (float) $contract->total_amount,
             progressPercentage: $contract->progress_percentage,

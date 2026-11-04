@@ -99,6 +99,8 @@ class AdminVehiclesReadApiTest extends TestCase
         $this->assertSame('Awa Propriétaire', $byNumber['T-0001']['owner']['name']);
         $this->assertSame('Agent Titulaire', $byNumber['T-0001']['driver']['name']);
         $this->assertEquals(1_000_000, $byNumber['T-0001']['contract']['total_amount']);
+        // Le lien vers le contrat dans la liste (2026-11-04).
+        $this->assertSame(Vehicle::where('vehicle_number', 'T-0001')->first()->activeVehicleContract->id, $byNumber['T-0001']['contract']['id']);
         $this->assertTrue($byNumber['T-0002']['is_on_pause']);
         $this->assertFalse($byNumber['T-0002']['is_immobilized']);
         $this->assertFalse($byNumber['T-0004']['is_on_pause']);
