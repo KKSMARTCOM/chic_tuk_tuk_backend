@@ -10,6 +10,7 @@ use App\Domains\Fleet\Application\Actions\ListAvailableVehicles;
 use App\Domains\Fleet\Application\Actions\ListOwners;
 use App\Domains\Fleet\Application\Actions\SetOwnerStatus;
 use App\Domains\Fleet\Application\Actions\ShowOwnerDetail;
+use App\Domains\Fleet\Application\Actions\ShowOwnerDossier;
 use App\Domains\Fleet\Application\Actions\UpdateOwner;
 use App\Domains\Fleet\Application\Actions\UpdateOwnerPassword;
 use App\Domains\Fleet\Application\Data\CreateOwnerData;
@@ -57,6 +58,18 @@ final class OwnerController
         } catch (\Throwable $e) {
             return $this->failure($e, $request, 'la fiche du propriétaire',
                 'La fiche de ce propriétaire n\'a pas pu être chargée. Réessayez.', 'ADMIN_OWNER_FAILED');
+        }
+    }
+
+    public function dossier(Request $request, string $ownerId, ShowOwnerDossier $show): JsonResponse
+    {
+        try {
+            return response()->json($show($ownerId, $request->user()));
+        } catch (ValidationException|ApiException|ModelNotFoundException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return $this->failure($e, $request, 'le dossier du propriétaire',
+                'Le dossier de ce propriétaire n\'a pas pu être chargé. Réessayez.', 'ADMIN_OWNER_DOSSIER_FAILED');
         }
     }
 

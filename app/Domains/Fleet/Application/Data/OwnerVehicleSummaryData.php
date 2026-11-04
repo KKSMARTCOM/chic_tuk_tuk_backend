@@ -24,6 +24,22 @@ final class OwnerVehicleSummaryData extends BaseData
         public ?int $preparationTotal = null,
     ) {}
 
+    /**
+     * L'état du véhicule pour son propriétaire, lu aussi par le dossier admin (2026-11-04).
+     * Attend les mêmes relations que `fromModel`.
+     */
+    public static function ownerState(Vehicle $vehicle): string
+    {
+        if ($vehicle->liveVehicleContract === null && $vehicle->settledVehicleContract !== null) {
+            return 'completed';
+        }
+        if ($vehicle->liveVehicleContract?->status === 'pending') {
+            return 'pending';
+        }
+
+        return VehicleOwnerState::of($vehicle->activePause);
+    }
+
     /** Attend un véhicule ayant chargé `activeVehicleContract`, `liveVehicleContract`, `settledVehicleContract` et `activePause`. */
     public static function fromModel(Vehicle $vehicle): self
     {
@@ -39,11 +55,7 @@ final class OwnerVehicleSummaryData extends BaseData
             vehicleNumber: $vehicle->vehicle_number,
             vehicleType: $vehicle->vehicle_type,
             // En attente de son premier agent : ni chiffres ni pause à montrer (2026-10-09).
-            state: match (true) {
-                $settled !== null => 'completed',
-                $vehicle->liveVehicleContract?->status === 'pending' => 'pending',
-                default => VehicleOwnerState::of($pause),
-            },
+            state: self::ownerState($vehicle),
             pauseReasonLabel: $pause?->reason_label,
             // Le véhicule peut n'avoir aucun contrat actif : c'est un cas réel, que le
             // Blade traite déjà par « Aucun contrat actif pour ce véhicule ».

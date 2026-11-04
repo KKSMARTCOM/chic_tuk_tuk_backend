@@ -1028,6 +1028,78 @@ is_active: boolean;
 vehicles: Array<App.Domains.Fleet.Application.Data.AdminOwnerVehicleData>;
 created_at: string;
 };
+export type AdminOwnerDossierContractData = {
+id: string;
+status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
+contract_months: number;
+start_date: string | null;
+end_date: string | null;
+total_amount: number;
+total_paid: number;
+progress_percent: number;
+pauses: App.Domains.Fleet.Application.Data.OwnerContractPauseSummaryData | null;
+};
+export type AdminOwnerDossierData = {
+id: string;
+name: string;
+email: string | null;
+phone: string;
+adresse: string | null;
+is_active: boolean;
+created_at: string;
+last_login_at: string | null;
+totals: App.Domains.Fleet.Application.Data.AdminOwnerDossierTotalsData;
+vehicles: Array<App.Domains.Fleet.Application.Data.AdminOwnerDossierVehicleData>;
+statements: Array<App.Domains.Fleet.Application.Data.AdminOwnerDossierStatementData> | null;
+disbursements: Array<App.Domains.Fleet.Application.Data.AdminOwnerDossierDisbursementData> | null;
+payments: Array<App.Domains.Fleet.Application.Data.AdminOwnerDossierPaymentData> | null;
+activity: Array<App.Domains.Audit.Application.Data.ActivityEntryData> | null;
+};
+export type AdminOwnerDossierDisbursementData = {
+disbursement: App.Domains.Finance.Application.Data.AdminDisbursementData;
+vehicle_contract_id: string;
+vehicle_number: string | null;
+};
+export type AdminOwnerDossierPastContractData = {
+id: string;
+status: App.Domains.Fleet.Domain.Enums.VehicleContractStatus;
+end_date: string | null;
+};
+export type AdminOwnerDossierPaymentData = {
+id: string;
+payment_date: string | null;
+vehicle_number: string | null;
+driver: App.Domains.Fleet.Application.Data.AdminVehicleContractPartyData | null;
+amount: number;
+status: App.Domains.Finance.Domain.Enums.PaymentStatus;
+};
+export type AdminOwnerDossierStatementData = {
+id: string;
+number: string | null;
+month: string;
+vehicle_number: string;
+balance_due: number | null;
+status: App.Domains.Finance.Domain.Enums.RemunerationStatementStatus;
+status_label: string;
+};
+export type AdminOwnerDossierTotalsData = {
+disbursed: number;
+remaining: number;
+outstanding: number;
+vehicles_in_service: number;
+vehicles_total: number;
+};
+export type AdminOwnerDossierVehicleData = {
+id: string;
+vehicle_number: string;
+vehicle_type: 'moto' | 'tricycle' | 'car';
+state: 'active' | 'paused' | 'immobilized' | 'pending' | 'completed' | 'no_contract' | 'inactive';
+pause_since: string | null;
+pause_reason_label: string | null;
+driver: App.Domains.Fleet.Application.Data.AdminVehiclePersonData | null;
+contract: App.Domains.Fleet.Application.Data.AdminOwnerDossierContractData | null;
+past_contracts: Array<App.Domains.Fleet.Application.Data.AdminOwnerDossierPastContractData>;
+};
 export type AdminOwnerListItemData = {
 id: string;
 name: string;
