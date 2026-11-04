@@ -248,6 +248,17 @@ class AdminOwnerDossierApiTest extends TestCase
         $this->assertEquals(['disbursed' => 0, 'remaining' => 0, 'outstanding' => 0, 'vehicles_in_service' => 0, 'vehicles_total' => 0], $json['totals']);
     }
 
+    /** Essai staging du 2026-11-04 : `last_login_at` sans cast arrivait en chaîne, et tout dossier d'un propriétaire déjà connecté tombait en 500. */
+    public function test_the_dossier_of_an_owner_who_has_logged_in_gives_the_last_login(): void
+    {
+        $owner = $this->owner();
+        $owner->forceFill(['last_login_at' => '2026-11-03 08:15:00'])->save();
+
+        $json = $this->dossier($owner->fresh())->assertOk()->json();
+
+        $this->assertStringStartsWith('2026-11-03T08:15:00', $json['last_login_at']);
+    }
+
     public function test_the_dossier_of_an_account_that_is_not_an_owner_is_a_404(): void
     {
         $admin = User::factory()->profil(Profil::Admin)->create();

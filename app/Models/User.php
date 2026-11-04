@@ -64,6 +64,7 @@ class User extends Authenticatable
             'failed_login_attempts' => 'integer',
             'locked_until' => 'datetime',
             'last_failed_login' => 'datetime',
+            'last_login_at' => 'datetime',
         ];
     }
 
