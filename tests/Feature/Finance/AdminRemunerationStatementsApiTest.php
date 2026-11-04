@@ -83,7 +83,11 @@ class AdminRemunerationStatementsApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'statements')
             ->assertJsonPath('statements.0.balance_due', 72_500)
-            ->assertJsonPath('statements.0.status_label', 'Brouillon');
+            ->assertJsonPath('statements.0.status_label', 'Brouillon')
+            // Les liens de la liste (2026-11-04) : le propriétaire, le véhicule, le contrat.
+            ->assertJsonPath('statements.0.owner_id', $contract->vehicle->owner_id)
+            ->assertJsonPath('statements.0.vehicle_id', $contract->vehicle_id)
+            ->assertJsonPath('statements.0.vehicle_contract_id', $contract->id);
     }
 
     public function test_editing_needs_edit_and_validating_needs_validate(): void
@@ -127,7 +131,8 @@ class AdminRemunerationStatementsApiTest extends TestCase
             ->getJson("/api/v1/admin/remuneration-statements/{$november->id}")
             ->assertOk()
             ->assertJsonPath('can_validate', false)
-            ->assertJsonPath('blocking.0', 'La fiche du mois précédent doit être validée d\'abord.');
+            ->assertJsonPath('blocking.0', 'La fiche du mois précédent doit être validée d\'abord.')
+            ->assertJsonPath('owner_id', $contract->vehicle->owner_id);
     }
 
     /**

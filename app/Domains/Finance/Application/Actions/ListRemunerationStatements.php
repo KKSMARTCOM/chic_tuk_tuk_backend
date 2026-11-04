@@ -79,6 +79,9 @@ final class ListRemunerationStatements
             month: $statement->monthKey(),
             ownerName: (string) $statement->contract?->vehicle?->owner?->name,
             vehicleNumber: (string) $statement->contract?->vehicle?->vehicle_number,
+            ownerId: $statement->contract?->vehicle?->owner_id,
+            vehicleId: $statement->contract?->vehicle_id,
+            vehicleContractId: $statement->vehicle_contract_id,
             balanceDue: $balance,
             anomalyCount: $anomalies,
         );

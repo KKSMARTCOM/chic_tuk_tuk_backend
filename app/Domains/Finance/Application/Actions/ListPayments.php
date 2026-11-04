@@ -14,6 +14,7 @@ use App\Shared\Data\PaginationData;
 use App\Shared\Http\ListQuery;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\QueryBuilder;
 
@@ -66,6 +67,12 @@ final class ListPayments
                     ->orWhere('reference_number', 'ilike', '%'.$search.'%'))),
                 AllowedFilter::callback('date_from', fn (Builder $q, $date) => $q->whereDate('payment_date', '>=', $date))->ignore(''),
                 AllowedFilter::callback('date_to', fn (Builder $q, $date) => $q->whereDate('payment_date', '<=', $date))->ignore(''),
+                // Depuis le dossier d'un propriétaire (2026-11-04) : ses paiements de contrat, sans
+                // ceux qui reviennent à l'agence — la règle de `total_paid`.
+                AllowedFilter::callback('owner_id', fn (Builder $q, $ownerId) => Str::isUuid((string) $ownerId)
+                    ? $q->forOwner()->where('payment_type', 'contract')
+                        ->whereHas('vehicleContract', fn (Builder $c) => $c->where('owner_id', $ownerId))
+                    : $q->whereRaw('false'))->ignore(''),
                 // Les anomalies de l'audit, retrouvées à l'écran (2026-10-01).
                 AllowedFilter::callback('anomaly', fn (Builder $q, $kind) => ContractPaymentAnomalies::apply($q, (string) $kind))->ignore(''),
             ])

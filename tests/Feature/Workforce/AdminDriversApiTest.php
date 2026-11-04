@@ -255,6 +255,7 @@ class AdminDriversApiTest extends TestCase
             ->assertOk();
 
         $response->assertJsonPath('active_contract.vehicle_number', 'T-9001');
+        $response->assertJsonPath('active_contract.owner_id', Vehicle::where('vehicle_number', 'T-9001')->value('owner_id'));
         $response->assertJsonPath('active_contract.contract_months', 24);
         $response->assertJsonPath('active_contract.editable', true);
     }

@@ -24,6 +24,10 @@ final class AdminRemunerationStatementListItemData extends BaseData
         public string $month,
         public string $ownerName,
         public string $vehicleNumber,
+        /** Les liens de la liste (2026-11-04) : le dossier du propriétaire, le véhicule, le contrat. */
+        public ?string $ownerId,
+        public ?string $vehicleId,
+        public string $vehicleContractId,
         public float $balanceDue,
         public int $anomalyCount,
     ) {}

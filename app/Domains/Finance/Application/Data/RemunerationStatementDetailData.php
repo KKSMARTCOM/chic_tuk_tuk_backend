@@ -49,6 +49,8 @@ final class RemunerationStatementDetailData extends BaseData
         public int $ownerDownloadCount = 0,
         /** L'adresse ACTUELLE du propriétaire, celle où partirait un envoi (2026-10-02). */
         public ?string $ownerEmail = null,
+        /** Le dossier du propriétaire du véhicule, pour le lien de la fiche (2026-11-04). */
+        public ?string $ownerId = null,
         /**
          * Les fiches du même contrat, par mois, la fiche ouverte comprise (2026-10-07). Les
          * annulées n'y sont pas — une fiche de remplacement les suit —, sauf la fiche
@@ -93,6 +95,7 @@ final class RemunerationStatementDetailData extends BaseData
             pdfState: $statement->pdfState(),
             ownerDownloadCount: (int) $statement->owner_download_count,
             ownerEmail: $statement->contract?->vehicle?->owner?->email,
+            ownerId: $statement->contract?->vehicle?->owner_id,
             siblings: RemunerationStatement::query()
                 ->where('vehicle_contract_id', $statement->vehicle_contract_id)
                 ->where(fn ($q) => $q->where('status', '!=', RemunerationStatementStatus::Cancelled->value)->orWhere('id', $statement->id))
