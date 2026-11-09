@@ -109,6 +109,22 @@ class AdminRemunerationStatementsApiTest extends TestCase
             ->assertJsonPath('status', 'validated');
     }
 
+    public function test_a_draft_saves_the_repair_and_returns_its_figures(): void
+    {
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-10-01', 'daily_amount' => 0, 'daily_tax' => 0]);
+        $statement = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-10-01']);
+
+        $this->asBearer($this->login(['view-remuneration-statements', 'edit-remuneration-statements']))
+            ->patchJson("/api/v1/admin/remuneration-statements/{$statement->id}", ['repair_opened' => 45_000, 'repair_deducted' => null])
+            ->assertOk()
+            ->assertJsonPath('repair_opened', 45000)
+            ->assertJsonPath('repair_deducted', null)
+            ->assertJsonPath('figures.repair_opened', 45000)
+            // Sans recettes, rien ne se retient : tout est reporté.
+            ->assertJsonPath('figures.repair_deducted', 0)
+            ->assertJsonPath('figures.repair_remaining', 45000);
+    }
+
     public function test_business_refusals_are_409_with_their_code(): void
     {
         $contract = VehicleContract::factory()->create(['start_date' => '2026-10-01']);

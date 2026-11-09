@@ -32,6 +32,10 @@ final class RemunerationStatementDetailData extends BaseData
         public array $blocking,
         public StatementFiguresData $figures,
         public RemunerationStatementOpeningData $opening,
+        /** La saisie brute de la réparation ouverte sur cette fiche (spec 2026-11-09), pour préremplir. */
+        public ?float $repairOpened,
+        /** La retenue saisie, null = la valeur proposée : vide, le formulaire suit la proposition. */
+        public ?float $repairDeducted,
         public ?string $validatedAt,
         public ?string $validatedByName,
         public ?string $sentAt,
@@ -82,6 +86,8 @@ final class RemunerationStatementDetailData extends BaseData
                 spotify: (float) $statement->opening_spotify,
                 manager: (float) $statement->opening_manager,
             ),
+            repairOpened: $statement->repair_opened !== null ? (float) $statement->repair_opened : null,
+            repairDeducted: $statement->repair_deducted !== null ? (float) $statement->repair_deducted : null,
             validatedAt: $statement->validated_at?->toIso8601String(),
             validatedByName: $statement->validator?->name,
             sentAt: $statement->sent_at?->toIso8601String(),

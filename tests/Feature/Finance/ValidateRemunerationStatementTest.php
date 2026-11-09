@@ -134,6 +134,56 @@ class ValidateRemunerationStatementTest extends TestCase
         $this->assertEquals(15_000, $statement->fresh()->deducted_internet);
     }
 
+    // La réparation du tricycle (spec 2026-11-09).
+    public function test_a_withholding_above_the_outstanding_is_refused_on_its_field(): void
+    {
+        $this->oneDayEarning(100_000);
+
+        try {
+            $this->update($this->draft(), ['repair_opened' => 30_000, 'repair_deducted' => 40_000]);
+            $this->fail('La retenue au-delà du reste devait être refusée.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['La retenue dépasse le reste à rembourser (30 000 F).'], $e->errors()['repair_deducted']);
+        }
+    }
+
+    public function test_a_withholding_above_the_month_revenue_is_refused(): void
+    {
+        $this->oneDayEarning(100_000);
+
+        try {
+            $this->update($this->draft(), ['repair_opened' => 200_000, 'repair_deducted' => 150_000]);
+            $this->fail('La retenue au-delà des recettes devait être refusée.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['La retenue dépasse le total recettes du mois.'], $e->errors()['repair_deducted']);
+        }
+    }
+
+    public function test_validation_freezes_the_repair(): void
+    {
+        $this->oneDayEarning(100_000);
+        $draft = $this->update($this->draft(), ['repair_opened' => 30_000]);
+        $this->assertNull($draft->repair_deducted);
+
+        $statement = $this->validate($draft);
+
+        $this->assertEquals(30_000, $statement->repair_deducted);
+        $this->assertEquals(30_000, $statement->figures['repair_deducted']);
+        $this->assertEquals(0, $statement->figures['repair_remaining']);
+        $this->assertEquals(100_000 - 30_000 - 27_500, $statement->balance_due);
+    }
+
+    public function test_the_blockers_announce_a_withholding_above_the_outstanding(): void
+    {
+        $this->oneDayEarning(100_000);
+        $draft = $this->draft();
+        $draft->update(['repair_opened' => 30_000, 'repair_deducted' => 40_000]);
+
+        $figures = app(BuildStatementFigures::class)($this->contract, '2026-10', $draft);
+
+        $this->assertContains('La retenue dépasse le reste à rembourser (30 000 F).', app(ValidateRemunerationStatement::class)->blockers($draft, $figures));
+    }
+
     public function test_deducting_beyond_the_total_outstanding_is_a_field_error(): void
     {
         $this->oneDayEarning(100_000);

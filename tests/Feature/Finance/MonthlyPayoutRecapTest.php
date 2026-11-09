@@ -296,6 +296,44 @@ class MonthlyPayoutRecapTest extends TestCase
         $this->assertTrue($october['has_pdf']);
     }
 
+    // La réparation du tricycle (spec 2026-11-09) : le mois validé la montre, l'estimation la retient.
+    public function test_a_validated_month_shows_its_repair_and_the_estimate_withholds_the_rest(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        $contract = VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-10-01', 'daily_amount' => 100_000, 'daily_tax' => 0]);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-10-01', 'number' => 'FR-2026-10-001', 'balance_due' => 0,
+            'figures' => ['revenue' => 25_000, 'recovered' => 0, 'deducted_total' => 0, 'balance_due' => 0,
+                'repair_opened' => 45_000, 'repair_deducted' => 25_000, 'repair_remaining' => 20_000],
+        ]);
+        // Novembre : un seul jour comptabilisé, payé 100 000, le reste immobilisé.
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => '2026-11-03', 'end_date' => '2026-11-30', 'reason_type' => 'agent_change']);
+        Payment::factory()->onDay('2026-11-02')->create(['vehicle_contract_id' => $contract->id, 'net_amount' => 100_000]);
+
+        $months = collect($this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")->assertOk()->json())->keyBy('month');
+
+        $this->assertEquals(25_000, $months['2026-10']['repair_deducted']);
+        $this->assertEquals(20_000, $months['2026-11']['repair_deducted']);
+        // 100 000 − 20 000 de réparation − 27 500 de charges.
+        $this->assertEquals(52_500, $months['2026-11']['balance_due']);
+    }
+
+    public function test_a_month_without_repair_says_null(): void
+    {
+        $this->atNovember();
+        [$owner, $token] = $this->loginOwner();
+        $vehicle = Vehicle::factory()->create(['owner_id' => $owner->id]);
+        VehicleContract::factory()->forVehicle($vehicle)->create(['start_date' => '2026-11-01']);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/owner/vehicles/{$vehicle->id}/payments")
+            ->assertOk()
+            ->assertJsonPath('0.repair_deducted', null);
+    }
+
     public function test_a_closed_month_awaiting_review_shows_no_balance(): void
     {
         $this->atNovember();

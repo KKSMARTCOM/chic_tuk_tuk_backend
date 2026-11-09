@@ -89,6 +89,7 @@ final class BuildMonthlyPayoutRecap
                     pdfState: $statement?->pdfState(),
                     downloadsLeft: $statement?->ownerDownloadsLeft(),
                     sentByEmail: $statement !== null ? $statement->delivery !== 'none' : null,
+                    repairDeducted: $money !== null && $money->repairDeducted > 0 ? $money->repairDeducted : null,
                 );
             })
             ->sortByDesc('month')

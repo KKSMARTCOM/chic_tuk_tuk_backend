@@ -857,6 +857,7 @@ worked_months_to_date: number;
 pdf_state: 'ready' | 'preparing' | 'expired' | null;
 downloads_left: number | null;
 sent_by_email: boolean | null;
+repair_deducted: number | null;
 };
 export type OwnerDisbursementData = {
 id: string;
@@ -913,6 +914,8 @@ can_validate: boolean;
 blocking: Array<string>;
 figures: App.Domains.Finance.Application.Data.StatementFiguresData;
 opening: App.Domains.Finance.Application.Data.RemunerationStatementOpeningData;
+repair_opened: number | null;
+repair_deducted: number | null;
 validated_at: string | null;
 validated_by_name: string | null;
 sent_at: string | null;
@@ -977,6 +980,12 @@ received_amount: number;
 gap: number;
 gap_causes: Array<string>;
 legacy_layout: boolean;
+repair_outstanding: number;
+repair_opened: number;
+repair_proposed: number;
+repair_deducted: number;
+repair_remaining: number;
+target_remaining: number;
 };
 export type UpdatePaymentData = {
 amount: number;
@@ -993,6 +1002,8 @@ opening_internet: number | null;
 opening_spotify: number | null;
 opening_manager: number | null;
 note: string | null;
+repair_opened: number | null;
+repair_deducted: number | null;
 issued_on?: string | null;
 };
 export type ValidatePaymentData = {

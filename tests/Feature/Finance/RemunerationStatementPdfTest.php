@@ -40,6 +40,21 @@ class RemunerationStatementPdfTest extends TestCase
         $this->assertStringNotContainsString('facture', mb_strtolower($html));
     }
 
+    // La réparation du tricycle (spec 2026-11-09).
+    public function test_the_sheet_shows_the_repair_only_when_there_is_one(): void
+    {
+        $plain = app(RemunerationStatementPdf::class)->html($this->figures(), 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
+        $this->assertStringNotContainsString('Réparation du tricycle', $plain);
+
+        $withRepair = StatementFigures::fromArray(['repair_opened' => 45_000, 'repair_deducted' => 25_000, 'repair_remaining' => 20_000] + $this->figures()->toArray());
+        $html = app(RemunerationStatementPdf::class)->html($withRepair, 'FR-2026-10-001', false, Carbon::parse('2026-11-03'));
+
+        $this->assertStringContainsString('Réparation du tricycle', $html);
+        $this->assertStringContainsString('(25 000)', $html);
+        $this->assertStringContainsString('Reste à rembourser', $html);
+        $this->assertStringContainsString('20 000', $html);
+    }
+
     public function test_a_draft_says_so(): void
     {
         $draft = app(RemunerationStatementPdf::class)->html($this->figures(), null, true, null);

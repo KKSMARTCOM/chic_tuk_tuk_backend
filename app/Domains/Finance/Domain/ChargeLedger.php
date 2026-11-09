@@ -97,6 +97,26 @@ final class ChargeLedger
         return $violations;
     }
 
+    /**
+     * Les garde-fous de la réparation du tricycle (spec 2026-11-09, §4.5) : la retenue ne
+     * dépasse ni le reste à rembourser, ni le total recettes du mois.
+     *
+     * @return array<string, string> champ => message
+     */
+    public static function repairViolations(StatementFigures $figures): array
+    {
+        $owed = $figures->repairOutstanding + $figures->repairOpened;
+
+        if ($figures->repairDeducted > $owed + 0.005) {
+            return ['repair_deducted' => 'La retenue dépasse le reste à rembourser ('.number_format(max(0.0, $owed), 0, ',', ' ').' F).'];
+        }
+        if ($figures->repairDeducted > $figures->totalRevenue + 0.005) {
+            return ['repair_deducted' => 'La retenue dépasse le total recettes du mois.'];
+        }
+
+        return [];
+    }
+
     /** @param  array<string, float|int>  $amounts */
     private static function total(array $amounts): float
     {

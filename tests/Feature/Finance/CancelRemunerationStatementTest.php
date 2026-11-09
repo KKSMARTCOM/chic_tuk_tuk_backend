@@ -46,6 +46,21 @@ class CancelRemunerationStatementTest extends TestCase
         $this->assertDatabaseHas('notifications', ['user_id' => $owner->id, 'title' => 'Fiche de rémunération annulée']);
     }
 
+    public function test_the_replacement_draft_keeps_the_repair_inputs(): void
+    {
+        Carbon::setTestNow('2026-11-10 09:00:00');
+        config(['remuneration.first_month' => '2026-10']);
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-10-01']);
+        $statement = RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-10-01', 'number' => 'FR-2026-10-001', 'delivery' => 'none', 'repair_opened' => 45_000, 'repair_deducted' => 25_000,
+        ]);
+
+        $replacement = app(CancelRemunerationStatement::class)($statement, User::factory()->create(), 'Réparation à reprendre');
+
+        $this->assertEquals(45_000, $replacement->repair_opened);
+        $this->assertEquals(25_000, $replacement->repair_deducted);
+    }
+
     public function test_only_a_validated_statement_is_cancelled(): void
     {
         $this->expectException(ApiException::class);

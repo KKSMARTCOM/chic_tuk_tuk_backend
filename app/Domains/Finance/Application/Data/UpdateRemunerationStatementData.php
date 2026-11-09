@@ -5,7 +5,7 @@ namespace App\Domains\Finance\Application\Data;
 use App\Shared\Data\BaseData;
 use Spatie\LaravelData\Optional;
 
-/** PATCH d'un brouillon : les prélèvements, le reste d'ouverture, la note. */
+/** PATCH d'un brouillon : les prélèvements, le reste d'ouverture, la réparation, la note. */
 final class UpdateRemunerationStatementData extends BaseData
 {
     public function __construct(
@@ -16,6 +16,10 @@ final class UpdateRemunerationStatementData extends BaseData
         public ?float $openingSpotify = null,
         public ?float $openingManager = null,
         public ?string $note = null,
+        /** La réparation du tricycle (spec 2026-11-09) : montant ouvert sur cette fiche, null = 0. */
+        public ?float $repairOpened = null,
+        /** Retenu ce mois : null = la valeur proposée. */
+        public ?float $repairDeducted = null,
         /**
          * La date d'établissement, saisie pour une fiche reconstituée (2026-10-01). ABSENTE :
          * inchangée ; `null` : effacée — la fiche prendra le jour de sa validation.
@@ -34,6 +38,8 @@ final class UpdateRemunerationStatementData extends BaseData
             'opening_spotify' => ['nullable', 'numeric', 'min:0'],
             'opening_manager' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
+            'repair_opened' => ['nullable', 'numeric', 'min:0'],
+            'repair_deducted' => ['nullable', 'numeric', 'min:0'],
             'issued_on' => ['nullable', 'date_format:Y-m-d'],
         ];
     }

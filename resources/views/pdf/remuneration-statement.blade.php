@@ -72,6 +72,11 @@
       <tr><td>Jours comptabilisés</td><td>{{ $two($f->countedDays) }}</td></tr>
       <tr><td>Montant journalier généré (F CFA)</td><td>{{ $fcfa($f->dailyAmount) }}</td></tr>
       <tr class="strong"><td>Total recettes (F CFA)</td><td>{{ $fcfa($f->totalRevenue) }}</td></tr>
+      {{-- La réparation du tricycle (spec 2026-11-09) : retenue avant les charges. --}}
+      @if ($f->repairOutstanding + $f->repairOpened > 0)
+        <tr><td>Réparation du tricycle</td><td>{{ $f->repairDeducted > 0 ? '('.$fcfa($f->repairDeducted).')' : '-' }}</td></tr>
+        <tr><td class="small">Reste à rembourser</td><td>{{ $fcfa($f->repairRemaining) }}</td></tr>
+      @endif
     @endif
     @foreach ($f->charges as $charge)
       <tr><td>{{ $charge['label'] }}</td><td>{{ $charge['deducted'] > 0 ? '('.$fcfa($charge['deducted']).')' : '-' }}</td></tr>

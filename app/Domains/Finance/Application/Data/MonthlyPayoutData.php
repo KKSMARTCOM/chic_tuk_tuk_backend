@@ -59,5 +59,7 @@ final class MonthlyPayoutData extends BaseData
         public ?int $downloadsLeft = null,
         /** Faux pour une fiche reconstituée, validée sans envoi ; nul sans fiche validée. */
         public ?bool $sentByEmail = null,
+        /** La réparation du tricycle retenue ce mois (spec 2026-11-09) ; nul quand rien n'est retenu. */
+        public ?float $repairDeducted = null,
     ) {}
 }

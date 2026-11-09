@@ -1251,6 +1251,27 @@ rapporté, ce qui est prélevé en charges, et ce qui lui est dû. Spec :
   propriétaire (`ownerEstimate`) retranche aussi les jours sans paiement : elle n'annonce
   jamais d'argent non reçu.
 
+## La réparation du tricycle (2026-11-09)
+
+Spec : `docs/specs/2026-11-09-reparation-sur-la-fiche-design.md`. L'agence avance une réparation et se
+rembourse sur les recettes suivantes, SANS annuler de paiement : deux saisies de brouillon,
+`repair_opened` (montant ouvert sur cette fiche, null = 0, n'importe quelle fiche) et `repair_deducted`
+(retenu, null = proposé = min(reste à rembourser, total recettes)).
+
+- Le reste à rembourser se lit sur les fiches VALIDÉES antérieures (`figures.repair_opened` −
+  `figures.repair_deducted`) ; une fiche d'avant l'évolution les relit à 0.
+- La retenue se prend sur le total recettes AVANT tout le reste : coupe au revenu total, charges,
+  solde dû se calculent sur `T − R`. ⚠️ **La retenue n'entre dans aucun cumul** (`priorRevenue` la
+  retranche) : le contrat dure d'autant plus.
+- Un mois tout entier parti à la réparation ne doit AUCUNE charge (rien en arriéré) ; un mois
+  partiellement retenu suit la règle des charges habituelle.
+- Refus 422 sur `repair_deducted` (`ChargeLedger::repairViolations`) : au-delà du reste, au-delà du
+  total recettes — à l'enregistrement et dans `blockers()`. La validation fige `repair_deducted` ;
+  l'annulation recopie les deux saisies dans le brouillon de remplacement.
+- PDF : « Réparation du tricycle » et « Reste à rembourser » sous le total recettes, seulement si la
+  fiche porte une réparation. Propriétaire : `MonthlyPayout.repair_deducted` ; l'estimation du mois en
+  cours retient la proposition.
+
 ## La reconstitution des fiches (2026-10-01)
 
 Rejouer dans le système la chronologie des paiements et des fiches depuis le plus ancien

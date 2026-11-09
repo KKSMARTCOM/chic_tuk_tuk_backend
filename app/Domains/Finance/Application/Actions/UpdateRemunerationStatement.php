@@ -35,6 +35,8 @@ final class UpdateRemunerationStatement
             'deducted_spotify' => $data->deductedSpotify,
             'deducted_manager' => $data->deductedManager,
             'note' => $data->note,
+            'repair_opened' => $data->repairOpened,
+            'repair_deducted' => $data->repairDeducted,
         ] + $opening);
 
         if (! $data->issuedOn instanceof Optional) {
@@ -53,7 +55,7 @@ final class UpdateRemunerationStatement
             throw ValidationException::withMessages(['opening_manager' => 'Le reste d\'ouverture ne se saisit que sur la première fiche du contrat.']);
         }
 
-        $violations = ChargeLedger::violationsFor($figures);
+        $violations = ChargeLedger::repairViolations($figures) + ChargeLedger::violationsFor($figures);
         if ($violations !== []) {
             throw ValidationException::withMessages($violations);
         }

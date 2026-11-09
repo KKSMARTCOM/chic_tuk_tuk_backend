@@ -52,6 +52,13 @@ final class StatementFiguresData extends BaseData
         /** @var string[] */
         public array $gapCauses,
         public bool $legacyLayout,
+        // La réparation du tricycle (spec 2026-11-09).
+        public float $repairOutstanding,
+        public float $repairOpened,
+        public float $repairProposed,
+        public float $repairDeducted,
+        public float $repairRemaining,
+        public float $targetRemaining,
     ) {}
 
     public static function fromFigures(StatementFigures $f): self
@@ -92,6 +99,12 @@ final class StatementFiguresData extends BaseData
             gap: $f->gap,
             gapCauses: $f->gapCauses,
             legacyLayout: $f->legacyLayout,
+            repairOutstanding: $f->repairOutstanding,
+            repairOpened: $f->repairOpened,
+            repairProposed: $f->repairProposed,
+            repairDeducted: $f->repairDeducted,
+            repairRemaining: $f->repairRemaining,
+            targetRemaining: $f->targetRemaining,
         );
     }
 }

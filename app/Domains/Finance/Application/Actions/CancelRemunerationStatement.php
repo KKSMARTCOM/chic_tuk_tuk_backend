@@ -77,6 +77,8 @@ final class CancelRemunerationStatement
                 'opening_internet' => $statement->opening_internet,
                 'opening_spotify' => $statement->opening_spotify,
                 'opening_manager' => $statement->opening_manager,
+                'repair_opened' => $statement->repair_opened,
+                'repair_deducted' => $statement->repair_deducted,
                 'note' => $statement->note,
                 'issued_on' => $statement->issued_on,
                 'replaces_id' => $statement->id,
