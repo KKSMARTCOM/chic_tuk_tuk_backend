@@ -58,14 +58,17 @@ final class OwnerContractDetailData extends BaseData
             ? $contract->remunerationStatements()->where('status', 'validated')->orderByDesc('month')->first()
             : null;
 
+        // Sans la réparation retenue par les fiches (2026-11-09).
+        $progress = $contract->ownerProgress();
+
         return new self(
             contractMonths: $months,
             startDate: $contract->start_date->toDateString(),
             totalAmount: (float) $contract->total_amount,
-            totalPaid: $contract->total_paid,
-            remainingAmount: $contract->remaining_amount,
+            totalPaid: $progress['paid'],
+            remainingAmount: $progress['remaining'],
             dailyNetAmount: $contract->daily_net_amount,
-            progressPercentage: $contract->progress_percentage,
+            progressPercentage: $progress['progress'],
             monthsElapsed: $worked,
             totalCharges: $contract->total_charges,
             // `?? 0` : les colonnes ont un défaut à 0 en base, mais les contrats créés

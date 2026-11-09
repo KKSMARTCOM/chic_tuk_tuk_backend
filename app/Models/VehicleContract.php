@@ -127,6 +127,35 @@ class VehicleContract extends Model
         return (float) $this->payments()->forOwner()->where('status', 'completed')->sum('net_amount');
     }
 
+    /**
+     * La réparation du tricycle retenue par les fiches validées (spec 2026-11-09). Le propriétaire
+     * ne voit pas ces recettes : son payé, sa progression et son reste les retranchent.
+     */
+    public function repairWithheld(): float
+    {
+        return (float) $this->remunerationStatements()->where('status', 'validated')->get()
+            ->sum(fn ($statement) => (float) ($statement->figures['repair_deducted'] ?? 0));
+    }
+
+    /** Le payé tel que le voit le propriétaire : `total_paid` moins la réparation retenue. */
+    public function ownerPaid(): float
+    {
+        return max(0.0, $this->total_paid - $this->repairWithheld());
+    }
+
+    /** @return array{paid: float, remaining: float, progress: int} */
+    public function ownerProgress(): array
+    {
+        $paid = $this->ownerPaid();
+        $total = (float) $this->total_amount;
+
+        return [
+            'paid' => $paid,
+            'remaining' => max(0.0, $total - $paid),
+            'progress' => $total > 0 ? (int) min(100, round($paid / $total * 100)) : 0,
+        ];
+    }
+
     // Montant restant à payer
     public function getRemainingAmountAttribute(): float
     {

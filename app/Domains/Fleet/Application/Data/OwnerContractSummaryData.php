@@ -39,7 +39,9 @@ final class OwnerContractSummaryData extends BaseData
         // Mois TRAVAILLÉS (2026-09-30) : un mois sans jour comptabilisé allonge le contrat.
         $worked = $calculator->workedMonths();
 
-        $paid = (float) $contract->payments()->forOwner()->where('status', 'completed')->sum('net_amount');
+        // Sans la réparation retenue par les fiches : ces recettes n'ont pas existé pour lui (2026-11-09).
+        $progress = $contract->ownerProgress();
+        $paid = $progress['paid'];
         $pending = (float) $contract->payments()->forOwner()->where('status', 'pending')->sum('net_amount');
         // Interrupteur éteint (spec 2026-10-02, §3.2) : null, et le front masque la tuile.
         $deducted = RemunerationStatement::visibleToOwners()
@@ -50,8 +52,8 @@ final class OwnerContractSummaryData extends BaseData
         return new self(
             contractMonths: (int) $contract->contract_months,
             monthsElapsed: $worked,
-            progressPercentage: $contract->progress_percentage,
-            remainingAmount: $contract->remaining_amount,
+            progressPercentage: $progress['progress'],
+            remainingAmount: $progress['remaining'],
             paidAmount: $paid,
             pendingAmount: $pending,
             chargesDeducted: $deducted,
