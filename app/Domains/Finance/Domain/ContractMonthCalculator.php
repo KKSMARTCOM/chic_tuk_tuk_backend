@@ -171,9 +171,9 @@ final class ContractMonthCalculator
         ];
     }
 
-    /** Un paiement, quel que soit son statut, existe-t-il pour aujourd'hui ? */
+    /** Un paiement non annulé existe-t-il pour aujourd'hui ? Un annulé n'a rien fait naître. */
     private function paidToday(): bool
     {
-        return $this->payments->contains(fn ($p) => $p->payment_date?->isSameDay($this->today));
+        return $this->payments->contains(fn ($p) => $p->status !== 'cancelled' && $p->payment_date?->isSameDay($this->today));
     }
 }

@@ -174,6 +174,19 @@ class ContractMonthCalculatorTest extends TestCase
         $this->assertSame(0, $july->countedDaysWithoutPayment);
     }
 
+    // Relevé le 2026-11-03 : un paiement annulé du jour faisait entrer aujourd'hui trop tôt.
+    public function test_a_cancelled_payment_today_does_not_bring_today_into_the_calendar(): void
+    {
+        Carbon::setTestNow('2026-07-15 10:00:00');
+        $contract = VehicleContract::factory()->create(['start_date' => '2026-07-01']);
+        $this->paidOn($contract, ['2026-07-15'], 5871, 'cancelled');
+
+        $july = ContractMonthCalculator::for($contract)->month('2026-07');
+
+        $this->assertSame(10, $july->businessDays);
+        $this->assertSame(10, $july->countedDays);
+    }
+
     public function test_a_stopped_today_counts_as_stopped_without_payment(): void
     {
         Carbon::setTestNow('2026-07-15 09:00:00');
