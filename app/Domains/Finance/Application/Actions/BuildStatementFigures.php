@@ -109,10 +109,23 @@ final class BuildStatementFigures
         $historyMonths = collect($calculator->monthKeys())
             ->filter(fn ($key) => $key < $firstMonth && $calculator->month($key)->isWorked)->count();
 
-        // Les recettes du mois coupées au revenu total (spec 2026-10-12, §3.2).
-        $monthRevenue = $totalRevenue;
-        $priorRevenue = $historyRevenue + $prior->sum(fn ($s) => (float) ($s->figures['revenue'] ?? 0) + (float) ($s->figures['recovered'] ?? 0));
-        $within = round(min($monthRevenue, max(0.0, ContractTargets::revenue($contract) - $priorRevenue)), 2);
+        // La réparation du tricycle (spec 2026-11-09, §4) : ouverte sur une fiche, retenue sur le
+        // total recettes AVANT les charges, reportée de fiche validée en fiche validée.
+        $priorRepairDeducted = (float) $prior->sum(fn ($s) => (float) ($s->figures['repair_deducted'] ?? 0));
+        $repairOutstanding = round(max(0.0, $prior->sum(fn ($s) => (float) ($s->figures['repair_opened'] ?? 0)) - $priorRepairDeducted), 2);
+        $repairOpened = round((float) ($statement?->repair_opened ?? 0), 2);
+        $repairOwed = $repairOutstanding + $repairOpened;
+        $repairProposed = round(max(0.0, min($repairOwed, $totalRevenue)), 2);
+        $repairDeducted = $statement?->repair_deducted !== null ? round((float) $statement->repair_deducted, 2) : $repairProposed;
+        $repairRemaining = round($repairOwed - $repairDeducted, 2);
+
+        // Les recettes du mois, après la réparation, coupées au revenu total (spec 2026-10-12,
+        // §3.2). Ce que la réparation retient n'entre dans aucun cumul (spec 2026-11-09, §4.8).
+        $monthRevenue = round($totalRevenue - $repairDeducted, 2);
+        $priorRevenue = $historyRevenue - $priorRepairDeducted
+            + $prior->sum(fn ($s) => (float) ($s->figures['revenue'] ?? 0) + (float) ($s->figures['recovered'] ?? 0));
+        $targetRemaining = round(max(0.0, ContractTargets::revenue($contract) - $priorRevenue), 2);
+        $within = round(min(max(0.0, $monthRevenue), $targetRemaining), 2);
         $beyond = round($monthRevenue - $within, 2);
 
         $due = [];
@@ -122,7 +135,9 @@ final class BuildStatementFigures
             $opening = (float) ($first?->{"opening_{$line}"} ?? 0);
             // Plafonné au total de la ligne : au-delà de la durée, plus rien n'est dû (§3.1).
             $alreadyDue = $historyMonths * $lineAmounts[$line] + $prior->sum(fn ($s) => $this->line($s, $line, 'due'));
-            $due[$line] = $month->isWorked ? round(max(0.0, min($lineAmounts[$line], $lineTargets[$line] - $alreadyDue)), 2) : 0.0;
+            // Un mois tout entier parti à la réparation ne doit aucune charge (spec 2026-11-09, §4.7).
+            $allToRepair = $repairDeducted > 0 && $monthRevenue <= 0.005;
+            $due[$line] = $month->isWorked && ! $allToRepair ? round(max(0.0, min($lineAmounts[$line], $lineTargets[$line] - $alreadyDue)), 2) : 0.0;
             $carried = $prior->sum(fn ($s) => $this->line($s, $line, 'due') - $this->line($s, $line, 'deducted'));
             $outstanding[$line] = round($opening + $carried + $due[$line], 2);
             // Revenu total atteint : les recettes au-delà règlent tout ce qui reste jusqu'au
@@ -218,6 +233,12 @@ final class BuildStatementFigures
                 ->count(),
             revenuePaymentIds: $revenuePayments->pluck('id')->values()->all(),
             recoveredPaymentIds: $recoveredPayments->pluck('id')->values()->all(),
+            repairOutstanding: $repairOutstanding,
+            repairOpened: $repairOpened,
+            repairProposed: $repairProposed,
+            repairDeducted: $repairDeducted,
+            repairRemaining: $repairRemaining,
+            targetRemaining: $targetRemaining,
         );
     }
 

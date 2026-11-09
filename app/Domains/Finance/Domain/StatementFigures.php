@@ -65,6 +65,19 @@ final class StatementFigures
         public readonly array $revenuePaymentIds = [],
         /** @var list<string> */
         public readonly array $recoveredPaymentIds = [],
+        // La réparation du tricycle (spec 2026-11-09) : retenue sur le total recettes avant les
+        // charges, hors de tout cumul. Une fiche d'avant l'évolution les relit à 0.
+        /** Reste à rembourser avant ce mois, d'après les fiches validées antérieures. */
+        public readonly float $repairOutstanding = 0,
+        /** Montant ouvert sur cette fiche. */
+        public readonly float $repairOpened = 0,
+        public readonly float $repairProposed = 0,
+        /** Retenu ce mois. */
+        public readonly float $repairDeducted = 0,
+        /** Reste à rembourser après ce mois. */
+        public readonly float $repairRemaining = 0,
+        /** Revenu total moins le cumul brut d'avant ce mois : la prévisualisation du client. */
+        public readonly float $targetRemaining = 0,
     ) {}
 
     /** @return array<string, mixed> en snake_case, sans les identifiants de paiements */

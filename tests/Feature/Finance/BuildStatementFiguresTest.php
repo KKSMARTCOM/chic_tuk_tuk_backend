@@ -229,6 +229,122 @@ class BuildStatementFiguresTest extends TestCase
         $this->assertEquals(27_500, collect($estimate->charges)->sum('deducted'));
     }
 
+    /**
+     * La réparation du tricycle (spec 2026-11-09) : un contrat de 5 000 F nets par jour, charges
+     * 5 000 / 2 500 / 20 000, cinq jours payés en août (du 3 au 7, immobilisé ensuite) et cinq
+     * en septembre (du 1er au 7, immobilisé ensuite).
+     */
+    private function repairContract(array $attributes = []): VehicleContract
+    {
+        $contract = VehicleContract::factory()->create($attributes + [
+            'start_date' => '2026-08-03', 'daily_amount' => 5_229, 'daily_tax' => 229,
+            'unlimited_internet' => 5_000, 'spotify_premium' => 2_500, 'manager_remuneration' => 20_000,
+        ]);
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => '2026-08-10', 'end_date' => '2026-08-31', 'reason_type' => 'agent_change']);
+        VehiclePause::factory()->forContract($contract)->create(['start_date' => '2026-09-08', 'end_date' => '2026-09-30', 'reason_type' => 'agent_change']);
+        $this->paidOn($contract, $this->businessDays('2026-08-03', '2026-08-07'), 5_000);
+        $this->paidOn($contract, $this->businessDays('2026-09-01', '2026-09-07'), 5_000);
+        Carbon::setTestNow('2026-10-01 09:00:00');
+
+        return $contract;
+    }
+
+    public function test_a_repair_opened_on_the_sheet_is_withheld_before_charges(): void
+    {
+        $contract = $this->repairContract();
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01', 'repair_opened' => 45_000]);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-08', $august);
+
+        $this->assertEquals(25_000, $f->totalRevenue);
+        $this->assertEquals(0, $f->repairOutstanding);
+        $this->assertEquals(45_000, $f->repairOpened);
+        $this->assertEquals(25_000, $f->repairProposed);
+        $this->assertEquals(25_000, $f->repairDeducted);
+        $this->assertEquals(20_000, $f->repairRemaining);
+        // Tout est parti à la réparation : aucune charge due, rien en arriéré.
+        $this->assertEquals([0, 0, 0], collect($f->charges)->pluck('due')->all());
+        $this->assertEquals(0, $f->deductedTotal);
+        $this->assertEquals(0, $f->balanceDue);
+        $this->assertEquals(0, $f->cumulativeRevenue);
+        $this->assertEquals(0, $f->cumulativeCharges);
+        $this->assertEquals(0, $f->gap);
+    }
+
+    public function test_the_rest_of_a_repair_is_carried_and_the_surplus_is_normal_revenue(): void
+    {
+        $contract = $this->repairContract();
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01', 'repair_opened' => 45_000, 'issued_on' => '2026-09-01']);
+        $this->freeze($august, app(BuildStatementFigures::class)($contract, '2026-08', $august));
+        $september = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-09-01']);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-09', $september);
+
+        $this->assertEquals(20_000, $f->repairOutstanding);
+        $this->assertEquals(0, $f->repairOpened);
+        $this->assertEquals(20_000, $f->repairDeducted);
+        $this->assertEquals(0, $f->repairRemaining);
+        // Les 5 000 F restants portent la charge du mois, prélevée dans leur limite.
+        $charges = collect($f->charges)->keyBy('key');
+        $this->assertEquals(['internet' => 5_000, 'spotify' => 2_500, 'manager' => 20_000], $charges->map->due->all());
+        $this->assertEquals(['internet' => 5_000, 'spotify' => 0, 'manager' => 0], $charges->map->proposed->all());
+        $this->assertEquals(0, $f->balanceDue);
+        $this->assertEquals(5_000, $f->cumulativeRevenue);
+        $this->assertEquals(5_000, $f->cumulativeCharges);
+        $this->assertEquals(0, $f->cumulativeNet);
+    }
+
+    public function test_a_zero_withholding_carries_the_whole_repair(): void
+    {
+        $contract = $this->repairContract();
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01', 'repair_opened' => 45_000, 'repair_deducted' => 0]);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-08', $august);
+
+        $this->assertEquals(0, $f->repairDeducted);
+        $this->assertEquals(25_000, $f->repairProposed);
+        $this->assertEquals(45_000, $f->repairRemaining);
+        $this->assertEquals([5_000, 2_500, 20_000], collect($f->charges)->pluck('due')->all());
+        $this->assertEquals(25_000, $f->cumulativeRevenue);
+    }
+
+    public function test_a_sheet_validated_before_repairs_reads_as_no_repair(): void
+    {
+        $contract = $this->repairContract(['start_date' => '2026-07-01']);
+        RemunerationStatement::factory()->for($contract, 'contract')->validated()->create([
+            'month' => '2026-07-01',
+            'figures' => ['revenue' => 100_000, 'charges' => [
+                ['key' => 'internet', 'due' => 5_000, 'deducted' => 5_000],
+                ['key' => 'spotify', 'due' => 2_500, 'deducted' => 2_500],
+                ['key' => 'manager', 'due' => 20_000, 'deducted' => 20_000],
+            ]],
+        ]);
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01']);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-08', $august);
+
+        $this->assertEquals(0, $f->repairOutstanding);
+        $this->assertEquals(0, $f->repairDeducted);
+        $this->assertEquals(0, $f->repairRemaining);
+        $this->assertEquals(100_000 + $f->totalRevenue, $f->cumulativeRevenue);
+    }
+
+    public function test_a_repair_beyond_the_target_comes_off_total_revenue_first(): void
+    {
+        $contract = $this->repairContract(['total_amount' => 10_000]);
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01', 'repair_opened' => 5_000]);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-08', $august);
+
+        $this->assertEquals(5_000, $f->repairDeducted);
+        $this->assertEquals(10_000, $f->targetRemaining);
+        $this->assertEquals(10_000, $f->revenueWithinTarget);
+        $this->assertEquals(10_000, $f->revenueBeyondTarget);
+        $this->assertGreaterThanOrEqual(0, $f->agencyShare);
+        // Le cumul compte toutes les recettes après la réparation, la part au-delà comprise (règle existante).
+        $this->assertEquals(20_000, $f->cumulativeRevenue);
+    }
+
     public function test_a_payment_without_month_is_left_out_as_by_the_calculator(): void
     {
         // Un paiement saisi à la main peut n'avoir aucun `payment_month` : le calculateur du

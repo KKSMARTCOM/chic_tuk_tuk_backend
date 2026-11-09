@@ -86,7 +86,8 @@ final class ChargeLedger
         $violations = self::violations(
             $charges->pluck('deducted', 'key')->all(),
             $charges->mapWithKeys(fn ($c) => [$c['key'] => $c['ceiling'] ?? $c['outstanding']])->all(),
-            $figures->totalRevenue,
+            // Ce que la réparation retient n'est plus disponible pour les charges (spec 2026-11-09).
+            $figures->totalRevenue - $figures->repairDeducted,
         );
 
         if ($violations === [] && $figures->agencyShare < -0.005) {
