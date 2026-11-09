@@ -28,7 +28,7 @@ final class StatementFiguresData extends BaseData
         public float $recovered,
         public int $pendingCount,
         public float $pendingAmount,
-        #[LiteralTypeScriptType('Array<{ key: "internet" | "spotify" | "manager"; label: string; due: number; outstanding: number; ceiling?: number; proposed: number; deducted: number }>')]
+        #[LiteralTypeScriptType('Array<{ key: "internet" | "spotify" | "manager"; label: string; due: number; month_due?: number; outstanding: number; ceiling?: number; proposed: number; deducted: number }>')]
         public array $charges,
         public float $deductedTotal,
         public float $balanceDue,

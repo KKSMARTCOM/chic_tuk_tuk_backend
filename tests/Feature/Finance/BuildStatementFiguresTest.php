@@ -271,6 +271,19 @@ class BuildStatementFiguresTest extends TestCase
         $this->assertEquals(0, $f->gap);
     }
 
+    // Mineur de la relecture finale : la charge du mois reste lisible quand la réparation la suspend,
+    // pour que l'écran prévisualise une retenue modifiée avant l'enregistrement.
+    public function test_each_charge_keeps_its_month_charge_when_the_repair_takes_everything(): void
+    {
+        $contract = $this->repairContract();
+        $august = RemunerationStatement::factory()->for($contract, 'contract')->create(['month' => '2026-08-01', 'repair_opened' => 45_000]);
+
+        $f = app(BuildStatementFigures::class)($contract, '2026-08', $august);
+
+        $this->assertEquals([0, 0, 0], collect($f->charges)->pluck('due')->all());
+        $this->assertEquals([5_000, 2_500, 20_000], collect($f->charges)->pluck('month_due')->all());
+    }
+
     public function test_the_rest_of_a_repair_is_carried_and_the_surplus_is_normal_revenue(): void
     {
         $contract = $this->repairContract();

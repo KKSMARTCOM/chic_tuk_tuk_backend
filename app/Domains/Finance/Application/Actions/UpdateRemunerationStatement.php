@@ -55,7 +55,7 @@ final class UpdateRemunerationStatement
             throw ValidationException::withMessages(['opening_manager' => 'Le reste d\'ouverture ne se saisit que sur la première fiche du contrat.']);
         }
 
-        $violations = ChargeLedger::repairViolations($figures) + ChargeLedger::violationsFor($figures);
+        $violations = ChargeLedger::repairViolations($figures) ?: ChargeLedger::violationsFor($figures);
         if ($violations !== []) {
             throw ValidationException::withMessages($violations);
         }

@@ -1266,7 +1266,9 @@ rembourse sur les recettes suivantes, SANS annuler de paiement : deux saisies de
 - Un mois tout entier parti à la réparation ne doit AUCUNE charge (rien en arriéré) ; un mois
   partiellement retenu suit la règle des charges habituelle.
 - Refus 422 sur `repair_deducted` (`ChargeLedger::repairViolations`) : au-delà du reste, au-delà du
-  total recettes — à l'enregistrement et dans `blockers()`. La validation fige `repair_deducted` ;
+  total recettes — à l'enregistrement et dans `blockers()`, SEULS (les refus des charges attendent). La
+  validation fige `repair_deducted` ; chaque ligne de charges porte `month_due` (la charge du mois sans la
+  règle du mois tout retenu) pour la prévisualisation ;
   l'annulation recopie les deux saisies dans le brouillon de remplacement.
 - PDF : « Réparation du tricycle » et « Reste à rembourser » sous le total recettes, seulement si la
   fiche porte une réparation. Propriétaire : `MonthlyPayout.repair_deducted` ; l'estimation du mois en

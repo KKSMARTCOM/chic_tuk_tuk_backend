@@ -129,6 +129,7 @@ final class BuildStatementFigures
         $beyond = round($monthRevenue - $within, 2);
 
         $due = [];
+        $monthDue = [];
         $outstanding = [];
         $ceiling = [];
         foreach (array_keys(ChargeLedger::LINES) as $line) {
@@ -136,8 +137,11 @@ final class BuildStatementFigures
             // Plafonné au total de la ligne : au-delà de la durée, plus rien n'est dû (§3.1).
             $alreadyDue = $historyMonths * $lineAmounts[$line] + $prior->sum(fn ($s) => $this->line($s, $line, 'due'));
             // Un mois tout entier parti à la réparation ne doit aucune charge (spec 2026-11-09, §4.7).
+            // `month_due` garde la charge du mois sans cette règle : l'écran en a besoin pour
+            // prévisualiser une retenue modifiée avant l'enregistrement (relecture finale).
             $allToRepair = $repairDeducted > 0 && $monthRevenue <= 0.005;
-            $due[$line] = $month->isWorked && ! $allToRepair ? round(max(0.0, min($lineAmounts[$line], $lineTargets[$line] - $alreadyDue)), 2) : 0.0;
+            $monthDue[$line] = $month->isWorked ? round(max(0.0, min($lineAmounts[$line], $lineTargets[$line] - $alreadyDue)), 2) : 0.0;
+            $due[$line] = $allToRepair ? 0.0 : $monthDue[$line];
             $carried = $prior->sum(fn ($s) => $this->line($s, $line, 'due') - $this->line($s, $line, 'deducted'));
             $outstanding[$line] = round($opening + $carried + $due[$line], 2);
             // Revenu total atteint : les recettes au-delà règlent tout ce qui reste jusqu'au
@@ -170,6 +174,7 @@ final class BuildStatementFigures
                 'key' => $line,
                 'label' => $label,
                 'due' => $due[$line],
+                'month_due' => $monthDue[$line],
                 'outstanding' => $outstanding[$line],
                 'ceiling' => $ceiling[$line],
                 'proposed' => $proposed[$line],

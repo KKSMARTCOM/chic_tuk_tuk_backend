@@ -221,7 +221,7 @@ final class ValidateRemunerationStatement
     /** @return array<string, string> */
     private function violations(StatementFigures $figures): array
     {
-        $violations = ChargeLedger::repairViolations($figures) + ChargeLedger::violationsFor($figures);
+        $violations = ChargeLedger::repairViolations($figures) ?: ChargeLedger::violationsFor($figures);
 
         // Un jour comptabilisé est un jour payé : un écart entre les jours et l'argent reçu se
         // corrige avant la validation, jamais après (spec 2026-10-22, §3.4).

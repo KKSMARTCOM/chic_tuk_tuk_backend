@@ -959,7 +959,7 @@ revenue: number;
 recovered: number;
 pending_count: number;
 pending_amount: number;
-charges: Array<{ key: "internet" | "spotify" | "manager"; label: string; due: number; outstanding: number; ceiling?: number; proposed: number; deducted: number }>;
+charges: Array<{ key: "internet" | "spotify" | "manager"; label: string; due: number; month_due?: number; outstanding: number; ceiling?: number; proposed: number; deducted: number }>;
 deducted_total: number;
 balance_due: number;
 revenue_within_target: number;

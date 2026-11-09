@@ -159,6 +159,19 @@ class ValidateRemunerationStatementTest extends TestCase
         }
     }
 
+    // Mineur de la relecture finale : une retenue au-delà des recettes ne fait pas aussi parler les charges.
+    public function test_a_withholding_above_the_revenue_reports_only_the_repair(): void
+    {
+        $this->oneDayEarning(100_000);
+
+        try {
+            $this->update($this->draft(), ['repair_opened' => 200_000, 'repair_deducted' => 150_000, 'deducted_internet' => 5_000]);
+            $this->fail('La retenue au-delà des recettes devait être refusée.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['repair_deducted'], array_keys($e->errors()));
+        }
+    }
+
     public function test_validation_freezes_the_repair(): void
     {
         $this->oneDayEarning(100_000);
