@@ -532,6 +532,9 @@ Route::middleware(['token.fresh', 'auth:sanctum', 'abilities:admin'])
         Route::middleware('permission:create-leaves')->group(function () {
             Route::post('/drivers/{driver}/leaves/ongoing', [LeaveController::class, 'storeOngoing'])
                 ->name('leaves.store-ongoing');
+        });
+        // Une pause PASSÉE, à l'administrateur seul (2026-11-23).
+        Route::middleware('permission:create-historical-leaves')->group(function () {
             Route::post('/drivers/{driver}/leaves/historical', [LeaveController::class, 'storeHistorical'])
                 ->name('leaves.store-historical');
         });

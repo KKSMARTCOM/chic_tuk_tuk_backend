@@ -150,6 +150,9 @@ final class ReferenceRolesAndPermissionsSeeder extends Seeder
 
         // Pauses des agents
         'create-leaves' => ['Créer une pause', 'Ajouter une pause à un agent'],
+        // Ajoutée le 2026-11-23, à l'administrateur seul (par calcul) : saisir une pause
+        // passée réécrit l'historique de l'agent et les jours comptabilisés des fiches.
+        'create-historical-leaves' => ['Saisir une pause passée', 'Enregistrer une pause déjà terminée d\'un agent'],
         'delete-leaves' => ['Révoquer une pause', 'Révoquer une pause d\'un agent'],
         // Ajoutée le 2026-09-22. Le quatuor view/create/edit/delete existe pour dix
         // autres domaines ; les pauses n'en avaient que trois, si bien que clôturer ou

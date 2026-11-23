@@ -606,6 +606,11 @@ bien que clôturer ou corriger une pause n'avait aucune permission honnête à p
 routes Blade correspondantes n'en exigent d'ailleurs aucune. Accordée à `admin` (par
 calcul) et à `utilisateur`. **Rejouer le seeder après déploiement.**
 
+⚠️ **Saisir une pause PASSÉE a sa propre permission depuis le 2026-11-23** :
+`create-historical-leaves` (`POST /admin/drivers/{driver}/leaves/historical`), à l'administrateur seul
+(par calcul) ; l'Utilisateur garde `create-leaves`, la pause en cours. La corriger reste sous
+`edit-leaves`. **Rejouer le seeder après déploiement.**
+
 ⚠️ **La liste des pauses montre AUSSI les anciens agents**, ceux qui ne sont pas allés au
 bout de leur contrat — demandé le 2026-09-22. Le contrôleur Blade ne listait que les
 agents sous contrat actif, et leur dossier devenait inconsultable dès leur départ. Le

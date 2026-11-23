@@ -32,7 +32,7 @@ class AdminLeaveWritesTest extends TestCase
 
     private const TOUTES = [
         'view-leaves', 'view-leave-requests', 'approve-leave-requests',
-        'reject-leave-requests', 'create-leaves', 'edit-leaves', 'delete-leaves',
+        'reject-leave-requests', 'create-leaves', 'create-historical-leaves', 'edit-leaves', 'delete-leaves',
     ];
 
     protected function setUp(): void
@@ -325,6 +325,20 @@ class AdminLeaveWritesTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('status', 'completed')
             ->assertJsonPath('effective_days', 3);
+    }
+
+    // Décidé le 2026-11-23 : saisir une pause passée est réservé à l'administrateur.
+    public function test_saisir_une_pause_passee_demande_sa_propre_permission(): void
+    {
+        $agent = $this->agent();
+        $sansHistorique = array_values(array_diff(self::TOUTES, ['create-historical-leaves']));
+
+        $this->entete($this->admin($sansHistorique))
+            ->postJson("/api/v1/admin/drivers/{$agent->id}/leaves/historical", [
+                'start_date' => now()->subMonths(2)->toDateString(),
+                'requested_days' => 3,
+            ])
+            ->assertForbidden();
     }
 
     public function test_une_pause_historique_qui_deborde_sur_aujourd_hui_est_refusee(): void

@@ -17,6 +17,7 @@ final class PermissionFamily
         'dashboard' => 'Tableau de bord',
         'bookings' => 'Réservations',
         'leaves' => 'Pauses',
+        'historical-leaves' => 'Pauses',
         'leave-requests' => 'Demandes de pause',
         'drivers' => 'Agents',
         // `manage-driver-accounts` (2026-10-21) se range avec les agents.
