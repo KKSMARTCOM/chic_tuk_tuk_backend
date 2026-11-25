@@ -15,13 +15,19 @@ final class MeasureRouteDistance
 {
     private const SNAP_RADIUS_METERS = 2000;
 
+    /**
+     * HeiGIT a retiré api.openrouteservice.org le 2026-11-24 (410) au profit de
+     * api.heigit.org ; la clé reste la même.
+     */
+    private const DIRECTIONS_URL = 'https://api.heigit.org/openrouteservice/v2/directions/driving-car';
+
     public function __invoke(float $from_lng, float $from_lat, float $to_lng, float $to_lat): float
     {
         // Calcul de la distance
         $response = Http::withHeaders([
             'Authorization' => config('services.openrouteservice.key'),
             'Content-Type' => 'application/json',
-        ])->post('https://api.openrouteservice.org/v2/directions/driving-car', [
+        ])->post(self::DIRECTIONS_URL, [
             'coordinates' => [
                 [(float) $from_lng, (float) $from_lat],
                 [(float) $to_lng, (float) $to_lat],

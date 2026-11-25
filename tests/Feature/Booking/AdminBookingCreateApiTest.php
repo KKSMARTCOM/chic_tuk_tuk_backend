@@ -31,7 +31,7 @@ class AdminBookingCreateApiTest extends TestCase
 
         // 12 km, comme le rend l'API OpenRouteService pour un trajet urbain courant.
         Http::fake([
-            'api.openrouteservice.org/*' => Http::response([
+            'api.heigit.org/openrouteservice/*' => Http::response([
                 'routes' => [['summary' => ['distance' => 12_000]]],
             ], 200),
         ]);

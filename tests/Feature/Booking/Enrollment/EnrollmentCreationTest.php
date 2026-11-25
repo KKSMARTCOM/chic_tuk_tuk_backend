@@ -18,7 +18,7 @@ class EnrollmentCreationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Http::fake(['api.openrouteservice.org/*' => Http::response(['routes' => [['summary' => ['distance' => 12_000]]]], 200)]);
+        Http::fake(['api.heigit.org/openrouteservice/*' => Http::response(['routes' => [['summary' => ['distance' => 12_000]]]], 200)]);
         config(['app.front_landing_url' => 'https://chictuktuk.com']);
     }
 

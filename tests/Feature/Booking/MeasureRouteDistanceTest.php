@@ -19,7 +19,7 @@ class MeasureRouteDistanceTest extends TestCase
     public function test_the_search_radius_is_widened_for_both_points(): void
     {
         Http::fake([
-            'api.openrouteservice.org/*' => Http::response([
+            'api.heigit.org/openrouteservice/*' => Http::response([
                 'routes' => [['summary' => ['distance' => 35_432.7]]],
             ], 200),
         ]);
@@ -28,5 +28,21 @@ class MeasureRouteDistanceTest extends TestCase
 
         $this->assertSame(36.0, $distance);
         Http::assertSent(fn (Request $request) => $request['radiuses'] === [2000, 2000]);
+    }
+
+    /**
+     * HeiGIT a retiré api.openrouteservice.org le 2026-11-24 (410 « Deprecated HeiGIT API
+     * URL ») : toute réservation échouait. La même clé marche sur api.heigit.org.
+     */
+    public function test_the_route_is_asked_at_the_heigit_address(): void
+    {
+        Http::fake([
+            '*' => Http::response(['routes' => [['summary' => ['distance' => 4_682.2]]]], 200),
+        ]);
+
+        (new MeasureRouteDistance)(2.42, 6.37, 2.39, 6.36);
+
+        Http::assertSent(fn (Request $request) => $request->url()
+            === 'https://api.heigit.org/openrouteservice/v2/directions/driving-car');
     }
 }

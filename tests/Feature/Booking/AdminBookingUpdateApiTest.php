@@ -30,7 +30,7 @@ class AdminBookingUpdateApiTest extends TestCase
         parent::setUp();
 
         Http::fake([
-            'api.openrouteservice.org/*' => Http::response([
+            'api.heigit.org/openrouteservice/*' => Http::response([
                 'routes' => [['summary' => ['distance' => 12_000]]],
             ], 200),
         ]);

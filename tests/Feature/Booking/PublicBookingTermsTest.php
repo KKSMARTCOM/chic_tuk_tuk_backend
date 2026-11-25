@@ -31,7 +31,7 @@ class PublicBookingTermsTest extends TestCase
         // OpenRouteService est simulé : sans cela, ces tests partaient sur le réseau et
         // passaient ou non selon la connexion (vu le 2026-09-29).
         Http::fake([
-            'api.openrouteservice.org/*' => Http::response([
+            'api.heigit.org/openrouteservice/*' => Http::response([
                 'routes' => [['summary' => ['distance' => 12_000]]],
             ], 200),
         ]);
